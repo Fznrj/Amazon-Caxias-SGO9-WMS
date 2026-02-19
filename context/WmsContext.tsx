@@ -152,11 +152,29 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // ... (Stock, Inbound, Outbound, Inventory Logic - KEEP AS IS) ...
     // To save context space, I will re-implement the state logic briefly but robustly using previous implementation reference.
 
-    // --- Auth & User Management State (Moved to top) ---
+    // --- Auth & User Management State ---
     const [currentUser, setCurrentUser] = useState<User | null>(AuthService.getCurrentUser());
     const [users, setUsers] = useState<User[]>([]);
 
-    // --- Stock State ---
+    useEffect(() => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            if ((event === 'SIGNED_IN' || event === 'USER_UPDATED') && session?.user) {
+                const { data: userData } = await supabase.from('users').select('*').eq('id', session.user.id).single();
+                if (userData) {
+                    const user = userData as User;
+                    setCurrentUser(user);
+                    AuthService.saveSession(user);
+                }
+            } else if (event === 'SIGNED_OUT') {
+                setCurrentUser(null);
+                localStorage.removeItem('wms_current_user');
+            }
+        });
+
+        return () => subscription.unsubscribe();
+    }, []);
+
+    // --- Initial Sync ---
     const [stockItems, setStockItems] = useState<StockItem[]>([]);
     const [possibleLossItems, setPossibleLossItems] = useState<StockItem[]>([]);
 
