@@ -1,14 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, KeyboardEvent, FC } from 'react';
 import { useWms } from '../context/WmsContext';
 import { PrintService } from '../services/PrintService';
 
-const ReversaView: React.FC = () => {
+interface ScannedItem {
+    id: string;
+    time: string;
+    status: 'success' | 'error';
+    rack: number;
+}
+
+const ReversaView: FC = () => {
     const { drivers } = useWms();
-    const [scannedItems, setScannedItems] = useState([]);
+    const [scannedItems, setScannedItems] = useState<ScannedItem[]>([]);
     const [selectedDriverId, setSelectedDriverId] = useState('');
     const [palletId, setPalletId] = useState('');
     const [origin, setOrigin] = useState('ERJ1');
     const [destination, setDestination] = useState('GIG7');
+    const [tbrInput, setTbrInput] = useState('');
 
     const handlePrintLabel = () => {
         if (!palletId) {
@@ -26,6 +34,23 @@ const ReversaView: React.FC = () => {
             date: formattedDate,
             packageCount: scannedItems.length
         });
+    };
+
+    const handleTbrScan = (e: KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter' && tbrInput.trim()) {
+            const newItem: ScannedItem = {
+                id: tbrInput.toUpperCase(),
+                time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+                status: 'success',
+                rack: Math.floor(Math.random() * 20) + 1 // Simulação de Rack
+            };
+            setScannedItems(prev => [newItem, ...prev]);
+            setTbrInput('');
+
+            // Feedback sonoro (opcional, como o UI sugere)
+            const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3');
+            audio.play().catch(() => { });
+        }
     };
 
     return (
@@ -112,7 +137,15 @@ const ReversaView: React.FC = () => {
                             <div className="space-y-2">
                                 <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Scan TBR Unit</label>
                                 <div className="relative group">
-                                    <input autoFocus className="w-full bg-primary/5 dark:bg-primary/10 border-primary/40 dark:border-primary/30 rounded-lg h-16 px-4 pr-12 text-xl font-mono text-primary focus:ring-4 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-primary/40" placeholder="Waiting for scan..." type="text" />
+                                    <input
+                                        autoFocus
+                                        className="w-full bg-primary/5 dark:bg-primary/10 border-primary/40 dark:border-primary/30 rounded-lg h-16 px-4 pr-12 text-xl font-mono text-primary focus:ring-4 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-primary/40"
+                                        placeholder="Waiting for scan..."
+                                        type="text"
+                                        value={tbrInput}
+                                        onChange={(e) => setTbrInput(e.target.value)}
+                                        onKeyDown={handleTbrScan}
+                                    />
                                     <div className="absolute right-4 top-1/2 -translate-y-1/2 text-primary/60">
                                         <span className="material-icons-round animate-pulse">sensors</span>
                                     </div>
@@ -125,14 +158,15 @@ const ReversaView: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-white dark:bg-[#161d2b] p-4 rounded-xl border border-slate-200 dark:border-slate-800">
-                            <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">TBRs Scanned</p>
-                            <p className="text-3xl font-black text-primary">0 <span className="text-sm font-medium text-slate-400">/ 40</span></p>
-                        </div>
-                        <div className="bg-white dark:bg-[#161d2b] p-4 rounded-xl border border-slate-200 dark:border-slate-800">
-                            <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Current Weight</p>
-                            <p className="text-3xl font-black text-slate-900 dark:text-white">0<span className="text-sm font-medium text-slate-400"> kg</span></p>
+                    <div className="grid grid-cols-1 gap-4">
+                        <div className="bg-white dark:bg-[#161d2b] p-6 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                            <div>
+                                <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">TBRs Scanned</p>
+                                <p className="text-4xl font-black text-primary">{scannedItems.length} <span className="text-sm font-medium text-slate-400">/ 40</span></p>
+                            </div>
+                            <div className="bg-primary/10 p-3 rounded-full">
+                                <span className="material-icons-round text-primary text-2xl">barcode_reader</span>
+                            </div>
                         </div>
                     </div>
                 </div>
