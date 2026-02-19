@@ -65,6 +65,7 @@ interface WmsContextData {
     inventoryItems: InventoryItem[];
     stockItems: StockItem[];
     possibleLossItems: StockItem[];
+    staleStockItems: StockItem[]; // +24h items list
     addInventoryItem: (item: InventoryItem) => Promise<void>;
     isInventoryActive: boolean;
     startInventory: () => Promise<void>;
@@ -109,7 +110,12 @@ interface WmsContextData {
     totalReversaToday: number;
     totalInventoryScanned: number;
     totalLossItems: number;
+    staleItemsCount: number; // +24h items
+    weeklyStats: { name: string; entradas: number; saudas: number }[];
     resetTransactions: () => Promise<void>;
+
+    // Helpers
+    verifyStock: (id: string) => Promise<{ success: boolean; message: string }>;
 
     // Audio
     playAudio: (type: 'success' | 'error') => void;
@@ -221,6 +227,9 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     // --- Treatments State ---
     const [treatmentItems, setTreatmentItems] = useState<TreatmentItem[]>([]);
+
+    // --- Weekly Stats State ---
+    const [weeklyStats, setWeeklyStats] = useState<{ name: string; entradas: number; saudas: number }[]>([]);
     // --- Initial Sync ---
     useEffect(() => {
         const fetchInitialData = async () => {
@@ -279,6 +288,35 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 operator: l.operator,
                 status: l.status as OutboundItem['status']
             })));
+
+            // 6. Aggregate Weekly Stats
+            const days = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'];
+            const stats = days.map(dayName => ({ name: dayName, entradas: 0, saudas: 0 }));
+
+            // Get last 7 days range
+            const sevenDaysAgo = new Date();
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+            // Fetch Inbound Logs for last 7 days
+            const { data: recentInbound } = await supabase.from('inbound_log').select('time').gte('time', sevenDaysAgo.toISOString()).eq('error', false);
+            recentInbound?.forEach(log => {
+                const dayIndex = new Date(log.time).getDay();
+                stats[dayIndex].entradas++;
+            });
+
+            // Fetch Outbound Logs for last 7 days
+            const { data: recentOutbound } = await supabase.from('outbound_log').select('time').gte('time', sevenDaysAgo.toISOString());
+            recentOutbound?.forEach(log => {
+                const dayIndex = new Date(log.time).getDay();
+                stats[dayIndex].saudas++;
+            });
+
+            // Reorder to start from Monday for Portuguese/Chart preference if needed, or just keep as is
+            // Standard order: Seg, Ter, Qua, Qui, Sex, Sab, Dom
+            const reorderedStats = [
+                stats[1], stats[2], stats[3], stats[4], stats[5], stats[6], stats[0]
+            ];
+            setWeeklyStats(reorderedStats);
         };
 
         fetchInitialData();
@@ -555,6 +593,17 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return { success: true, message: `TBR ${id} localizada com sucesso!` };
     };
 
+    const verifyStock = async (id: string) => {
+        const item = stockItems.find(s => s.id === id.toUpperCase());
+        if (!item) {
+            return { success: false, message: `TBR ${id} não encontrada no estoque.` };
+        }
+        if (item.status !== 'Em Estoque') {
+            return { success: false, message: `TBR ${id} está com status: ${item.status}.` };
+        }
+        return { success: true, message: 'Item validado.' };
+    };
+
 
     const addTreatment = async (itemData: Omit<TreatmentItem, 'id' | 'time' | 'status'>) => {
         const existingActive = treatmentItems.find(t => t.tbrId === itemData.tbrId && t.status !== 'Resolvido');
@@ -723,19 +772,38 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const totalInventoryScanned = inventoryItems.length;
     const totalLossItems = stockItems.filter(s => s.status === 'Perda').length;
 
+    const staleStockItems = stockItems.filter(item => {
+        if (item.status !== 'Em Estoque') return false;
+        try {
+            const now = new Date().getTime();
+            // Parse 'DD/MM/YYYY, HH:MM:SS'
+            const [datePart, timePart] = item.entryTime.split(', ');
+            const [day, month, year] = datePart.split('/');
+            const entryDate = new Date(`${year}-${month}-${day}T${timePart}`).getTime();
+            return (now - entryDate) / (1000 * 60 * 60) > 24;
+        } catch (e) {
+            return false;
+        }
+    });
+
+    const staleItemsCount = staleStockItems.length;
+
     return (
         <WmsContext.Provider value={{
             inboundItems, addInboundItem, expectedInboundList, setExpectedInboundList,
             outboundItems, addOutboundItem, deleteOutboundItem,
             inventoryItems, addInventoryItem, isInventoryActive, startInventory, stopInventory, stockItems, possibleLossItems,
+            staleStockItems,
             localizeItem,
             treatmentItems, addTreatment, updateTreatmentStatus, updateTreatment,
             users, refreshUsers, updateUserStatus, updateUser, deleteUser,
             drivers, addDriver, bulkAddDrivers, updateDriver, deleteDriver,
             currentUser, login, logout, register,
             currentView, setCurrentView,
-            totalInboundToday, totalOutboundToday, totalReversaToday, totalInventoryScanned, totalLossItems,
+            totalInboundToday, totalOutboundToday, totalReversaToday, totalInventoryScanned, totalLossItems, staleItemsCount,
+            weeklyStats,
             resetTransactions,
+            verifyStock,
             inviteUser, updatePassword,
             playAudio
         }}>

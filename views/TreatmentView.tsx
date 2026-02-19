@@ -3,7 +3,19 @@ import React, { useState } from 'react';
 import { useWms } from '../context/WmsContext';
 
 const TreatmentView: React.FC = () => {
-  const { stockItems, possibleLossItems, totalLossItems, treatmentItems, addTreatment, updateTreatmentStatus, updateTreatment, currentUser, localizeItem } = useWms();
+  const {
+    stockItems,
+    possibleLossItems,
+    totalLossItems,
+    treatmentItems,
+    addTreatment,
+    updateTreatmentStatus,
+    updateTreatment,
+    currentUser,
+    localizeItem,
+    staleStockItems,
+    staleItemsCount
+  } = useWms();
   const [showLogForm, setShowLogForm] = useState(false);
   const [newIncident, setNewIncident] = useState({ tbrId: '', type: 'Avaria' as any, description: '' });
 
@@ -12,26 +24,17 @@ const TreatmentView: React.FC = () => {
   const [editingIncident, setEditingIncident] = useState<any>(null);
   const [editFormData, setEditFormData] = useState({ type: 'Avaria' as any, description: '' });
 
-  // 1. Calculate items stuck for more than 24 hours
   const now = new Date().getTime();
-  const parados = stockItems.filter(item => {
-    if (item.status !== 'Em Estoque') return false;
 
-    // Parse 'DD/MM/YYYY, HH:MM:SS' to something Date can handle
-    const [datePart, timePart] = item.entryTime.split(', ');
-    const [day, month, year] = datePart.split('/');
-    const entryDate = new Date(`${year}-${month}-${day}T${timePart}`).getTime();
-
-    const hours = (now - entryDate) / (1000 * 60 * 60);
-    return hours > 24;
-  }).map(item => {
+  // 1. Calculate items stuck for more than 24 hours with display info
+  const parados = staleStockItems.map(item => {
     const [datePart, timePart] = item.entryTime.split(', ');
     const [day, month, year] = datePart.split('/');
     const entryDate = new Date(`${year}-${month}-${day}T${timePart}`).getTime();
 
     const hours = (now - entryDate) / (1000 * 60 * 60);
     const percent = Math.min(100, Math.round((hours / 72) * 100));
-    return { ...item, percent, timeRem: `${Math.round(72 - hours)}h restates` };
+    return { ...item, percent, timeRem: `${Math.max(0, Math.round(72 - hours))}h restantes` };
   });
 
   const handleLogIncident = async (e: React.FormEvent) => {

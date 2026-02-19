@@ -10,7 +10,7 @@ interface ScannedItem {
 }
 
 export default function ReversaView() {
-    const { drivers, addOutboundItem, currentUser } = useWms();
+    const { drivers, addOutboundItem, currentUser, verifyStock, playAudio } = useWms();
     const [scannedItems, setScannedItems] = useState<ScannedItem[]>([]);
     const [selectedDriverId, setSelectedDriverId] = useState('');
     const [palletId, setPalletId] = useState('');
@@ -36,20 +36,36 @@ export default function ReversaView() {
         });
     };
 
-    const handleTbrScan = (e: any) => {
+    const handleTbrScan = async (e: any) => {
         if (e.key === 'Enter' && tbrInput.trim()) {
+            const input = tbrInput.trim().toUpperCase();
+
+            // Validate Stock
+            const validation = await verifyStock(input);
+            if (!validation.success) {
+                alert(validation.message);
+                playAudio('error');
+                setTbrInput('');
+                return;
+            }
+
+            // Check if already in current list
+            if (scannedItems.some(item => item.id === input)) {
+                alert('TBR já está no pallet!');
+                playAudio('error');
+                setTbrInput('');
+                return;
+            }
+
             const newItem: ScannedItem = {
-                id: tbrInput.toUpperCase(),
+                id: input,
                 time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
                 status: 'success',
                 rack: Math.floor(Math.random() * 20) + 1 // Simulação de Rack
             };
             setScannedItems(prev => [newItem, ...prev]);
             setTbrInput('');
-
-            // Feedback sonoro (opcional, como o UI sugere)
-            const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3');
-            audio.play().catch(() => { });
+            playAudio('success');
         }
     };
 
