@@ -48,7 +48,8 @@ export const AuthService = {
                 data: {
                     name: email.split('@')[0], // Provisional name
                     company_id: adminUser.company_id,
-                    force_password_reset: true
+                    force_password_reset: true,
+                    status: 'active'
                 }
             }
         });
@@ -57,10 +58,15 @@ export const AuthService = {
             return { success: false, message: error.message };
         }
 
+        // Trigger an official invitation email via Supabase Password Reset flow
+        await supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: window.location.origin
+        });
+
         // Restore admin session as signUp might have switched the current session
         AuthService.saveSession(adminUser);
 
-        return { success: true, message: 'Usuário convidado com sucesso! Senha: ' + tempPassword };
+        return { success: true, message: 'Usuário convidado! Um link de acesso foi enviado para o email: ' + email };
     },
 
     login: async (identifier: string, password: string): Promise<{ success: boolean; user?: User; message: string }> => {
