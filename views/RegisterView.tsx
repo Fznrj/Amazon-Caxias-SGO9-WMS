@@ -31,7 +31,13 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onNavigateLogin }) => {
 
         try {
             const result = await register(name, email, password, companyId, customId);
-            setMessage({ text: result.message, type: result.success ? 'success' : 'error' });
+
+            let displayMessage = result.message;
+            if (!result.success && result.message.includes('rate limit')) {
+                displayMessage = 'Limite de cadastros atingido por agora. Tente novamente em 1 hora ou contate o administrador.';
+            }
+
+            setMessage({ text: displayMessage, type: result.success ? 'success' : 'error' });
 
             if (result.success) {
                 setTimeout(() => {

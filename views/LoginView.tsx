@@ -14,7 +14,17 @@ const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigateRegiste
     setMessage(null);
 
     const result = await login(email, password);
-    setMessage({ text: result.message, type: result.success ? 'success' : 'error' });
+
+    let displayMessage = result.message;
+    if (!result.success && result.message.includes('rate limit')) {
+      displayMessage = 'Muitas tentativas. Aguarde um momento ou verifique suas credenciais.';
+    } else if (!result.success && result.message.includes('não encontrado')) {
+      displayMessage = 'Usuário não encontrado. Verifique se o Nome ou ID está correto.';
+    } else if (!result.success && result.message.includes('identificador inválido')) {
+      displayMessage = 'Identificador de usuário inválido. Por favor, verifique o formato.';
+    }
+
+    setMessage({ text: displayMessage, type: result.success ? 'success' : 'error' });
 
     if (result.success) {
       onLoginSuccess();
