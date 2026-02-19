@@ -89,8 +89,14 @@ export const AuthService = {
     },
 
     getCurrentUser: (): User | null => {
-        const data = localStorage.getItem(CURRENT_USER_KEY);
-        return data ? JSON.parse(data) : null;
+        try {
+            const data = localStorage.getItem(CURRENT_USER_KEY);
+            return data ? JSON.parse(data) : null;
+        } catch (e) {
+            console.error('Error parsing session data:', e);
+            localStorage.removeItem(CURRENT_USER_KEY);
+            return null;
+        }
     },
 
     // --- Admin Actions ---

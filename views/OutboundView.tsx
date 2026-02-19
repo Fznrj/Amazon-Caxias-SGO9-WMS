@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useWms } from '../context/WmsContext';
 
 const OutboundView: React.FC = () => {
-  const { outboundItems, addOutboundItem, deleteOutboundItem, playAudio, drivers, stockItems, totalOutboundToday, currentUser } = useWms();
+  const { outboundItems, addOutboundItem, deleteOutboundItem, playAudio, drivers, stockItems, totalOutboundToday, totalReversaToday, currentUser } = useWms();
   const [tbrInput, setTbrInput] = useState('');
   const [selectedDriverId, setSelectedDriverId] = useState('');
   const [message, setMessage] = useState<{ text: string, type: 'error' | 'success' } | null>(null);
@@ -69,26 +69,28 @@ const OutboundView: React.FC = () => {
 
   return (
     <div className="space-y-8">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-card-dark p-5 rounded border-l-4 border-cyan-500 shadow-sm">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="bg-white dark:bg-card-dark p-4 rounded border-l-4 border-cyan-500 shadow-sm transition-all hover:shadow-md">
           <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Aguardando Saída</p>
-          <p className="text-3xl font-display font-bold text-cyan-500">
+          <p className="text-2xl font-display font-bold text-cyan-500">
             {stockItems.filter(item => item.status === 'Em Estoque').length}
           </p>
         </div>
-        <div className="bg-white dark:bg-card-dark p-5 rounded border-l-4 border-red-500 shadow-sm">
+        <div className="bg-white dark:bg-card-dark p-4 rounded border-l-4 border-red-500 shadow-sm transition-all hover:shadow-md">
           <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Saídas Hoje</p>
-          <div className="flex justify-between items-end">
-            <p className="text-3xl font-display font-bold text-red-500">{totalOutboundToday}</p>
-          </div>
+          <p className="text-2xl font-display font-bold text-red-500">{totalOutboundToday}</p>
         </div>
-        <div className="bg-white dark:bg-card-dark p-5 rounded border-l-4 border-purple-500 shadow-sm">
+        <div className="bg-white dark:bg-card-dark p-4 rounded border-l-4 border-green-500 shadow-sm transition-all hover:shadow-md">
+          <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Reversa Hoje</p>
+          <p className="text-2xl font-display font-bold text-green-500">{totalReversaToday}</p>
+        </div>
+        <div className="bg-white dark:bg-card-dark p-4 rounded border-l-4 border-purple-500 shadow-sm transition-all hover:shadow-md">
           <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Motoristas Ativos</p>
-          <p className="text-3xl font-display font-bold text-purple-500">{drivers.filter(d => d.status === 'Ativo').length}</p>
+          <p className="text-2xl font-display font-bold text-purple-500">{drivers.filter(d => d.status === 'Ativo').length}</p>
         </div>
-        <div className="bg-white dark:bg-card-dark p-5 rounded border-l-4 border-orange-500 shadow-sm">
+        <div className="bg-white dark:bg-card-dark p-4 rounded border-l-4 border-orange-500 shadow-sm transition-all hover:shadow-md">
           <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">TBRs Pendentes</p>
-          <p className="text-3xl font-display font-bold text-orange-500">
+          <p className="text-2xl font-display font-bold text-orange-500">
             {stockItems.filter(item => item.status === 'Recebido').length}
           </p>
         </div>
@@ -181,8 +183,11 @@ const OutboundView: React.FC = () => {
                 </td>
                 <td className="px-6 py-4 text-[11px] font-mono text-slate-500">{item.time}</td>
                 <td className="px-6 py-4">
-                  <span className="px-2 py-1 bg-cyan-500/10 text-cyan-500 border border-cyan-500/20 rounded text-[9px] font-extrabold uppercase tracking-widest">
-                    {item.status}
+                  <span className={`px-2 py-1 border rounded text-[9px] font-extrabold uppercase tracking-widest ${item.status === 'Reversa - Saiu com Motorista'
+                    ? 'bg-green-500/10 text-green-500 border-green-500/20'
+                    : 'bg-cyan-500/10 text-cyan-500 border-cyan-500/20'
+                    }`}>
+                    {item.status.replace(' - Saiu com Motorista', '')}
                   </span>
                 </td>
                 <td className="px-6 py-4 text-right">
@@ -207,3 +212,4 @@ const OutboundView: React.FC = () => {
 };
 
 export default OutboundView;
+

@@ -100,6 +100,7 @@ interface WmsContextData {
     // Stats
     totalInboundToday: number;
     totalOutboundToday: number;
+    totalReversaToday: number;
     totalInventoryScanned: number;
     totalLossItems: number;
     resetTransactions: () => Promise<void>;
@@ -651,6 +652,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // --- Stats ---
     const totalInboundToday = new Set(inboundItems.filter(item => !item.error).map(item => item.id)).size;
     const totalOutboundToday = new Set(outboundItems.filter(item => item.status === 'Saiu com Motorista').map(item => item.id)).size;
+    const totalReversaToday = new Set(outboundItems.filter(item => item.status === 'Reversa - Saiu com Motorista').map(item => item.id)).size;
     const totalInventoryScanned = inventoryItems.length;
     const totalLossItems = stockItems.filter(s => s.status === 'Perda').length;
 
@@ -664,7 +666,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             users, refreshUsers, updateUserStatus, updateUser, deleteUser,
             drivers, addDriver, bulkAddDrivers, updateDriver, deleteDriver,
             currentUser, login, logout, register,
-            totalInboundToday, totalOutboundToday, totalInventoryScanned, totalLossItems,
+            totalInboundToday, totalOutboundToday, totalReversaToday, totalInventoryScanned, totalLossItems,
             resetTransactions,
             playAudio
         }}>
