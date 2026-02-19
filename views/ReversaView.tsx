@@ -7,6 +7,8 @@ const ReversaView: React.FC = () => {
     const [scannedItems, setScannedItems] = useState([]);
     const [selectedDriverId, setSelectedDriverId] = useState('');
     const [palletId, setPalletId] = useState('');
+    const [origin, setOrigin] = useState('ERJ1');
+    const [destination, setDestination] = useState('GIG7');
 
     const handlePrintLabel = () => {
         if (!palletId) {
