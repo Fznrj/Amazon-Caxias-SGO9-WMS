@@ -72,16 +72,20 @@ export const AuthService = {
     login: async (identifier: string, password: string): Promise<{ success: boolean; user?: User; message: string }> => {
         let email = identifier;
 
-        // If identifier is not an email, try to find user by name or badge
+        // If identifier is not an email, try to find user by name or badge using secure RPC
         if (!identifier.includes('@')) {
-            const { data: userData, error: findError } = await supabase
-                .from('users')
-                .select('email')
-                .or(`name.eq."${identifier}",badge.eq."${identifier}"`)
-                .single();
+            console.log('AuthService: resolving identifier:', identifier);
+            const { data: resolvedEmail, error: rpcError } = await supabase
+                .rpc('get_user_email_by_identifier', { p_identifier: identifier });
 
-            if (userData?.email) {
-                email = userData.email;
+            if (rpcError) {
+                console.error('AuthService: RPC resolution error:', rpcError);
+                return { success: false, message: 'Erro ao validar identificador de usuário.' };
+            }
+
+            if (resolvedEmail) {
+                console.log('AuthService: identifier resolved to:', resolvedEmail);
+                email = resolvedEmail;
             } else {
                 return { success: false, message: 'Usuário não encontrado pelo Nome ou ID.' };
             }
