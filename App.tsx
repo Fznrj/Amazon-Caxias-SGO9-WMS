@@ -30,7 +30,11 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 // Inner App Component that consumes Context
 const AppContent: React.FC = () => {
   const { currentUser, logout } = useWms();
+  console.log('[App] Current User:', currentUser);
+
   const [currentView, setCurrentView] = useState<View>(View.DASHBOARD);
+  console.log('[App] Current View:', currentView);
+
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [isOffline, setIsOffline] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
