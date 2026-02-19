@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { View, User } from '../../types';
+import { View, User } from '../types';
 
 interface HeaderProps {
   viewTitle: View;

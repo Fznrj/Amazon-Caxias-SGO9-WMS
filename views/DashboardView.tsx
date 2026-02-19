@@ -2,7 +2,7 @@
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useWms } from '../context/WmsContext';
-import { View } from '../../types';
+import { View } from '../types';
 
 const data = [
   { name: 'Seg', entradas: 0, saidas: 0 },

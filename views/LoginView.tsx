@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useWms } from '../context/WmsContext';
 
-import { LoginViewProps } from '../../types';
+import { LoginViewProps } from '../types';
 
 const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigateRegister }) => {
   const { login } = useWms();

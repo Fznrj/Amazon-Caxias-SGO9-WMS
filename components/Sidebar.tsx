@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, User } from '../../types';
+import { View, User } from '../types';
 import { useWms } from '../context/WmsContext';
 
 interface SidebarProps {

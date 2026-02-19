@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { User, Driver, Role, UserStatus, VehicleProfile } from '../../types';
+import { User, Driver, Role, UserStatus, VehicleProfile } from '../types';
 import { AuthService } from '../services/authService';
 import { supabase } from '../services/supabase';
 

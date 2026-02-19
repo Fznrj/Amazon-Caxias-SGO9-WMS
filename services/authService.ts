@@ -1,4 +1,4 @@
-import { User, Role, UserStatus } from '../../types';
+import { User, Role, UserStatus } from '../types';
 import { supabase } from './supabase';
 
 const CURRENT_USER_KEY = 'wms_current_user';

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useWms } from '../context/WmsContext';
-import { Role, UserStatus, User } from '../../types';
+import { Role, UserStatus, User } from '../types';
 
 const UserManagementView: React.FC = () => {
   const { users, currentUser, updateUserStatus, updateUser, deleteUser } = useWms();

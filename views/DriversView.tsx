@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useWms } from '../context/WmsContext';
-import { Driver, VehicleProfile } from '../../types';
+import { Driver, VehicleProfile } from '../types';
 import { downloadCSV } from '../utils/download';
 import * as XLSX from 'xlsx';
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, User } from '../types';
+import { View, User } from './types';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import DashboardView from './views/DashboardView';
