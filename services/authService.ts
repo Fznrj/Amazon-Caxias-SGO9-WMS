@@ -27,6 +27,7 @@ export const AuthService = {
                 data: {
                     name,
                     company_id: companyId,
+                    badge: customId
                 }
             }
         });
@@ -39,8 +40,25 @@ export const AuthService = {
     },
 
     login: async (identifier: string, password: string): Promise<{ success: boolean; user?: User; message: string }> => {
+        let email = identifier;
+
+        // If identifier is not an email, try to find user by name or badge
+        if (!identifier.includes('@')) {
+            const { data: userData, error: findError } = await supabase
+                .from('users')
+                .select('email')
+                .or(`name.eq."${identifier}",badge.eq."${identifier}"`)
+                .single();
+
+            if (userData?.email) {
+                email = userData.email;
+            } else {
+                return { success: false, message: 'Usuário não encontrado pelo Nome ou ID.' };
+            }
+        }
+
         const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-            email: identifier,
+            email,
             password,
         });
 
