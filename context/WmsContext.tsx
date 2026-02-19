@@ -570,8 +570,11 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // --- Auth & User Management Logic (Removed redundant state declarations here) ---
 
     useEffect(() => {
-        // Initial load of users for admin view
-        setUsers(AuthService.getUsers());
+        const loadUsers = async () => {
+            const allUsers = await AuthService.getUsers();
+            setUsers(allUsers);
+        };
+        loadUsers();
     }, []);
 
     const login = async (email: string, password: string) => {
