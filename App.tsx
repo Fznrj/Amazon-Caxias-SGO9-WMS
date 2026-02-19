@@ -15,6 +15,7 @@ import ReportsView from './views/ReportView';
 import RegisterView from './views/RegisterView';
 import DriversView from './views/DriversView';
 import GamificationView from './views/GamificationView';
+import PasswordResetModal from './components/PasswordResetModal';
 import { WmsProvider, useWms } from './context/WmsContext';
 // import { GoogleOAuthProvider } from '@react-oauth/google';
 
@@ -96,6 +97,7 @@ const AppContent: React.FC = () => {
 
   return (
     <div className={`flex min-h-screen ${isDarkMode ? 'dark' : ''}`}>
+      {currentUser.force_password_reset && <PasswordResetModal />}
       <Sidebar
         currentView={currentView}
         onViewChange={setCurrentView}

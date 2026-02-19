@@ -3,9 +3,18 @@ import { useWms } from '../context/WmsContext';
 import { Role, UserStatus, User } from '../types';
 
 const UserManagementView: React.FC = () => {
-  const { users, currentUser, updateUserStatus, updateUser, deleteUser } = useWms();
+  const { users, currentUser, updateUserStatus, updateUser, deleteUser, inviteUser } = useWms();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'All' | UserStatus>('All');
+
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [isInviting, setIsInviting] = useState(false);
+
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editBadge, setEditBadge] = useState('');
 
   // Only Admin can see this page, but double check in render
   if (currentUser?.role !== 'admin' && currentUser?.role !== 'superadmin') {
@@ -24,7 +33,6 @@ const UserManagementView: React.FC = () => {
   });
 
   const handleApprove = async (user: User) => {
-    // Default role for new users is operator, admin can change later
     await updateUserStatus(user.id, 'active', 'operator');
   };
 
@@ -43,19 +51,27 @@ const UserManagementView: React.FC = () => {
   };
 
   const handleRoleChange = async (userId: string, newRole: Role) => {
-    // Find current status to preserve it
     const user = users.find(u => u.id === userId);
     if (user) {
       await updateUserStatus(userId, user.status, newRole);
     }
   };
 
+  const handleInvite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inviteEmail) return;
 
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [editName, setEditName] = useState('');
-  const [editEmail, setEditEmail] = useState('');
-  const [editBadge, setEditBadge] = useState('');
+    setIsInviting(true);
+    const result = await inviteUser(inviteEmail);
+    setIsInviting(false);
+
+    if (result.success) {
+      alert(result.message);
+      setInviteEmail('');
+    } else {
+      alert('Erro: ' + result.message);
+    }
+  };
 
   const openEditUserModal = (user: User) => {
     setSelectedUser(user);
@@ -86,23 +102,24 @@ const UserManagementView: React.FC = () => {
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8">
         <div>
           <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Gestão de Usuários</h2>
-          <p className="text-slate-500 dark:text-slate-400 text-sm">Gerencie permissões, aprovações e bloqueios.</p>
+          <p className="text-slate-500 dark:text-slate-400 text-sm">Gerencie permissões, aprovações e convites.</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 mb-6">
         <div className="xl:col-span-12 flex flex-col md:flex-row gap-4">
-          <div className="relative flex-1 group">
+          <div className="relative flex-[0.3] group">
             <span className="material-icons-round absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
             <input
-              className="w-full bg-white dark:bg-card-dark border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-4 py-3 focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm outline-none transition-all"
-              placeholder="Buscar por nome, email ou crachá..."
+              className="w-full bg-white dark:bg-card-dark border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-4 py-3 focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm outline-none transition-all dark:text-white"
+              placeholder="Buscar..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+
           <select
-            className="bg-white dark:bg-card-dark border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm outline-none cursor-pointer"
+            className="bg-white dark:bg-card-dark border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm outline-none cursor-pointer dark:text-white"
             onChange={(e) => setFilterStatus(e.target.value as any)}
             value={filterStatus}
           >
@@ -111,6 +128,25 @@ const UserManagementView: React.FC = () => {
             <option value="active">Ativos</option>
             <option value="blocked">Bloqueados</option>
           </select>
+
+          <form onSubmit={handleInvite} className="flex-1 flex gap-2">
+            <input
+              type="email"
+              required
+              className="flex-1 bg-white dark:bg-card-dark border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm outline-none dark:text-white"
+              placeholder="Email para convite..."
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+            />
+            <button
+              type="submit"
+              disabled={isInviting}
+              className="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-xl font-bold text-sm transition-all flex items-center gap-2 whitespace-nowrap shadow-lg shadow-primary/20 disabled:opacity-50 active:scale-95"
+            >
+              <span className="material-icons-round text-sm">person_add</span>
+              {isInviting ? 'Enviando...' : 'Convidar'}
+            </button>
+          </form>
         </div>
       </div>
 
@@ -130,11 +166,11 @@ const UserManagementView: React.FC = () => {
               <tr key={u.id} className={`hover:bg-primary/5 transition-colors ${u.status === 'blocked' ? 'opacity-50' : ''} ${u.status === 'pending' ? 'bg-yellow-50 dark:bg-yellow-900/10' : ''}`}>
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-xs font-bold">
-                      {u.name.substring(0, 2).toUpperCase()}
+                    <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-xs font-bold dark:text-white font-mono">
+                      {u.name ? u.name.substring(0, 2).toUpperCase() : '??'}
                     </div>
                     <div>
-                      <p className="font-semibold text-sm text-slate-700 dark:text-slate-200">{u.name}</p>
+                      <p className="font-semibold text-sm text-slate-700 dark:text-slate-200">{u.name || 'Sem Nome'}</p>
                       <p className="text-[10px] text-slate-500">Criado em: {new Date(u.created_at).toLocaleDateString()}</p>
                     </div>
                   </div>
@@ -142,7 +178,7 @@ const UserManagementView: React.FC = () => {
                 <td className="px-6 py-4">
                   <div className="flex flex-col">
                     <span className="text-xs font-medium text-slate-600 dark:text-slate-300">{u.email}</span>
-                    <span className="text-[10px] text-slate-400 font-bold">ID: {u.id}</span>
+                    <span className="text-[10px] text-slate-400 font-bold">ID: {u.badge || 'N/A'}</span>
                   </div>
                 </td>
                 <td className="px-6 py-4">
@@ -153,12 +189,17 @@ const UserManagementView: React.FC = () => {
                                     `}>
                     {u.status === 'active' ? 'Ativo' : u.status === 'pending' ? 'Pendente' : 'Bloqueado'}
                   </span>
+                  {u.force_password_reset && (
+                    <span className="ml-2 px-2 py-1 rounded bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 text-[10px] font-bold">
+                      Novo / Reset
+                    </span>
+                  )}
                 </td>
                 <td className="px-6 py-4">
                   <select
                     value={u.role || ''}
                     onChange={(e) => handleRoleChange(u.id, e.target.value as Role)}
-                    className="bg-slate-50 dark:bg-slate-800 border-none text-xs font-medium rounded p-1 focus:ring-1 focus:ring-primary"
+                    className="bg-slate-50 dark:bg-slate-800 border-none text-xs font-medium rounded p-1 focus:ring-1 focus:ring-primary dark:text-white"
                     disabled={u.status === 'pending' && u.role === null}
                   >
                     <option value="" disabled>Selecione...</option>
@@ -167,6 +208,7 @@ const UserManagementView: React.FC = () => {
                     <option value="supervisor">Supervisor</option>
                     <option value="Leader">Líder</option>
                     <option value="admin">Administrador</option>
+                    <option value="superadmin">Super Admin</option>
                   </select>
                 </td>
                 <td className="px-6 py-4 text-right">
