@@ -180,15 +180,22 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     useEffect(() => {
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             if (session?.user) {
+                console.log('Auth state change: session detected', session.user.id);
                 const { data: userData, error } = await supabase.from('users').select('*').eq('id', session.user.id).single();
                 if (userData && !error) {
                     const user = userData as User;
+                    console.log('User profile loaded:', user.name);
                     setCurrentUser(user);
                     AuthService.saveSession(user);
+                } else {
+                    console.error('Failed to load user profile after session detection', error);
                 }
-            } else if (event === 'SIGNED_OUT') {
-                setCurrentUser(null);
-                _setCurrentView(View.LOGIN);
+            } else {
+                console.log('Auth state change: no session (event:', event, ')');
+                if (event === 'SIGNED_OUT') {
+                    setCurrentUser(null);
+                    _setCurrentView(View.LOGIN);
+                }
             }
         });
 
@@ -620,7 +627,9 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }, []);
 
     const login = async (email: string, password: string) => {
+        console.log('WmsContext: login attempt for', email);
         const result = await AuthService.login(email, password);
+        console.log('WmsContext: login result:', result.success ? 'SUCCESS' : 'FAILURE', result.message);
         if (result.success && result.user) {
             setCurrentUser(result.user);
         }
