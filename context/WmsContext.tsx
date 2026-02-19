@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { User, Driver, Role, UserStatus, VehicleProfile } from '../types';
+import { User, Driver, Role, UserStatus, VehicleProfile, View } from '../types';
 import { AuthService } from '../services/authService';
 import { supabase } from '../services/supabase';
 
@@ -81,7 +81,11 @@ interface WmsContextData {
     currentUser: User | null;
     login: (email: string, password: string) => Promise<{ success: boolean; message: string }>;
     logout: () => Promise<void>;
-    register: (name: string, email: string, password: string, companyId: string, customId?: string) => Promise<{ success: boolean; message: string }>;
+    register: (name: string, email: string, password: string, company_id: string, customId?: string) => Promise<{ success: boolean; message: string }>;
+
+    // Navigation
+    currentView: View;
+    setCurrentView: (view: View) => void;
 
     // Admin User Management
     users: User[]; // List of all users for admin
@@ -152,22 +156,42 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // ... (Stock, Inbound, Outbound, Inventory Logic - KEEP AS IS) ...
     // To save context space, I will re-implement the state logic briefly but robustly using previous implementation reference.
 
+    // --- Navigation State ---
+    const [currentView, _setCurrentView] = useState<View>(() => {
+        const saved = localStorage.getItem('wms_active_view') as View;
+        // Basic check to avoid 'LOGIN' or empty values
+        if (saved && saved !== View.LOGIN && Object.values(View).includes(saved)) {
+            return saved;
+        }
+        return View.DASHBOARD;
+    });
+
+    const setCurrentView = (view: View) => {
+        _setCurrentView(view);
+        if (view !== View.LOGIN) {
+            localStorage.setItem('wms_active_view', view);
+        }
+    };
+
     // --- Auth & User Management State ---
     const [currentUser, setCurrentUser] = useState<User | null>(AuthService.getCurrentUser());
     const [users, setUsers] = useState<User[]>([]);
 
     useEffect(() => {
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-            if ((event === 'SIGNED_IN' || event === 'USER_UPDATED') && session?.user) {
-                const { data: userData } = await supabase.from('users').select('*').eq('id', session.user.id).single();
-                if (userData) {
+            if (session?.user) {
+                const { data: userData, error } = await supabase.from('users').select('*').eq('id', session.user.id).single();
+                if (userData && !error) {
                     const user = userData as User;
-                    setCurrentUser(user);
-                    AuthService.saveSession(user);
+                    setCurrentUser(prev => {
+                        if (JSON.stringify(prev) === JSON.stringify(user)) return prev;
+                        AuthService.saveSession(user);
+                        return user;
+                    });
                 }
             } else if (event === 'SIGNED_OUT') {
                 setCurrentUser(null);
-                localStorage.removeItem('wms_current_user');
+                _setCurrentView(View.LOGIN);
             }
         });
 
@@ -607,8 +631,9 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
 
     const logout = async () => {
-        await AuthService.logout();
         setCurrentUser(null);
+        _setCurrentView(View.LOGIN);
+        await AuthService.logout();
     };
 
     const register = async (name: string, email: string, password: string, companyId: string, customId?: string) => {
@@ -702,6 +727,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             users, refreshUsers, updateUserStatus, updateUser, deleteUser,
             drivers, addDriver, bulkAddDrivers, updateDriver, deleteDriver,
             currentUser, login, logout, register,
+            currentView, setCurrentView,
             totalInboundToday, totalOutboundToday, totalReversaToday, totalInventoryScanned, totalLossItems,
             resetTransactions,
             inviteUser, updatePassword,

@@ -151,8 +151,13 @@ export const AuthService = {
     },
 
     logout: async () => {
-        await supabase.auth.signOut();
-        localStorage.removeItem(CURRENT_USER_KEY);
+        try {
+            await supabase.auth.signOut();
+        } catch (e) {
+            console.error('Logout error:', e);
+        } finally {
+            localStorage.removeItem(CURRENT_USER_KEY);
+        }
     },
 
     // --- Session Management ---
