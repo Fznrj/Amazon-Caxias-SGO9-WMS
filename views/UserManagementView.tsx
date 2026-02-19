@@ -55,13 +55,13 @@ const UserManagementView: React.FC = () => {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
-  const [editId, setEditId] = useState('');
+  const [editBadge, setEditBadge] = useState('');
 
   const openEditUserModal = (user: User) => {
     setSelectedUser(user);
     setEditName(user.name);
     setEditEmail(user.email);
-    setEditId(user.id);
+    setEditBadge(user.badge || '');
     setIsEditModalOpen(true);
   };
 
@@ -71,7 +71,7 @@ const UserManagementView: React.FC = () => {
     const result = await updateUser(selectedUser.id, {
       name: editName,
       email: editEmail,
-      id: editId
+      badge: editBadge
     });
 
     if (result.success) {
@@ -248,13 +248,14 @@ const UserManagementView: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">ID do Usuário</label>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">ID Personalizado / Crachá</label>
                 <input
-                  value={editId}
-                  onChange={(e) => setEditId(e.target.value)}
+                  value={editBadge}
+                  onChange={(e) => setEditBadge(e.target.value)}
                   className="w-full p-2 border rounded dark:bg-slate-800 dark:text-white"
+                  placeholder="Ex: fluizdes"
                 />
-                <p className="text-[10px] text-yellow-600 mt-1">Cuidado: Alterar o ID pode afetar registros históricos.</p>
+                <p className="text-[10px] text-slate-500 mt-1">Este ID será usado para buscas e identificação visual.</p>
               </div>
             </div>
             <div className="flex justify-end gap-2 mt-6">
