@@ -16,32 +16,20 @@ import RegisterView from './views/RegisterView';
 import DriversView from './views/DriversView';
 import GamificationView from './views/GamificationView';
 import { WmsProvider, useWms } from './context/WmsContext';
-
-// Protected Route Component
-const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { currentUser } = useWms();
-
-  if (!currentUser) {
-    return null;
-  }
-  return <>{children}</>;
-};
+// import { GoogleOAuthProvider } from '@react-oauth/google';
 
 // Inner App Component that consumes Context
 const AppContent: React.FC = () => {
   const { currentUser, logout } = useWms();
-  console.log('[App] Current User:', currentUser);
+  console.log('[App] Current User Status:', currentUser ? 'Logged In' : 'Logged Out');
 
   const [currentView, setCurrentView] = useState<View>(View.DASHBOARD);
-  console.log('[App] Current View:', currentView);
-
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [isOffline, setIsOffline] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
 
   useEffect(() => {
     if (currentUser) {
-      // If just logged in/refreshed and valid, go to dashboard if on login/register
       setIsRegistering(false);
       if (currentView === View.LOGIN) {
         setCurrentView(View.DASHBOARD);
@@ -86,12 +74,8 @@ const AppContent: React.FC = () => {
         <div className="bg-white dark:bg-card-dark p-8 rounded-xl shadow-2xl max-w-md text-center border border-yellow-200 dark:border-yellow-900">
           <span className="material-icons-round text-5xl text-yellow-500 mb-4">hourglass_empty</span>
           <h2 className="text-2xl font-bold mb-2">Cadastro em Análise</h2>
-          <p className="text-slate-500 dark:text-slate-400 mb-6">
-            Seu cadastro foi realizado com sucesso e está aguardando aprovação de um administrador.
-          </p>
-          <button onClick={logout} className="text-primary font-bold hover:underline">
-            Voltar para Login
-          </button>
+          <p className="text-slate-500 dark:text-slate-400 mb-6">Seu cadastro está aguardando aprovação de um administrador.</p>
+          <button onClick={logout} className="text-primary font-bold hover:underline">Voltar para Login</button>
         </div>
       </div>
     );
@@ -104,12 +88,8 @@ const AppContent: React.FC = () => {
         <div className="bg-white dark:bg-card-dark p-8 rounded-xl shadow-2xl max-w-md text-center border border-red-200 dark:border-red-900">
           <span className="material-icons-round text-5xl text-red-500 mb-4">block</span>
           <h2 className="text-2xl font-bold mb-2">Acesso Bloqueado</h2>
-          <p className="text-slate-500 dark:text-slate-400 mb-6">
-            Sua conta foi suspensa. Entre em contato com o administrador do sistema.
-          </p>
-          <button onClick={logout} className="text-primary font-bold hover:underline">
-            Voltar para Login
-          </button>
+          <p className="text-slate-500 dark:text-slate-400 mb-6">Sua conta foi suspensa. Entre em contato com o administrador.</p>
+          <button onClick={logout} className="text-primary font-bold hover:underline">Voltar para Login</button>
         </div>
       </div>
     );
@@ -148,19 +128,13 @@ const AppContent: React.FC = () => {
   );
 };
 
-import { GoogleOAuthProvider } from '@react-oauth/google';
-
-// IMPORTANT: Replace this with your actual Google Client ID from Google Cloud Console
-const GOOGLE_CLIENT_ID = "SEU_CÓDIGO_AQUI_DO_GOOGLE.apps.googleusercontent.com";
-
 const App: React.FC = () => {
   return (
-    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
-      <WmsProvider>
-        <AppContent />
-      </WmsProvider>
-    </GoogleOAuthProvider>
+    <WmsProvider>
+      <AppContent />
+    </WmsProvider>
   );
 };
 
 export default App;
+

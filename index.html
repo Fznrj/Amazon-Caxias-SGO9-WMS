@@ -65,21 +65,31 @@
             background: #4b5563;
         }
     </style>
-    <script type="importmap">
-{
-  "imports": {
-    "react/": "https://esm.sh/react@^19.2.4/",
-    "react": "https://esm.sh/react@^19.2.4",
-    "recharts": "https://esm.sh/recharts@^3.7.0",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.4/"
-  }
-}
-</script>
-
+    <script>
+        window.onerror = function (msg, url, lineNo, columnNo, error) {
+            var message = [
+                'Erro detectado no Sistema:',
+                'Mensagem: ' + msg,
+                'URL: ' + url,
+                'Linha: ' + lineNo,
+                'Coluna: ' + columnNo,
+                'Erro: ' + JSON.stringify(error)
+            ].join('\n');
+            alert(message);
+            return false;
+        };
+    </script>
 </head>
 
 <body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen">
-    <div id="root"></div>
+    <div id="root">
+        <div
+            style="height: 100vh; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+            <p>Carregando Amazon Caxias WMS...</p>
+            <p style="font-size: 0.8rem; color: #666;">Se esta tela persistir, verifique o console ou alertas de erro.
+            </p>
+        </div>
+    </div>
     <script type="module" src="/index.tsx"></script>
 </body>
 
