@@ -17,14 +17,6 @@ const ReversaView: React.FC = () => {
                     <h2 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">Reversa & Palletizing</h2>
                     <p className="text-slate-500 dark:text-slate-400">Gerenciamento de unidades TBR e expedição de pallets reversos.</p>
                 </div>
-                <div className="bg-slate-200 dark:bg-slate-800/50 p-1 rounded-xl flex items-center w-full md:w-auto shadow-inner">
-                    <button className="flex-1 md:flex-none px-6 py-2.5 rounded-lg text-sm font-bold transition-all bg-primary text-white shadow-lg">
-                        Acondicionar Pallet
-                    </button>
-                    <button className="flex-1 md:flex-none px-6 py-2.5 rounded-lg text-sm font-bold transition-all text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">
-                        Devolver Pallet/TBR
-                    </button>
-                </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
