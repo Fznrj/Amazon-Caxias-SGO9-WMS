@@ -1,13 +1,33 @@
 import React, { useState } from 'react';
 import { useWms } from '../context/WmsContext';
+import { PrintService } from '../services/PrintService';
 
 const ReversaView: React.FC = () => {
     const { drivers } = useWms();
     const [scannedItems, setScannedItems] = useState([]);
     const [selectedDriverId, setSelectedDriverId] = useState('');
+    const [palletId, setPalletId] = useState('');
 
     const handlePrintLabel = () => {
-        alert("Funcionalidade de impressão de etiqueta será implementada em breve.");
+        if (!palletId) {
+            alert("Por favor, informe o código do pallet (Master ID).");
+            return;
+        }
+
+        // Tenta extrair o destino do código (ex: PALLET-01-GIG7 -> GIG7)
+        const parts = palletId.split('-');
+        const destination = parts.length > 2 ? parts[parts.length - 1] : "GIG7";
+
+        const now = new Date();
+        const formattedDate = now.toLocaleDateString('pt-BR') + ' ' + now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + ' BRT';
+
+        PrintService.printPalletLabel({
+            palletId: palletId.toUpperCase(),
+            origin: "ERJ1",
+            destination: destination.toUpperCase(),
+            date: formattedDate,
+            packageCount: scannedItems.length
+        });
     };
 
     return (
@@ -32,7 +52,13 @@ const ReversaView: React.FC = () => {
                             <div className="space-y-2">
                                 <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Código do Pallet (Master ID)</label>
                                 <div className="flex gap-2">
-                                    <input className="flex-1 bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 rounded-lg h-14 px-4 text-lg font-mono focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all placeholder:text-slate-400" placeholder="Scan Master Pallet ID..." type="text" />
+                                    <input
+                                        className="flex-1 bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 rounded-lg h-14 px-4 text-lg font-mono focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all placeholder:text-slate-400"
+                                        placeholder="Scan Master Pallet ID..."
+                                        type="text"
+                                        value={palletId}
+                                        onChange={(e) => setPalletId(e.target.value)}
+                                    />
                                     <button onClick={handlePrintLabel} className="aspect-square h-14 flex items-center justify-center bg-slate-100 dark:bg-slate-800 hover:bg-primary dark:hover:bg-primary text-slate-600 dark:text-slate-400 hover:text-white transition-all rounded-lg border border-slate-200 dark:border-slate-700 group" title="Imprimir Etiqueta">
                                         <span className="material-icons-round">print</span>
                                     </button>
