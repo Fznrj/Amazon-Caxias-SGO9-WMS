@@ -10,11 +10,11 @@ interface ScannedItem {
 }
 
 export default function ReversaView() {
-    const { drivers } = useWms();
+    const { drivers, addOutboundItem, currentUser } = useWms();
     const [scannedItems, setScannedItems] = useState<ScannedItem[]>([]);
     const [selectedDriverId, setSelectedDriverId] = useState('');
     const [palletId, setPalletId] = useState('');
-    const [origin, setOrigin] = useState('ERJ1');
+    const [origin, setOrigin] = useState('SGO9');
     const [destination, setDestination] = useState('GIG7');
     const [tbrInput, setTbrInput] = useState('');
 
@@ -50,6 +50,55 @@ export default function ReversaView() {
             // Feedback sonoro (opcional, como o UI sugere)
             const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3');
             audio.play().catch(() => { });
+        }
+    };
+
+    const handleExpedition = async () => {
+        if (scannedItems.length === 0) {
+            alert("O pallet está vazio. Bipe pelo menos uma unidade TBR.");
+            return;
+        }
+
+        if (!palletId) {
+            alert("Informe o Código do Pallet (Master ID) antes de expedir.");
+            return;
+        }
+
+        if (!selectedDriverId) {
+            alert("Selecione um motorista para realizar a expedição.");
+            return;
+        }
+
+        const driver = drivers.find(d => d.id === selectedDriverId);
+        if (!driver) return;
+
+        const confirmExpedicao = window.confirm(`Deseja expedir este pallet com ${scannedItems.length} unidades para o motorista ${driver.name}?`);
+
+        if (confirmExpedicao) {
+            try {
+                // Registrar a saída de cada item
+                for (const item of scannedItems) {
+                    await addOutboundItem({
+                        id: item.id,
+                        driverName: driver.name,
+                        vehicle: driver.plate,
+                        time: new Date().toISOString(),
+                        operator: currentUser?.name || 'Sistema',
+                        status: 'Saiu com Motorista'
+                    });
+                }
+
+                alert("Pallet expedido com sucesso!");
+
+                // Limpar todos os campos para o próximo pallet
+                setScannedItems([]);
+                setPalletId('');
+                setSelectedDriverId('');
+                setTbrInput('');
+            } catch (error) {
+                console.error("Erro ao expedir pallet:", error);
+                alert("Ocorreu um erro ao processar a expedição. Verifique o console.");
+            }
         }
     };
 
@@ -237,9 +286,12 @@ export default function ReversaView() {
                                         <span className="material-icons-round">print</span>
                                         IMPRIMIR ETIQUETA
                                     </button>
-                                    <button className="flex-1 md:flex-none px-10 py-3.5 bg-primary hover:bg-primary/90 text-white font-bold rounded-lg shadow-xl shadow-primary/20 flex items-center justify-center gap-3 transition-all transform hover:-translate-y-0.5 active:translate-y-0">
+                                    <button
+                                        onClick={handleExpedition}
+                                        className="flex-1 md:flex-none px-10 py-3.5 bg-primary hover:bg-primary/90 text-white font-bold rounded-lg shadow-xl shadow-primary/20 flex items-center justify-center gap-3 transition-all transform hover:-translate-y-0.5 active:translate-y-0"
+                                    >
                                         <span className="material-icons-round">local_shipping</span>
-                                        EXPEDIR LOTE
+                                        EXPEDIR PALLET
                                     </button>
                                 </div>
                             </div>
