@@ -19,7 +19,7 @@ interface OutboundItem {
     vehicle: string;
     time: string;
     operator: string;
-    status: 'Saiu com Motorista';
+    status: 'Saiu com Motorista' | 'Reversa - Saiu com Motorista';
 }
 
 interface InventoryItem {
@@ -226,9 +226,9 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 id: l.tbr_id,
                 driverName: l.driver_name,
                 vehicle: l.vehicle,
-                time: new Date(l.time).toLocaleString('pt-BR'),
+                time: l.time ? new Date(l.time).toLocaleString('pt-BR') : '',
                 operator: l.operator,
-                status: 'Saiu com Motorista'
+                status: l.status as OutboundItem['status']
             })));
         };
 
@@ -650,7 +650,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     // --- Stats ---
     const totalInboundToday = new Set(inboundItems.filter(item => !item.error).map(item => item.id)).size;
-    const totalOutboundToday = new Set(outboundItems.map(item => item.id)).size;
+    const totalOutboundToday = new Set(outboundItems.filter(item => item.status === 'Saiu com Motorista').map(item => item.id)).size;
     const totalInventoryScanned = inventoryItems.length;
     const totalLossItems = stockItems.filter(s => s.status === 'Perda').length;
 

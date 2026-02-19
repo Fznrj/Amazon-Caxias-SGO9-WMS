@@ -84,7 +84,7 @@ export default function ReversaView() {
                         vehicle: driver.plate,
                         time: new Date().toISOString(),
                         operator: currentUser?.name || 'Sistema',
-                        status: 'Saiu com Motorista'
+                        status: 'Reversa - Saiu com Motorista'
                     });
                 }
 
