@@ -21,7 +21,6 @@ import { WmsProvider, useWms } from './context/WmsContext';
 // Inner App Component that consumes Context
 const AppContent: React.FC = () => {
   const { currentUser, logout } = useWms();
-  console.log('[App] Current User Status:', currentUser ? 'Logged In' : 'Logged Out');
 
   const [currentView, setCurrentView] = useState<View>(View.DASHBOARD);
   const [isDarkMode, setIsDarkMode] = useState(true);
