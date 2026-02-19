@@ -39,6 +39,30 @@ export const AuthService = {
         return { success: true, message: 'Cadastro realizado! Aguarde aprovação.' };
     },
 
+    inviteUser: async (email: string, adminUser: User): Promise<{ success: boolean; message: string }> => {
+        const tempPassword = 'Senh@Wms123';
+        const { data, error } = await supabase.auth.signUp({
+            email,
+            password: tempPassword,
+            options: {
+                data: {
+                    name: email.split('@')[0], // Provisional name
+                    company_id: adminUser.company_id,
+                    force_password_reset: true
+                }
+            }
+        });
+
+        if (error) {
+            return { success: false, message: error.message };
+        }
+
+        // Restore admin session as signUp might have switched the current session
+        AuthService.saveSession(adminUser);
+
+        return { success: true, message: 'Usuário convidado com sucesso! Senha: ' + tempPassword };
+    },
+
     login: async (identifier: string, password: string): Promise<{ success: boolean; user?: User; message: string }> => {
         let email = identifier;
 
@@ -94,6 +118,30 @@ export const AuthService = {
         }
 
         return { success: false, message: 'Falha na autenticação.' };
+    },
+
+    updatePassword: async (newPassword: string): Promise<{ success: boolean; message: string }> => {
+        const { error } = await supabase.auth.updateUser({
+            password: newPassword
+        });
+
+        if (error) {
+            return { success: false, message: error.message };
+        }
+
+        // Update public.users table to clear reset flag
+        const currentUser = AuthService.getCurrentUser();
+        if (currentUser) {
+            await supabase
+                .from('users')
+                .update({ force_password_reset: false })
+                .eq('id', currentUser.id);
+
+            // Update local session
+            AuthService.saveSession({ ...currentUser, force_password_reset: false });
+        }
+
+        return { success: true, message: 'Senha atualizada com sucesso!' };
     },
 
     logout: async () => {

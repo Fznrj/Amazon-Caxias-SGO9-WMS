@@ -40,6 +40,7 @@ export interface User {
   created_at: string;
   last_login?: string;
   badge?: string; // keeping badge for legacy compatibility with UI
+  force_password_reset?: boolean;
 }
 
 export type VehicleProfile = 'Moto' | 'Passeio' | 'Utilitário' | 'Van' | 'Vuc' | 'Carreta';

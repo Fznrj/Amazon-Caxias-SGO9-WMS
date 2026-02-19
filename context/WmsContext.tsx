@@ -89,6 +89,8 @@ interface WmsContextData {
     updateUserStatus: (id: string, status: UserStatus, role?: Role | null) => Promise<void>;
     updateUser: (originalId: string, updates: Partial<User>) => Promise<{ success: boolean; message: string }>;
     deleteUser: (id: string) => Promise<void>;
+    inviteUser: (email: string) => Promise<{ success: boolean; message: string }>;
+    updatePassword: (newPassword: string) => Promise<{ success: boolean; message: string }>;
 
     // Driver Management
     drivers: Driver[];
@@ -631,6 +633,22 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         await refreshUsers();
     };
 
+    const inviteUser = async (email: string) => {
+        if (!currentUser) return { success: false, message: 'Admin não logado.' };
+        const result = await AuthService.inviteUser(email, currentUser);
+        await refreshUsers();
+        return result;
+    };
+
+    const updatePassword = async (newPassword: string) => {
+        const result = await AuthService.updatePassword(newPassword);
+        // Refresh currentUser state to reflect the change in force_password_reset flag
+        if (result.success && currentUser) {
+            setCurrentUser({ ...currentUser, force_password_reset: false });
+        }
+        return result;
+    };
+
     // --- Reset Logic ---
     const resetTransactions = async () => {
         setInboundItems([]);
@@ -668,6 +686,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             currentUser, login, logout, register,
             totalInboundToday, totalOutboundToday, totalReversaToday, totalInventoryScanned, totalLossItems,
             resetTransactions,
+            inviteUser, updatePassword,
             playAudio
         }}>
             {children}
