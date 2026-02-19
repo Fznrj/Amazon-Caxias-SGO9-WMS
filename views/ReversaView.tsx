@@ -16,16 +16,12 @@ const ReversaView: React.FC = () => {
             return;
         }
 
-        // Tenta extrair o destino do código (ex: PALLET-01-GIG7 -> GIG7)
-        const parts = palletId.split('-');
-        const destination = parts.length > 2 ? parts[parts.length - 1] : "GIG7";
-
         const now = new Date();
         const formattedDate = now.toLocaleDateString('pt-BR') + ' ' + now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + ' BRT';
 
         PrintService.printPalletLabel({
             palletId: palletId.toUpperCase(),
-            origin: "ERJ1",
+            origin: origin.toUpperCase(),
             destination: destination.toUpperCase(),
             date: formattedDate,
             packageCount: scannedItems.length
@@ -59,11 +55,38 @@ const ReversaView: React.FC = () => {
                                         placeholder="Scan Master Pallet ID..."
                                         type="text"
                                         value={palletId}
-                                        onChange={(e) => setPalletId(e.target.value)}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            setPalletId(val);
+                                            // Auto-detect destination if possible
+                                            const parts = val.split('-');
+                                            if (parts.length > 2) {
+                                                setDestination(parts[parts.length - 1].toUpperCase());
+                                            }
+                                        }}
                                     />
                                     <button onClick={handlePrintLabel} className="aspect-square h-14 flex items-center justify-center bg-slate-100 dark:bg-slate-800 hover:bg-primary dark:hover:bg-primary text-slate-600 dark:text-slate-400 hover:text-white transition-all rounded-lg border border-slate-200 dark:border-slate-700 group" title="Imprimir Etiqueta">
                                         <span className="material-icons-round">print</span>
                                     </button>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4 mt-2">
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Origem</label>
+                                        <input
+                                            className="w-full bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 rounded-lg h-10 px-3 text-sm font-bold focus:ring-2 focus:ring-primary outline-none"
+                                            value={origin}
+                                            onChange={(e) => setOrigin(e.target.value.toUpperCase())}
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Destino</label>
+                                        <input
+                                            className="w-full bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 rounded-lg h-10 px-3 text-sm font-bold focus:ring-2 focus:ring-primary outline-none"
+                                            value={destination}
+                                            onChange={(e) => setDestination(e.target.value.toUpperCase())}
+                                        />
+                                    </div>
                                 </div>
                                 <div className="flex justify-end">
                                     <button onClick={handlePrintLabel} className="text-[10px] font-bold text-primary flex items-center gap-1 hover:underline cursor-pointer">
