@@ -1,0 +1,8 @@
+
+{
+  "name": "Amazon Caxias WMS SG09",
+  "description": "A high-performance Warehouse Management System for tracking TBR units, productivity, and inventory reconciliation with offline support simulation.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
