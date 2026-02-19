@@ -23,7 +23,10 @@ import { WmsProvider, useWms } from './context/WmsContext';
 const AppContent: React.FC = () => {
   const { currentUser, logout } = useWms();
 
-  const [currentView, setCurrentView] = useState<View>(View.DASHBOARD);
+  const [currentView, setCurrentView] = useState<View>(() => {
+    const saved = localStorage.getItem('wms_active_view');
+    return (saved && Object.values(View).includes(saved as View)) ? (saved as View) : View.DASHBOARD;
+  });
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [isOffline, setIsOffline] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
@@ -36,6 +39,10 @@ const AppContent: React.FC = () => {
       }
     }
   }, [currentUser]);
+
+  useEffect(() => {
+    localStorage.setItem('wms_active_view', currentView);
+  }, [currentView]);
 
   const toggleDarkMode = () => {
     setIsDarkMode(!isDarkMode);
