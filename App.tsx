@@ -26,17 +26,15 @@ const AppContent: React.FC = () => {
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [isOffline, setIsOffline] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
-  const [isInitializing, setIsInitializing] = useState(true);
 
-  useEffect(() => {
-    // Wait for context to stabilize it's initial sync from localStorage/Supabase
-    const timer = setTimeout(() => setIsInitializing(false), 300);
-    return () => clearTimeout(timer);
-  }, []);
 
   useEffect(() => {
     if (currentUser) {
       setIsRegistering(false);
+      // Auto-jump to dashboard only if we were on LOGIN screen
+      if (currentView === View.LOGIN) {
+        setCurrentView(View.DASHBOARD);
+      }
     }
   }, [currentUser]);
 
@@ -62,15 +60,6 @@ const AppContent: React.FC = () => {
     }
   };
 
-  // Initial Load Guard
-  if (isInitializing) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center space-y-4">
-        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-slate-500 font-display text-[10px] uppercase tracking-[0.2em] animate-pulse">Amazon Caxias - Sistema SG09</p>
-      </div>
-    );
-  }
 
   // Auth Flow
   if (!currentUser) {

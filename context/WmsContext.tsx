@@ -183,11 +183,8 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 const { data: userData, error } = await supabase.from('users').select('*').eq('id', session.user.id).single();
                 if (userData && !error) {
                     const user = userData as User;
-                    setCurrentUser(prev => {
-                        if (JSON.stringify(prev) === JSON.stringify(user)) return prev;
-                        AuthService.saveSession(user);
-                        return user;
-                    });
+                    setCurrentUser(user);
+                    AuthService.saveSession(user);
                 }
             } else if (event === 'SIGNED_OUT') {
                 setCurrentUser(null);
@@ -631,9 +628,9 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
 
     const logout = async () => {
+        await AuthService.logout();
         setCurrentUser(null);
         _setCurrentView(View.LOGIN);
-        await AuthService.logout();
     };
 
     const register = async (name: string, email: string, password: string, companyId: string, customId?: string) => {
