@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR" class="light">
+<html lang="pt-BR" class="dark">
 
 <head>
     <meta charset="utf-8">
@@ -65,31 +65,10 @@
             background: #4b5563;
         }
     </style>
-    <script>
-        window.onerror = function (msg, url, lineNo, columnNo, error) {
-            var message = [
-                'Erro detectado no Sistema:',
-                'Mensagem: ' + msg,
-                'URL: ' + url,
-                'Linha: ' + lineNo,
-                'Coluna: ' + columnNo,
-                'Erro: ' + JSON.stringify(error)
-            ].join('\n');
-            alert(message);
-            return false;
-        };
-    </script>
 </head>
 
-<body style="background-color: #ff0000 !important; color: white !important;" class="min-h-screen">
-    <div id="root">
-        <div
-            style="height: 100vh; display: flex; align-items: center; justify-content: center; flex-direction: column;">
-            <p>Carregando Amazon Caxias WMS...</p>
-            <p style="font-size: 0.8rem; color: #666;">Se esta tela persistir, verifique o console ou alertas de erro.
-            </p>
-        </div>
-    </div>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen">
+    <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
 </body>
 

@@ -91,7 +91,7 @@ const OutboundView: React.FC = () => {
         <div className="bg-white dark:bg-card-dark p-4 rounded border-l-4 border-orange-500 shadow-sm transition-all hover:shadow-md">
           <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">TBRs Pendentes</p>
           <p className="text-2xl font-display font-bold text-orange-500">
-            {stockItems.filter(item => item.status === 'Recebido').length}
+            {stockItems.filter(item => item.status === 'Em Estoque').length}
           </p>
         </div>
       </div>
@@ -187,7 +187,7 @@ const OutboundView: React.FC = () => {
                     ? 'bg-green-500/10 text-green-500 border-green-500/20'
                     : 'bg-cyan-500/10 text-cyan-500 border-cyan-500/20'
                     }`}>
-                    {item.status.replace(' - Saiu com Motorista', '')}
+                    {item.status?.replace(' - Saiu com Motorista', '') || 'Sem Status'}
                   </span>
                 </td>
                 <td className="px-6 py-4 text-right">
