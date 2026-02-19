@@ -1,4 +1,4 @@
-import React, { useState, KeyboardEvent, FC } from 'react';
+import React, { useState } from 'react';
 import { useWms } from '../context/WmsContext';
 import { PrintService } from '../services/PrintService';
 
@@ -9,7 +9,7 @@ interface ScannedItem {
     rack: number;
 }
 
-const ReversaView: FC = () => {
+export default function ReversaView() {
     const { drivers } = useWms();
     const [scannedItems, setScannedItems] = useState<ScannedItem[]>([]);
     const [selectedDriverId, setSelectedDriverId] = useState('');
@@ -36,7 +36,7 @@ const ReversaView: FC = () => {
         });
     };
 
-    const handleTbrScan = (e: KeyboardEvent<HTMLInputElement>) => {
+    const handleTbrScan = (e: any) => {
         if (e.key === 'Enter' && tbrInput.trim()) {
             const newItem: ScannedItem = {
                 id: tbrInput.toUpperCase(),
@@ -162,7 +162,7 @@ const ReversaView: FC = () => {
                         <div className="bg-white dark:bg-[#161d2b] p-6 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between">
                             <div>
                                 <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">TBRs Scanned</p>
-                                <p className="text-4xl font-black text-primary">{scannedItems.length} <span className="text-sm font-medium text-slate-400">/ 40</span></p>
+                                <p className="text-4xl font-black text-primary">{scannedItems.length}</p>
                             </div>
                             <div className="bg-primary/10 p-3 rounded-full">
                                 <span className="material-icons-round text-primary text-2xl">barcode_reader</span>
@@ -249,6 +249,4 @@ const ReversaView: FC = () => {
             </div>
         </div>
     );
-};
-
-export default ReversaView;
+}
