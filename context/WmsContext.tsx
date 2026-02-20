@@ -467,21 +467,8 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             console.error('WmsContext: Fatal error in addInboundItem', fatalErr);
             playAudio('error');
         }
-        setPossibleLossItems(prev => prev.filter(p => p.id !== item.id));
-
-        // Gamification scan registration
-        try {
-            const { gamificationService } = await import('../services/gamificationService');
-            await gamificationService.registerScan(currentUser!.id, currentUser!.name);
-        } catch (gErr) {
-            console.error('Inbound Gamification Error:', gErr);
-        }
-
-        playAudio('success');
-    } else {
-        playAudio('error');
-}
-    };
+    }
+};
 
 
 const addOutboundItem = async (item: OutboundItem) => {
