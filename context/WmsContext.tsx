@@ -307,28 +307,33 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 })));
 
                 // 6. Aggregate Weekly Stats
-                const days = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'];
-                const stats = days.map(dayName => ({ name: dayName, entradas: 0, saudas: 0 }));
+                const days = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+                const statsMap: Record<string, { name: string, entradas: number, saudas: number }> = {};
 
-                const sevenDaysAgo = new Date();
-                sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+                // Initialize last 7 days
+                for (let i = 6; i >= 0; i--) {
+                    const d = new Date();
+                    d.setDate(d.getDate() - i);
+                    const label = d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
+                    const dateKey = d.toLocaleDateString('pt-BR');
+                    statsMap[dateKey] = {
+                        name: label.charAt(0).toUpperCase() + label.slice(1),
+                        entradas: 0,
+                        saudas: 0
+                    };
+                }
 
-                const { data: recentInbound } = await supabase.from('inbound_log').select('time').gte('time', sevenDaysAgo.toISOString()).eq('error', false);
                 recentInbound?.forEach(log => {
-                    const dayIndex = new Date(log.time).getDay();
-                    stats[dayIndex].entradas++;
+                    const dateKey = new Date(log.time).toLocaleDateString('pt-BR');
+                    if (statsMap[dateKey]) statsMap[dateKey].entradas++;
                 });
 
-                const { data: recentOutbound } = await supabase.from('outbound_log').select('time').gte('time', sevenDaysAgo.toISOString());
                 recentOutbound?.forEach(log => {
-                    const dayIndex = new Date(log.time).getDay();
-                    stats[dayIndex].saudas++;
+                    const dateKey = new Date(log.time).toLocaleDateString('pt-BR');
+                    if (statsMap[dateKey]) statsMap[dateKey].saudas++;
                 });
 
-                const reorderedStats = [
-                    stats[1], stats[2], stats[3], stats[4], stats[5], stats[6], stats[0]
-                ];
-                setWeeklyStats(reorderedStats);
+                setWeeklyStats(Object.values(statsMap));
             } catch (err) {
                 console.error('WmsContext: Critical error in fetchInitialData:', err);
             }
