@@ -860,6 +860,9 @@ const updatePassword = async (newPassword: string) => {
 
 // --- Reset Logic ---
 const resetTransactions = async () => {
+    if (!currentUser) return;
+    const cid = currentUser.company_id;
+
     setInboundItems([]);
     setOutboundItems([]);
     setStockItems([]);
@@ -867,13 +870,19 @@ const resetTransactions = async () => {
     setPossibleLossItems([]);
     setExpectedInboundList([]);
 
-    // Wipe Supabase tables
-    await supabase.from('inbound_log').delete().neq('tbr_id', '');
-    await supabase.from('outbound_log').delete().neq('tbr_id', '');
-    await supabase.from('stock').delete().neq('id', '');
-    await supabase.from('system_config').delete().eq('key', 'expected_inbound');
+    try {
+        // Wipe Supabase tables for THIS company only
+        await supabase.from('inbound_log').delete().eq('company_id', cid);
+        await supabase.from('outbound_log').delete().eq('company_id', cid);
+        await supabase.from('stock').delete().eq('company_id', cid);
+        await supabase.from('system_config').delete().eq('key', 'expected_inbound').eq('company_id', cid);
+        await supabase.from('incidents').delete().eq('company_id', cid); // Also wipe incidents for safety if resetting all
 
-    playAudio('success');
+        playAudio('success');
+    } catch (e) {
+        console.error('WmsContext: Error resetting transactions', e);
+        playAudio('error');
+    }
 };
 
 // --- Stats ---
