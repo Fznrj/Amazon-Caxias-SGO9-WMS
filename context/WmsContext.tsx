@@ -310,18 +310,21 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 const days = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
                 const statsMap: Record<string, { name: string, entradas: number, saudas: number }> = {};
 
-                // Initialize last 7 days
-                for (let i = 6; i >= 0; i--) {
-                    const d = new Date();
-                    d.setDate(d.getDate() - i);
-                    const label = d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
-                    const dateKey = d.toLocaleDateString('pt-BR');
-                    statsMap[dateKey] = {
-                        name: label.charAt(0).toUpperCase() + label.slice(1),
-                        entradas: 0,
-                        saudas: 0
-                    };
-                }
+                const sevenDaysAgo = new Date();
+                sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+                if (!currentUser) return;
+
+                const { data: recentInbound } = await supabase.from('inbound_log')
+                    .select('time')
+                    .gte('time', sevenDaysAgo.toISOString())
+                    .eq('error', false)
+                    .eq('company_id', currentUser.company_id);
+
+                const { data: recentOutbound } = await supabase.from('outbound_log')
+                    .select('time')
+                    .gte('time', sevenDaysAgo.toISOString())
+                    .eq('company_id', currentUser.company_id);
 
                 recentInbound?.forEach(log => {
                     const dateKey = new Date(log.time).toLocaleDateString('pt-BR');
