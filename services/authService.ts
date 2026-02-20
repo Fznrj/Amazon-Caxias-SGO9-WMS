@@ -55,6 +55,8 @@ export const AuthService = {
         });
 
         if (error) {
+            // Restore admin session even on failure
+            AuthService.saveSession(adminUser);
             return { success: false, message: error.message };
         }
 
@@ -66,7 +68,7 @@ export const AuthService = {
             redirectTo: window.location.origin
         });
 
-        // Restore admin session as signUp might have switched the current session
+        // Final session restoration check
         AuthService.saveSession(adminUser);
 
         return { success: true, message: 'Usuário convidado! Um link de acesso foi enviado para o email: ' + email };
