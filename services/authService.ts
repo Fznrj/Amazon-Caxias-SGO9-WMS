@@ -40,9 +40,6 @@ export const AuthService = {
     },
 
     inviteUser: async (email: string, adminUser: User): Promise<{ success: boolean; message: string }> => {
-        // Invite usually requires Service Role or a custom Edge Function. 
-        // For now, we'll simulate with sign up if allowed, or suggest manual creation.
-        // But since this is a client-side app, we'll use a simplified flow or tell the user.
         const tempPassword = 'Senh@Wms123';
         const { error } = await supabase.auth.signUp({
             email,
@@ -52,7 +49,8 @@ export const AuthService = {
                     name: email.split('@')[0],
                     company_id: adminUser.company_id,
                     status: 'active',
-                    role: 'operator'
+                    role: 'operator',
+                    force_password_reset: true
                 }
             }
         });

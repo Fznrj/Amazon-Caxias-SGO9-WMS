@@ -598,9 +598,31 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         loadUsers();
     }, [currentUser]); // Refresh users when admin logs in
 
-    const login = async (email: string, password: string) => {
-        console.log('WmsContext: login attempt for', email);
-        const result = await AuthService.login(email, password);
+    useEffect(() => {
+        // Escuta mudanças de autenticação (como redirecionamento de confirmação de email)
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            console.log('Auth event:', event);
+
+            // Se o usuário clicou no link de confirmação, o Supabase loga ele.
+            // O usuário quer que ele caia na tela de LOGIN, não logado direto.
+            // Além disso, se não temos a sessão no LocalStorage, deslogamos para sincronizar.
+            if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+                const localUser = AuthService.getCurrentUser();
+                if (!localUser && session?.user) {
+                    // Clicou no link de confirmação e foi logado automaticamente sem passar pelo nosso login
+                    // Deslogamos para forçar ele a ir para o Login e ativar o reset de senha
+                    await AuthService.logout();
+                    setCurrentUser(null);
+                }
+            }
+        });
+
+        return () => subscription.unsubscribe();
+    }, []);
+
+    const login = async (identifier: string, password: string) => {
+        console.log('WmsContext: login attempt for', identifier);
+        const result = await AuthService.login(identifier, password);
         console.log('WmsContext: login result:', result.success ? 'SUCCESS' : 'FAILURE', result.message);
         if (result.success && result.user) {
             setCurrentUser(result.user);
