@@ -1,9 +1,7 @@
 // Gamification Engine — SPR, XP, Levels, Achievements, Anti-Fraud
-import { supabase } from './supabase';
+// import { supabase } from './supabase'; // Mocked but unused now
 
-// ========================
-// TYPES
-// ========================
+// ... (keep types and constants as is) ...
 
 export interface GamificationLevel {
     name: string;
@@ -93,38 +91,12 @@ export class GamificationService {
     async init(): Promise<void> {
         if (this.initialized) return;
         try {
-            // 1. Fetch Profiles
-            const { data: profileData } = await supabase.from('gamification_profiles').select('*');
-            // 2. Fetch Achievements
-            const { data: achievementData } = await supabase.from('gamification_achievements').select('*');
-
-            if (profileData) {
-                for (const p of profileData) {
-                    const profileAchievements = (achievementData || [])
-                        .filter(a => a.user_id === p.user_id)
-                        .map(a => a.id);
-
-                    this.profiles.set(p.user_id, {
-                        userId: p.user_id,
-                        userName: '', // We'll fill this from auth/users later or link join
-                        xpMonthly: p.xp_monthly,
-                        xpTotal: p.xp_total,
-                        currentLevel: p.current_level,
-                        sprMonthly: p.spr_monthly,
-                        fraudFlag: p.fraud_flag,
-                        fraudAlerts: p.fraud_alerts as string[],
-                        badges: DEFAULT_ACHIEVEMENTS.map(a => ({
-                            ...a,
-                            unlocked: profileAchievements.includes(a.id),
-                            unlockedAt: achievementData?.find(ad => ad.user_id === p.user_id && ad.id === a.id)?.unlocked_at
-                        })),
-                        performanceLogs: [], // Log history can be complex, skipping for now as not critical for current view
-                        dailyScans: {},
-                        dailyErrors: {},
-                        consecutiveDaysAboveMeta: 0,
-                        lastScanTimestamps: [],
-                    });
-                }
+            const data = localStorage.getItem(STORAGE_KEY);
+            if (data) {
+                const parsed = JSON.parse(data);
+                Object.entries(parsed).forEach(([userId, profile]) => {
+                    this.profiles.set(userId, profile as GamificationProfile);
+                });
             }
             this.initialized = true;
         } catch (e) {
@@ -136,16 +108,10 @@ export class GamificationService {
         const profile = this.profiles.get(userId);
         if (!profile) return;
 
-        await supabase.from('gamification_profiles').upsert({
-            user_id: userId,
-            xp_monthly: profile.xpMonthly,
-            xp_total: profile.xpTotal,
-            current_level: profile.currentLevel,
-            spr_monthly: profile.sprMonthly,
-            fraud_flag: profile.fraudFlag,
-            fraud_alerts: profile.fraudAlerts,
-            updated_at: new Date().toISOString()
-        });
+        const data = localStorage.getItem(STORAGE_KEY);
+        const allProfiles = data ? JSON.parse(data) : {};
+        allProfiles[userId] = profile;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(allProfiles));
     }
 
     async getProfile(userId: string): Promise<GamificationProfile | undefined> {
@@ -234,7 +200,6 @@ export class GamificationService {
     ): Promise<GamificationProfile> {
         const profile = this.ensureProfile(userId, userName);
 
-        // Check monthly reset
         const currentMonth = new Date().toISOString().slice(0, 7);
         const lastLog = profile.performanceLogs[profile.performanceLogs.length - 1];
         if (lastLog && lastLog.mesReferencia !== currentMonth) {
@@ -242,31 +207,26 @@ export class GamificationService {
             profile.sprMonthly = 0;
         }
 
-        // Calculate SPR & XP
         const spr = this.calculateSPR(totalScans, metaPercent, diasAcimaMeta, erros);
         const xp = this.calculateXP(spr);
 
         profile.sprMonthly = spr;
         profile.xpMonthly = xp;
-        profile.xpTotal = Math.max(profile.xpTotal, xp); // Record best highscore as total or cumulative? For now let's use highscore
+        profile.xpTotal = Math.max(profile.xpTotal, xp);
         profile.consecutiveDaysAboveMeta = consecutiveDays;
 
-        // Determine level
         let level = this.getLevel(xp);
         if (level.name === 'Desafiante' && !isTop1) {
             level = LEVELS[8]; // Grão-Mestre
         }
         profile.currentLevel = level.name;
 
-        // Check achievements
         await this.checkAchievements(profile, monthlyTotalScans, consecutiveDays, zeroErrorDays, isTop3Weekly, avgMetaPercent);
 
-        // Apply fraud penalty
         if (profile.fraudFlag) {
             profile.xpMonthly = Math.round(profile.xpMonthly * 0.8);
         }
 
-        // Update log
         const logEntry: PerformanceLog = {
             userId, userName, totalScans, metaPercent, diasAcimaMeta, erros, spr, xp: profile.xpMonthly, mesReferencia: currentMonth
         };
@@ -298,12 +258,7 @@ export class GamificationService {
             if (badge && !badge.unlocked) {
                 badge.unlocked = true;
                 badge.unlockedAt = new Date().toISOString();
-
-                await supabase.from('gamification_achievements').insert({
-                    id,
-                    user_id: profile.userId,
-                    unlocked_at: badge.unlockedAt
-                });
+                // Persist achievements within profile save
             }
         };
 
@@ -326,7 +281,6 @@ export class GamificationService {
 
         const timestamps = profile.lastScanTimestamps;
 
-        // Check 1: Speed
         if (timestamps.length >= 10) {
             const last10 = timestamps.slice(-10);
             const span = (last10[last10.length - 1] - last10[0]) / 1000;
@@ -338,7 +292,6 @@ export class GamificationService {
             }
         }
 
-        // Check 2: Robot pattern
         if (timestamps.length >= 6) {
             const last6 = timestamps.slice(-6);
             const intervals = [];
