@@ -62,9 +62,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, onLogout, 
             <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-xs font-bold text-white uppercase">
               {currentUser?.name?.substring(0, 2).toUpperCase() || 'GU'}
             </div>
-            <div className="overflow-hidden">
-              <p className="text-xs font-semibold truncate max-w-[120px]">{currentUser?.name || 'Sistema'}</p>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-tighter">{currentUser?.role || 'Associado'}</p>
+            <div>
+              <p className="text-xs font-semibold truncate max-w-[120px] text-primary dark:text-white">{currentUser?.name || 'Sistema'}</p>
+              <p className="text-[10px] text-primary/60 dark:text-white/60 uppercase tracking-tighter">{currentUser?.role || 'Associado'}</p>
             </div>
           </div>
 

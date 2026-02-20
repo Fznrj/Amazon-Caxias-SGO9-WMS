@@ -32,8 +32,8 @@ const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigateRegiste
   };
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-background-light dark:bg-background-dark">
-      <div className="md:w-1/2 bg-brand-blue dark:bg-[#1b2531] flex flex-col items-center justify-center p-8 text-white relative overflow-hidden">
+    <div className="min-h-screen flex flex-col md:flex-row bg-background-light dark:bg-background-dark text-primary dark:text-white">
+      <div className="md:w-1/2 bg-primary flex flex-col items-center justify-center p-8 text-white relative overflow-hidden">
         <div className="absolute inset-0 opacity-10 pointer-events-none">
           <div className="absolute top-0 left-0 w-64 h-64 bg-secondary rounded-full -translate-x-1/2 -translate-y-1/2 blur-3xl"></div>
           <div className="absolute bottom-0 right-0 w-96 h-96 bg-primary rounded-full translate-x-1/3 translate-y-1/3 blur-3xl"></div>
@@ -57,7 +57,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigateRegiste
       <div className="md:w-1/2 flex flex-col items-center justify-center p-8">
         <div className="w-full max-w-md">
           <div className="bg-white dark:bg-card-dark border border-gray-200 dark:border-gray-800 p-8 shadow-2xl rounded-lg">
-            <h2 className="font-display text-2xl font-bold text-gray-900 dark:text-gray-100 mb-8 tracking-wide uppercase">
+            <h2 className="font-display text-2xl font-bold text-primary dark:text-white mb-8 tracking-wide uppercase">
               Acessar Sistema
             </h2>
 
@@ -74,7 +74,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigateRegiste
                   type="text"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-gray-50 dark:bg-[#0d1117] border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all placeholder:text-gray-400"
+                  className="w-full bg-gray-50 dark:bg-background-dark border border-gray-300 dark:border-gray-700 text-primary dark:text-white px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all placeholder:text-gray-400"
                   placeholder="Email, Nome ou ID de Usuário"
                 />
               </div>
@@ -84,13 +84,13 @@ const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigateRegiste
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-gray-50 dark:bg-[#0d1117] border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all placeholder:text-gray-400"
+                  className="w-full bg-gray-50 dark:bg-background-dark border border-gray-300 dark:border-gray-700 text-primary dark:text-white px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all placeholder:text-gray-400"
                   placeholder="••••••••"
                 />
               </div>
               <button
                 type="submit"
-                className="w-full bg-primary hover:bg-[#066a75] text-white font-display font-bold py-3 px-4 transition-colors tracking-widest text-lg uppercase shadow-lg shadow-primary/20"
+                className="w-full bg-primary hover:opacity-90 text-white font-display font-bold py-3 px-4 transition-colors tracking-widest text-lg uppercase shadow-lg shadow-primary/20"
               >
                 Entrar
               </button>
