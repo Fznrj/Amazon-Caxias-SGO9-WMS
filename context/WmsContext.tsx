@@ -371,530 +371,563 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
 
         setInboundItems(prev => [item, ...prev]);
-        await supabase.from('inbound_log').insert({
-            tbr_id: item.id,
-            status: item.status,
-            operator: item.operator,
-            error: item.error,
-            company_id: currentUser?.company_id
-        });
-
-        if (!item.error) {
-            // Auto-resolve any active treatment for this TBR
-            setTreatmentItems(prev => prev.map(t =>
-                (t.tbrId === item.id && t.status !== 'Resolvido')
-                    ? { ...t, status: 'Resolvido' }
-                    : t
-            ));
-            await supabase.from('incidents').update({ status: 'Resolvido' }).eq('tbr_id', item.id);
-
-            const now = new Date().toISOString();
-            const { data: existing, error: checkErr } = await supabase.from('stock').select('id').eq('id', item.id).single();
-
-            if (existing) {
-                const { error: updErr } = await supabase.from('stock').update({
-                    entry_time: now,
-                    operator: item.operator,
-                    status: 'Em Estoque',
-                    loss_detected_time: null
-                }).eq('id', item.id);
-                if (updErr) console.error('WmsContext: Error updating stock', updErr);
-            } else {
-                console.log('WmsContext: Inserting NEW stock item', item.id, 'for company', currentUser?.company_id);
-                const { error: insErr } = await supabase.from('stock').insert({
-                    id: item.id,
-                    entry_time: now,
-                    operator: item.operator,
-                    status: 'Em Estoque',
-                    company_id: currentUser?.company_id
-                });
-                if (insErr) console.error('WmsContext: Error inserting stock', insErr);
-            }
-
-            setStockItems(prev => {
-                const exists = prev.find(s => s.id === item.id);
-                if (exists) {
-                    return prev.map(s => s.id === item.id ? {
-                        ...s,
-                        entryTime: now,
-                        operator: item.operator,
-                        status: 'Em Estoque'
-                    } : s);
-                } else {
-                    return [...prev, {
-                        id: item.id,
-                        entryTime: now,
-                        operator: item.operator,
-                        status: 'Em Estoque'
-                    }];
-                }
-            });
-            setPossibleLossItems(prev => prev.filter(p => p.id !== item.id));
-
-            // Gamification scan registration
-            try {
-                const { gamificationService } = await import('../services/gamificationService');
-                await gamificationService.registerScan(currentUser!.id, currentUser!.name);
-            } catch (gErr) {
-                console.error('Inbound Gamification Error:', gErr);
-            }
-
-            playAudio('success');
-        } else {
-            playAudio('error');
-        }
-    };
-
-
-    const addOutboundItem = async (item: OutboundItem) => {
-        if (!currentUser) return;
-        setOutboundItems(prev => [item, ...prev]);
 
         try {
-            // Update Stock
-            const { error: stockErr } = await supabase.from('stock').update({ status: 'Saiu' }).eq('id', item.id);
-            if (stockErr) console.error('WmsContext: Outbound stock update error', stockErr);
-
-            // Log Outbound
-            const { error: logErr } = await supabase.from('outbound_log').insert({
+            // Log Inbound
+            const { error: logErr } = await supabase.from('inbound_log').insert({
                 tbr_id: item.id,
-                driver_name: item.driverName,
-                vehicle: item.vehicle,
+                status: item.status,
                 operator: item.operator,
-                company_id: currentUser.company_id
+                error: item.error,
+                company_id: currentUser?.company_id
             });
-            if (logErr) console.error('WmsContext: Outbound log insert error', logErr);
+            if (logErr) console.error('WmsContext: Inbound log error', logErr);
 
-            setStockItems(prev => prev.map(stock =>
-                stock.id === item.id ? { ...stock, status: 'Saiu' } : stock
-            ));
-            setPossibleLossItems(prev => prev.filter(loss => loss.id !== item.id));
+            if (!item.error) {
+                const now = new Date().toISOString();
 
-            // Gamification scan registration
-            try {
-                const { gamificationService } = await import('../services/gamificationService');
-                await gamificationService.registerScan(currentUser!.id, currentUser!.name);
-            } catch (gErr) {
-                console.error('Outbound Gamification Error:', gErr);
+                // 1. Auto-resolve treatments (local + remote)
+                setTreatmentItems(prev => prev.map(t =>
+                    (t.tbrId === item.id && t.status !== 'Resolvido')
+                        ? { ...t, status: 'Resolvido' }
+                        : t
+                ));
+                const { error: trtResError } = await supabase.from('incidents')
+                    .update({ status: 'Resolvido', updated_at: now })
+                    .eq('tbr_id', item.id)
+                    .eq('status', 'Pendente');
+                if (trtResError) console.error('WmsContext: Treatment resolution error', trtResError);
+
+                // 2. Upsert Stock Item (remote)
+                const { data: existing, error: checkErr } = await supabase.from('stock')
+                    .select('id')
+                    .eq('id', item.id)
+                    .single();
+
+                if (existing) {
+                    const { error: updErr } = await supabase.from('stock').update({
+                        entry_time: now,
+                        operator: item.operator,
+                        status: 'Em Estoque',
+                        company_id: currentUser?.company_id,
+                        loss_detected_time: null
+                    }).eq('id', item.id);
+                    if (updErr) console.error('WmsContext: Stock update error', updErr);
+                } else {
+                    const { error: insErr } = await supabase.from('stock').insert({
+                        id: item.id,
+                        entry_time: now,
+                        operator: item.operator,
+                        status: 'Em Estoque',
+                        company_id: currentUser?.company_id
+                    });
+                    if (insErr) console.error('WmsContext: Stock insert error', insErr);
+                }
+
+                // 3. Update Local State
+                setStockItems(prev => {
+                    const exists = prev.find(s => s.id === item.id);
+                    if (exists) {
+                        return prev.map(s => s.id === item.id ? {
+                            ...s,
+                            entryTime: now,
+                            operator: item.operator,
+                            status: 'Em Estoque' as const
+                        } : s);
+                    } else {
+                        return [...prev, {
+                            id: item.id,
+                            entryTime: now,
+                            operator: item.operator,
+                            status: 'Em Estoque' as const
+                        }];
+                    }
+                });
+
+                setPossibleLossItems(prev => prev.filter(p => p.id !== item.id));
+
+                // 4. Gamification
+                try {
+                    const { gamificationService } = await import('../services/gamificationService');
+                    await gamificationService.registerScan(currentUser!.id, currentUser!.name);
+                } catch (gErr) {
+                    console.error('Inbound Gamification Error:', gErr);
+                }
+
+                playAudio('success');
+            } else {
+                playAudio('error');
             }
-
-            playAudio('success');
-        } catch (e) {
-            console.error('WmsContext: Outbound fatal error', e);
+        } catch (fatalErr) {
+            console.error('WmsContext: Fatal error in addInboundItem', fatalErr);
             playAudio('error');
         }
+        setPossibleLossItems(prev => prev.filter(p => p.id !== item.id));
+
+        // Gamification scan registration
+        try {
+            const { gamificationService } = await import('../services/gamificationService');
+            await gamificationService.registerScan(currentUser!.id, currentUser!.name);
+        } catch (gErr) {
+            console.error('Inbound Gamification Error:', gErr);
+        }
+
+        playAudio('success');
+    } else {
+        playAudio('error');
+}
     };
 
-    const deleteOutboundItem = async (id: string) => {
-        const itemToRemove = outboundItems.find(item => item.id === id);
-        if (!itemToRemove) return;
 
-        setOutboundItems(prev => prev.filter(item => item.id !== id));
-        // Delete log or just ignore it? Usually we keep logs, but user said "Clear Outbound" or similar before. 
-        // For now let's just update stock status back to 'Em Estoque'
-        await supabase.from('stock').update({ status: 'Em Estoque' }).eq('id', id);
-        // Remove from outbound_log? Logic says yes for a "delete expedition"
-        await supabase.from('outbound_log').delete().eq('tbr_id', id);
+const addOutboundItem = async (item: OutboundItem) => {
+    if (!currentUser) return;
+    setOutboundItems(prev => [item, ...prev]);
+
+    try {
+        // Update Stock
+        const { error: stockErr } = await supabase.from('stock').update({ status: 'Saiu' }).eq('id', item.id);
+        if (stockErr) console.error('WmsContext: Outbound stock update error', stockErr);
+
+        // Log Outbound
+        const { error: logErr } = await supabase.from('outbound_log').insert({
+            tbr_id: item.id,
+            driver_name: item.driverName,
+            vehicle: item.vehicle,
+            operator: item.operator,
+            company_id: currentUser.company_id
+        });
+        if (logErr) console.error('WmsContext: Outbound log insert error', logErr);
 
         setStockItems(prev => prev.map(stock =>
-            stock.id === id ? { ...stock, status: 'Em Estoque' } : stock
+            stock.id === item.id ? { ...stock, status: 'Saiu' } : stock
         ));
-        playAudio('success');
-    };
+        setPossibleLossItems(prev => prev.filter(loss => loss.id !== item.id));
 
-
-    const addDriver = async (driverData: Omit<Driver, 'id' | 'lastActivity'>) => {
-        const nowStr = new Date().toLocaleString('pt-BR');
-        const { data, error } = await supabase.from('drivers').insert({
-            name: driverData.name,
-            cpf: driverData.cpf,
-            plate: driverData.plate,
-            vehicle: driverData.vehicleProfile,
-            status: driverData.status,
-            company_id: currentUser?.company_id,
-            last_activity: nowStr
-        }).select().single();
-
-        if (data && !error) {
-            setDrivers(prev => [...prev, {
-                id: data.id,
-                name: data.name,
-                cpf: data.cpf,
-                plate: data.plate,
-                company: data.company_id,
-                status: data.status,
-                vehicleProfile: data.vehicle,
-                lastActivity: data.last_activity
-            }]);
-            playAudio('success');
-        } else {
-            console.error('WmsContext: Error adding driver', error);
-            playAudio('error');
+        // Gamification scan registration
+        try {
+            const { gamificationService } = await import('../services/gamificationService');
+            await gamificationService.registerScan(currentUser!.id, currentUser!.name);
+        } catch (gErr) {
+            console.error('Outbound Gamification Error:', gErr);
         }
-    };
 
-    const bulkAddDrivers = async (driversList: Omit<Driver, 'id' | 'lastActivity'>[]) => {
-        const newDrivers = driversList.map(d => ({
+        playAudio('success');
+    } catch (e) {
+        console.error('WmsContext: Outbound fatal error', e);
+        playAudio('error');
+    }
+};
+
+const deleteOutboundItem = async (id: string) => {
+    const itemToRemove = outboundItems.find(item => item.id === id);
+    if (!itemToRemove) return;
+
+    setOutboundItems(prev => prev.filter(item => item.id !== id));
+    // Delete log or just ignore it? Usually we keep logs, but user said "Clear Outbound" or similar before. 
+    // For now let's just update stock status back to 'Em Estoque'
+    await supabase.from('stock').update({ status: 'Em Estoque' }).eq('id', id);
+    // Remove from outbound_log? Logic says yes for a "delete expedition"
+    await supabase.from('outbound_log').delete().eq('tbr_id', id);
+
+    setStockItems(prev => prev.map(stock =>
+        stock.id === id ? { ...stock, status: 'Em Estoque' } : stock
+    ));
+    playAudio('success');
+};
+
+
+const addDriver = async (driverData: Omit<Driver, 'id' | 'lastActivity'>) => {
+    const nowStr = new Date().toLocaleString('pt-BR');
+    const { data, error } = await supabase.from('drivers').insert({
+        name: driverData.name,
+        cpf: driverData.cpf,
+        plate: driverData.plate,
+        vehicle: driverData.vehicleProfile,
+        status: driverData.status,
+        company_id: currentUser?.company_id,
+        last_activity: nowStr
+    }).select().single();
+
+    if (data && !error) {
+        setDrivers(prev => [...prev, {
+            id: data.id,
+            name: data.name,
+            cpf: data.cpf,
+            plate: data.plate,
+            company: data.company_id,
+            status: data.status,
+            vehicleProfile: data.vehicle,
+            lastActivity: data.last_activity
+        }]);
+        playAudio('success');
+    } else {
+        console.error('WmsContext: Error adding driver', error);
+        playAudio('error');
+    }
+};
+
+const bulkAddDrivers = async (driversList: Omit<Driver, 'id' | 'lastActivity'>[]) => {
+    const newDrivers = driversList.map(d => ({
+        name: d.name,
+        cpf: d.cpf,
+        plate: d.plate,
+        vehicle: d.vehicleProfile,
+        status: d.status,
+        company_id: currentUser?.company_id,
+        last_activity: new Date().toLocaleString('pt-BR')
+    }));
+
+    const { data, error } = await supabase.from('drivers').insert(newDrivers).select();
+    if (data && !error) {
+        setDrivers(prev => [...prev, ...data.map(d => ({
+            id: d.id,
             name: d.name,
             cpf: d.cpf,
             plate: d.plate,
-            vehicle: d.vehicleProfile,
+            company: d.company_id,
             status: d.status,
-            company_id: currentUser?.company_id,
-            last_activity: new Date().toLocaleString('pt-BR')
-        }));
-
-        const { data, error } = await supabase.from('drivers').insert(newDrivers).select();
-        if (data && !error) {
-            setDrivers(prev => [...prev, ...data.map(d => ({
-                id: d.id,
-                name: d.name,
-                cpf: d.cpf,
-                plate: d.plate,
-                company: d.company_id,
-                status: d.status,
-                vehicleProfile: d.vehicle,
-                lastActivity: d.last_activity
-            }))]);
-            playAudio('success');
-        } else {
-            console.error('WmsContext: Bulk add drivers error', error);
-            playAudio('error');
-        }
-    };
-
-    const updateDriver = async (id: string, updates: Partial<Driver>) => {
-        const dbUpdates: any = {};
-        if (updates.name) dbUpdates.name = updates.name;
-        if (updates.cpf) dbUpdates.cpf = updates.cpf;
-        if (updates.plate) dbUpdates.plate = updates.plate;
-        if (updates.status) dbUpdates.status = updates.status;
-        if (updates.vehicleProfile) dbUpdates.vehicle = updates.vehicleProfile;
-
-        await supabase.from('drivers').update(dbUpdates).eq('id', id);
-        setDrivers(prev => prev.map(d => d.id === id ? { ...d, ...updates } : d));
-    };
-
-    const deleteDriver = async (id: string) => {
-        await supabase.from('drivers').delete().eq('id', id);
-        setDrivers(prev => prev.filter(d => d.id !== id));
-    };
-
-    const [isInventoryActive, setIsInventoryActive] = useState(false);
-
-    const addInventoryItem = async (item: InventoryItem) => {
-        if (inventoryItems.some(i => i.id === item.id)) {
-            playAudio('error');
-            return;
-        }
-        setInventoryItems(prev => [item, ...prev]);
+            vehicleProfile: d.vehicle,
+            lastActivity: d.last_activity
+        }))]);
         playAudio('success');
-    };
+    } else {
+        console.error('WmsContext: Bulk add drivers error', error);
+        playAudio('error');
+    }
+};
 
-    const startInventory = async () => {
-        setIsInventoryActive(true);
-        setInventoryItems([]);
-    };
+const updateDriver = async (id: string, updates: Partial<Driver>) => {
+    const dbUpdates: any = {};
+    if (updates.name) dbUpdates.name = updates.name;
+    if (updates.cpf) dbUpdates.cpf = updates.cpf;
+    if (updates.plate) dbUpdates.plate = updates.plate;
+    if (updates.status) dbUpdates.status = updates.status;
+    if (updates.vehicleProfile) dbUpdates.vehicle = updates.vehicleProfile;
 
-    const stopInventory = async () => {
-        setIsInventoryActive(false);
-        const missingItems = stockItems.filter(stock =>
-            stock.status === 'Em Estoque' && !inventoryItems.some(inv => inv.id === stock.id)
-        );
+    await supabase.from('drivers').update(dbUpdates).eq('id', id);
+    setDrivers(prev => prev.map(d => d.id === id ? { ...d, ...updates } : d));
+};
 
-        const now = new Date().toISOString();
-        const activeTreatmentTbrs = treatmentItems
-            .filter(t => t.status !== 'Resolvido')
-            .map(t => t.tbrId);
+const deleteDriver = async (id: string) => {
+    await supabase.from('drivers').delete().eq('id', id);
+    setDrivers(prev => prev.filter(d => d.id !== id));
+};
 
-        const idsToMark = stockItems
-            .filter(stock => (missingItems.some(m => m.id === stock.id) || activeTreatmentTbrs.includes(stock.id)) && stock.status === 'Em Estoque')
-            .map(s => s.id);
+const [isInventoryActive, setIsInventoryActive] = useState(false);
 
-        if (idsToMark.length > 0) {
-            await supabase.from('stock')
-                .update({ status: 'Possível Perda', loss_detected_time: now })
-                .in('id', idsToMark);
+const addInventoryItem = async (item: InventoryItem) => {
+    if (inventoryItems.some(i => i.id === item.id)) {
+        playAudio('error');
+        return;
+    }
+    setInventoryItems(prev => [item, ...prev]);
+    playAudio('success');
+};
+
+const startInventory = async () => {
+    setIsInventoryActive(true);
+    setInventoryItems([]);
+};
+
+const stopInventory = async () => {
+    setIsInventoryActive(false);
+    const missingItems = stockItems.filter(stock =>
+        stock.status === 'Em Estoque' && !inventoryItems.some(inv => inv.id === stock.id)
+    );
+
+    const now = new Date().toISOString();
+    const activeTreatmentTbrs = treatmentItems
+        .filter(t => t.status !== 'Resolvido')
+        .map(t => t.tbrId);
+
+    const idsToMark = stockItems
+        .filter(stock => (missingItems.some(m => m.id === stock.id) || activeTreatmentTbrs.includes(stock.id)) && stock.status === 'Em Estoque')
+        .map(s => s.id);
+
+    if (idsToMark.length > 0) {
+        await supabase.from('stock')
+            .update({ status: 'Possível Perda', loss_detected_time: now })
+            .in('id', idsToMark);
+    }
+
+    setStockItems(prev => prev.map(stock => {
+        if (idsToMark.includes(stock.id)) {
+            return { ...stock, status: 'Possível Perda', loss_detected_time: stock.lossDetectedTime || now };
         }
+        return stock;
+    }));
 
-        setStockItems(prev => prev.map(stock => {
+    setPossibleLossItems(prev => {
+        // Need to calculate based on updated items
+        return stockItems.map(stock => {
             if (idsToMark.includes(stock.id)) {
-                return { ...stock, status: 'Possível Perda', loss_detected_time: stock.lossDetectedTime || now };
+                return { ...stock, status: 'Possível Perda' as const, loss_detected_time: stock.lossDetectedTime || now };
             }
             return stock;
-        }));
+        }).filter(s => s.status === 'Possível Perda');
+    });
+};
 
-        setPossibleLossItems(prev => {
-            // Need to calculate based on updated items
-            return stockItems.map(stock => {
-                if (idsToMark.includes(stock.id)) {
-                    return { ...stock, status: 'Possível Perda' as const, loss_detected_time: stock.lossDetectedTime || now };
-                }
-                return stock;
-            }).filter(s => s.status === 'Possível Perda');
-        });
-    };
+const localizeItem = async (id: string, scannerInput: string) => {
+    if (id !== scannerInput) {
+        playAudio('error');
+        return { success: false, message: 'ID da TBR não confere!' };
+    }
 
-    const localizeItem = async (id: string, scannerInput: string) => {
-        if (id !== scannerInput) {
+    const item = stockItems.find(s => s.id === id);
+    if (!item) return { success: false, message: 'Item não encontrado!' };
+
+    if (item.lossDetectedTime) {
+        const lossTime = new Date(item.lossDetectedTime).getTime();
+        const now = new Date().getTime();
+        const hoursElapsed = (now - lossTime) / (1000 * 60 * 60);
+
+        if (hoursElapsed > 72) {
+            await supabase.from('stock').update({ status: 'Perda' }).eq('id', id);
+            setStockItems(prev => prev.map(s => s.id === id ? { ...s, status: 'Perda' } : s));
+            setPossibleLossItems(prev => prev.filter(p => p.id !== id));
             playAudio('error');
-            return { success: false, message: 'ID da TBR não confere!' };
+            return { success: false, message: 'Tempo limite de 72h excedido. Item marcado como Perda definitiva.' };
         }
+    }
 
-        const item = stockItems.find(s => s.id === id);
-        if (!item) return { success: false, message: 'Item não encontrado!' };
+    await supabase.from('stock').update({ status: 'Em Estoque', loss_detected_time: null }).eq('id', id);
+    setStockItems(prev => prev.map(s => s.id === id ? { ...s, status: 'Em Estoque', lossDetectedTime: undefined } : s));
+    setPossibleLossItems(prev => prev.filter(p => p.id !== id));
+    playAudio('success');
+    return { success: true, message: `TBR ${id} localizada com sucesso!` };
+};
 
-        if (item.lossDetectedTime) {
-            const lossTime = new Date(item.lossDetectedTime).getTime();
-            const now = new Date().getTime();
-            const hoursElapsed = (now - lossTime) / (1000 * 60 * 60);
+const verifyStock = async (id: string) => {
+    const item = stockItems.find(s => s.id === id.toUpperCase());
+    if (!item) {
+        return { success: false, message: `TBR ${id} não encontrada no estoque.` };
+    }
+    if (item.status !== 'Em Estoque') {
+        return { success: false, message: `TBR ${id} está com status: ${item.status}.` };
+    }
+    return { success: true, message: 'Item validado.' };
+};
 
-            if (hoursElapsed > 72) {
-                await supabase.from('stock').update({ status: 'Perda' }).eq('id', id);
-                setStockItems(prev => prev.map(s => s.id === id ? { ...s, status: 'Perda' } : s));
-                setPossibleLossItems(prev => prev.filter(p => p.id !== id));
-                playAudio('error');
-                return { success: false, message: 'Tempo limite de 72h excedido. Item marcado como Perda definitiva.' };
-            }
-        }
 
-        await supabase.from('stock').update({ status: 'Em Estoque', loss_detected_time: null }).eq('id', id);
-        setStockItems(prev => prev.map(s => s.id === id ? { ...s, status: 'Em Estoque', lossDetectedTime: undefined } : s));
-        setPossibleLossItems(prev => prev.filter(p => p.id !== id));
-        playAudio('success');
-        return { success: true, message: `TBR ${id} localizada com sucesso!` };
+const addTreatment = async (itemData: Omit<TreatmentItem, 'id' | 'time' | 'status'>) => {
+    const existingActive = treatmentItems.find(t => t.tbrId === itemData.tbrId && t.status !== 'Resolvido');
+    if (existingActive) {
+        playAudio('error');
+        return { success: false, message: `Já existe uma tratativa ativa (${existingActive.id}) para esta TBR.` };
+    }
+
+    const trtId = `TRT-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+    const now = new Date().toISOString();
+
+    const { error } = await supabase.from('incidents').insert({
+        id: trtId,
+        tbr_id: itemData.tbrId,
+        type: itemData.type,
+        description: itemData.description,
+        status: 'Pendente',
+        operator: itemData.operator,
+        company_id: currentUser?.company_id,
+        time: now
+    });
+
+    if (error) {
+        console.error('WmsContext: Error saving incident', error);
+        playAudio('error');
+        return { success: false, message: 'Erro ao salvar incidente: ' + error.message };
+    }
+
+    const newItem: TreatmentItem = {
+        ...itemData,
+        id: trtId,
+        time: new Date().toLocaleString('pt-BR'),
+        status: 'Pendente'
     };
+    setTreatmentItems(prev => [newItem, ...prev]);
 
-    const verifyStock = async (id: string) => {
-        const item = stockItems.find(s => s.id === id.toUpperCase());
-        if (!item) {
-            return { success: false, message: `TBR ${id} não encontrada no estoque.` };
-        }
-        if (item.status !== 'Em Estoque') {
-            return { success: false, message: `TBR ${id} está com status: ${item.status}.` };
-        }
-        return { success: true, message: 'Item validado.' };
-    };
+    if (itemData.type === 'Extravio' || itemData.type === 'Avaria') {
+        await supabase.from('stock')
+            .update({ status: 'Possível Perda', loss_detected_time: now })
+            .eq('id', itemData.tbrId);
 
+        setStockItems(prev => prev.map(s =>
+            s.id === itemData.tbrId
+                ? { ...s, status: 'Possível Perda', lossDetectedTime: s.lossDetectedTime || now }
+                : s
+        ));
+    }
 
-    const addTreatment = async (itemData: Omit<TreatmentItem, 'id' | 'time' | 'status'>) => {
-        const existingActive = treatmentItems.find(t => t.tbrId === itemData.tbrId && t.status !== 'Resolvido');
-        if (existingActive) {
-            playAudio('error');
-            return { success: false, message: `Já existe uma tratativa ativa (${existingActive.id}) para esta TBR.` };
-        }
+    playAudio('success');
+    return { success: true, message: 'Incidente registrado com sucesso.' };
+};
 
-        const trtId = `TRT-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
-        const now = new Date().toISOString();
+const updateTreatmentStatus = async (id: string, status: TreatmentItem['status']) => {
+    await supabase.from('incidents').update({ status }).eq('id', id);
+    setTreatmentItems(prev => prev.map(t => t.id === id ? { ...t, status } : t));
+};
 
-        const { error } = await supabase.from('incidents').insert({
-            id: trtId,
-            tbr_id: itemData.tbrId,
-            type: itemData.type,
-            description: itemData.description,
-            status: 'Pendente',
-            operator: itemData.operator,
-            company_id: currentUser?.company_id,
-            time: now
-        });
+const updateTreatment = async (id: string, updates: Partial<Pick<TreatmentItem, 'type' | 'description'>>) => {
+    await supabase.from('incidents').update(updates).eq('id', id);
+    setTreatmentItems(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
+    playAudio('success');
+};
 
-        if (error) {
-            console.error('WmsContext: Error saving incident', error);
-            playAudio('error');
-            return { success: false, message: 'Erro ao salvar incidente: ' + error.message };
-        }
+// --- Auth & User Management Logic (Removed redundant state declarations here) ---
 
-        const newItem: TreatmentItem = {
-            ...itemData,
-            id: trtId,
-            time: new Date().toLocaleString('pt-BR'),
-            status: 'Pendente'
-        };
-        setTreatmentItems(prev => [newItem, ...prev]);
-
-        if (itemData.type === 'Extravio' || itemData.type === 'Avaria') {
-            await supabase.from('stock')
-                .update({ status: 'Possível Perda', loss_detected_time: now })
-                .eq('id', itemData.tbrId);
-
-            setStockItems(prev => prev.map(s =>
-                s.id === itemData.tbrId
-                    ? { ...s, status: 'Possível Perda', lossDetectedTime: s.lossDetectedTime || now }
-                    : s
-            ));
-        }
-
-        playAudio('success');
-        return { success: true, message: 'Incidente registrado com sucesso.' };
-    };
-
-    const updateTreatmentStatus = async (id: string, status: TreatmentItem['status']) => {
-        await supabase.from('incidents').update({ status }).eq('id', id);
-        setTreatmentItems(prev => prev.map(t => t.id === id ? { ...t, status } : t));
-    };
-
-    const updateTreatment = async (id: string, updates: Partial<Pick<TreatmentItem, 'type' | 'description'>>) => {
-        await supabase.from('incidents').update(updates).eq('id', id);
-        setTreatmentItems(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
-        playAudio('success');
-    };
-
-    // --- Auth & User Management Logic (Removed redundant state declarations here) ---
-
-    useEffect(() => {
-        const loadUsers = async () => {
-            if (!currentUser) return;
-            const allUsers = await AuthService.getUsers();
-            setUsers(allUsers);
-        };
-        loadUsers();
-    }, [currentUser]); // Refresh users when admin logs in
-
-    const login = async (email: string, password: string) => {
-        console.log('WmsContext: login attempt for', email);
-        const result = await AuthService.login(email, password);
-        console.log('WmsContext: login result:', result.success ? 'SUCCESS' : 'FAILURE', result.message);
-        if (result.success && result.user) {
-            setCurrentUser(result.user);
-        }
-        return { success: result.success, message: result.message };
-    };
-
-    const logout = async () => {
-        try {
-            await AuthService.logout();
-        } finally {
-            setCurrentUser(null);
-            setInboundItems([]);
-            setOutboundItems([]);
-            setStockItems([]);
-            setInventoryItems([]);
-            setDrivers([]);
-            setTreatmentItems([]);
-            setUsers([]);
-            _setCurrentView(View.LOGIN);
-            localStorage.removeItem('wms_active_view');
-        }
-    };
-
-    const register = async (name: string, email: string, password: string, companyId: string, customId?: string) => {
-        const result = await AuthService.register(name, email, password, companyId, customId);
-        // Refresh users list if we are admin and just added someone (though usually we are logged out when registering)
-        await refreshUsers();
-        return result;
-    };
-
-    const refreshUsers = async () => {
+useEffect(() => {
+    const loadUsers = async () => {
+        if (!currentUser) return;
         const allUsers = await AuthService.getUsers();
         setUsers(allUsers);
     };
+    loadUsers();
+}, [currentUser]); // Refresh users when admin logs in
 
-    const updateUserStatus = async (id: string, status: UserStatus, role?: Role | null) => {
-        await AuthService.updateUserStatus(id, status, role);
-        await refreshUsers();
-    };
+const login = async (email: string, password: string) => {
+    console.log('WmsContext: login attempt for', email);
+    const result = await AuthService.login(email, password);
+    console.log('WmsContext: login result:', result.success ? 'SUCCESS' : 'FAILURE', result.message);
+    if (result.success && result.user) {
+        setCurrentUser(result.user);
+    }
+    return { success: result.success, message: result.message };
+};
 
-    const updateUser = async (originalId: string, updates: Partial<User>) => {
-        const result = await AuthService.updateUser(originalId, updates);
-        await refreshUsers();
-
-        // If the updated user is the current user, update the state to reflect changes (like name or ID)
-        if (currentUser && currentUser.id === originalId) {
-            const allUsers = await AuthService.getUsers();
-            const updated = allUsers.find(u => u.id === (updates.id || originalId));
-            if (updated) {
-                setCurrentUser(updated);
-                // Also update stored session to persist after refresh
-                AuthService.saveSession(updated);
-            }
-        }
-
-        return result;
-    };
-
-    const deleteUser = async (id: string) => {
-        await AuthService.deleteUser(id);
-        await refreshUsers();
-    };
-
-    const inviteUser = async (email: string) => {
-        if (!currentUser) return { success: false, message: 'Admin não logado.' };
-        const result = await AuthService.inviteUser(email, currentUser);
-        await refreshUsers();
-        return result;
-    };
-
-    const updatePassword = async (newPassword: string) => {
-        const result = await AuthService.updatePassword(newPassword);
-        // Refresh currentUser state to reflect the change in force_password_reset flag
-        if (result.success && currentUser) {
-            setCurrentUser({ ...currentUser, force_password_reset: false });
-        }
-        return result;
-    };
-
-    // --- Reset Logic ---
-    const resetTransactions = async () => {
+const logout = async () => {
+    try {
+        await AuthService.logout();
+    } finally {
+        setCurrentUser(null);
         setInboundItems([]);
         setOutboundItems([]);
         setStockItems([]);
         setInventoryItems([]);
-        setPossibleLossItems([]);
-        setExpectedInboundList([]);
+        setDrivers([]);
+        setTreatmentItems([]);
+        setUsers([]);
+        _setCurrentView(View.LOGIN);
+        localStorage.removeItem('wms_active_view');
+    }
+};
 
-        // Wipe Supabase tables
-        await supabase.from('inbound_log').delete().neq('tbr_id', '');
-        await supabase.from('outbound_log').delete().neq('tbr_id', '');
-        await supabase.from('stock').delete().neq('id', '');
-        await supabase.from('system_config').delete().eq('key', 'expected_inbound');
+const register = async (name: string, email: string, password: string, companyId: string, customId?: string) => {
+    const result = await AuthService.register(name, email, password, companyId, customId);
+    // Refresh users list if we are admin and just added someone (though usually we are logged out when registering)
+    await refreshUsers();
+    return result;
+};
 
-        playAudio('success');
-    };
+const refreshUsers = async () => {
+    const allUsers = await AuthService.getUsers();
+    setUsers(allUsers);
+};
 
-    // --- Stats ---
-    const totalInboundToday = new Set(inboundItems.filter(item => !item.error).map(item => item.id)).size;
-    const totalOutboundToday = new Set(outboundItems.filter(item => item.status === 'Saiu com Motorista').map(item => item.id)).size;
-    const totalReversaToday = new Set(outboundItems.filter(item => item.status === 'Reversa - Saiu com Motorista').map(item => item.id)).size;
-    const totalInventoryScanned = inventoryItems.length;
-    const totalLossItems = stockItems.filter(s => s.status === 'Perda').length;
+const updateUserStatus = async (id: string, status: UserStatus, role?: Role | null) => {
+    await AuthService.updateUserStatus(id, status, role);
+    await refreshUsers();
+};
 
-    const staleStockItems = stockItems.filter(item => {
-        if (item.status !== 'Em Estoque') return false;
-        try {
-            const now = new Date().getTime();
-            // entryTime is now kept as ISO string in the state for robustness
-            const entryDate = new Date(item.entryTime).getTime();
-            if (isNaN(entryDate)) return false;
-            return (now - entryDate) / (1000 * 60 * 60) > 24;
-        } catch (e) {
-            return false;
+const updateUser = async (originalId: string, updates: Partial<User>) => {
+    const result = await AuthService.updateUser(originalId, updates);
+    await refreshUsers();
+
+    // If the updated user is the current user, update the state to reflect changes (like name or ID)
+    if (currentUser && currentUser.id === originalId) {
+        const allUsers = await AuthService.getUsers();
+        const updated = allUsers.find(u => u.id === (updates.id || originalId));
+        if (updated) {
+            setCurrentUser(updated);
+            // Also update stored session to persist after refresh
+            AuthService.saveSession(updated);
         }
-    });
+    }
 
-    const staleItemsCount = staleStockItems.length;
+    return result;
+};
 
-    return (
-        <WmsContext.Provider value={{
-            inboundItems, addInboundItem, expectedInboundList, setExpectedInboundList,
-            outboundItems, addOutboundItem, deleteOutboundItem,
-            inventoryItems, addInventoryItem, isInventoryActive, startInventory, stopInventory, stockItems, possibleLossItems,
-            staleStockItems,
-            localizeItem,
-            treatmentItems, addTreatment, updateTreatmentStatus, updateTreatment,
-            users, refreshUsers, updateUserStatus, updateUser, deleteUser,
-            drivers, addDriver, bulkAddDrivers, updateDriver, deleteDriver,
-            currentUser, login, logout, register,
-            currentView, setCurrentView,
-            totalInboundToday, totalOutboundToday, totalReversaToday, totalInventoryScanned, totalLossItems, staleItemsCount,
-            weeklyStats,
-            resetTransactions,
-            verifyStock,
-            inviteUser, updatePassword,
-            playAudio
-        }}>
-            {children}
-        </WmsContext.Provider>
-    );
+const deleteUser = async (id: string) => {
+    await AuthService.deleteUser(id);
+    await refreshUsers();
+};
+
+const inviteUser = async (email: string) => {
+    if (!currentUser) return { success: false, message: 'Admin não logado.' };
+    const result = await AuthService.inviteUser(email, currentUser);
+    await refreshUsers();
+    return result;
+};
+
+const updatePassword = async (newPassword: string) => {
+    const result = await AuthService.updatePassword(newPassword);
+    // Refresh currentUser state to reflect the change in force_password_reset flag
+    if (result.success && currentUser) {
+        setCurrentUser({ ...currentUser, force_password_reset: false });
+    }
+    return result;
+};
+
+// --- Reset Logic ---
+const resetTransactions = async () => {
+    setInboundItems([]);
+    setOutboundItems([]);
+    setStockItems([]);
+    setInventoryItems([]);
+    setPossibleLossItems([]);
+    setExpectedInboundList([]);
+
+    // Wipe Supabase tables
+    await supabase.from('inbound_log').delete().neq('tbr_id', '');
+    await supabase.from('outbound_log').delete().neq('tbr_id', '');
+    await supabase.from('stock').delete().neq('id', '');
+    await supabase.from('system_config').delete().eq('key', 'expected_inbound');
+
+    playAudio('success');
+};
+
+// --- Stats ---
+const totalInboundToday = new Set(inboundItems.filter(item => !item.error).map(item => item.id)).size;
+const totalOutboundToday = new Set(outboundItems.filter(item => item.status === 'Saiu com Motorista').map(item => item.id)).size;
+const totalReversaToday = new Set(outboundItems.filter(item => item.status === 'Reversa - Saiu com Motorista').map(item => item.id)).size;
+const totalInventoryScanned = inventoryItems.length;
+const totalLossItems = stockItems.filter(s => s.status === 'Perda').length;
+
+const staleStockItems = stockItems.filter(item => {
+    if (item.status !== 'Em Estoque') return false;
+    try {
+        const now = new Date().getTime();
+        // entryTime is now kept as ISO string in the state for robustness
+        const entryDate = new Date(item.entryTime).getTime();
+        if (isNaN(entryDate)) return false;
+        return (now - entryDate) / (1000 * 60 * 60) > 24;
+    } catch (e) {
+        return false;
+    }
+});
+
+const staleItemsCount = staleStockItems.length;
+
+return (
+    <WmsContext.Provider value={{
+        inboundItems, addInboundItem, expectedInboundList, setExpectedInboundList,
+        outboundItems, addOutboundItem, deleteOutboundItem,
+        inventoryItems, addInventoryItem, isInventoryActive, startInventory, stopInventory, stockItems, possibleLossItems,
+        staleStockItems,
+        localizeItem,
+        treatmentItems, addTreatment, updateTreatmentStatus, updateTreatment,
+        users, refreshUsers, updateUserStatus, updateUser, deleteUser,
+        drivers, addDriver, bulkAddDrivers, updateDriver, deleteDriver,
+        currentUser, login, logout, register,
+        currentView, setCurrentView,
+        totalInboundToday, totalOutboundToday, totalReversaToday, totalInventoryScanned, totalLossItems, staleItemsCount,
+        weeklyStats,
+        resetTransactions,
+        verifyStock,
+        inviteUser, updatePassword,
+        playAudio
+    }}>
+        {children}
+    </WmsContext.Provider>
+);
 };
 
 export const useWms = () => useContext(WmsContext);
