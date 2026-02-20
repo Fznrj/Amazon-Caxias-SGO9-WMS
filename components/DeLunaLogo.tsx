@@ -1,25 +1,41 @@
 import React from 'react';
 
-const DeLunaLogo: React.FC<{ className?: string }> = ({ className = "h-24" }) => {
+const DeLunaLogo: React.FC<{ className?: string }> = ({ className = "h-32" }) => {
     return (
         <div className={`flex flex-col items-center ${className}`}>
-            {/* Puzzle Pieces Cluster */}
+            {/* Puzzle Pieces Cluster - 4 interlocking pieces */}
             <svg
-                viewBox="0 0 100 100"
-                className="w-1/2 mb-2"
-                fill="currentColor"
+                viewBox="0 0 120 120"
+                className="w-24 h-24 mb-4"
+                fill="white"
                 xmlns="http://www.w3.org/2000/svg"
             >
-                {/* Simplified Puzzle Pieces Clusters based on the logo shape */}
-                <path d="M25 15h20v20H25z" /> {/* Piece 1 */}
-                <path d="M50 15h20v20H50z" /> {/* Piece 2 */}
-                <path d="M35 40h20v20H35z" /> {/* Piece 3 */}
-                <path d="M60 40h20v20H60z" /> {/* Piece 4 */}
-                {/* Adding circles to simulate puzzle interconnects */}
-                <circle cx="45" cy="25" r="5" fill="none" stroke="currentColor" strokeWidth="2" />
-                <circle cx="50" cy="25" r="5" />
-                <circle cx="45" cy="50" r="5" />
-                <circle cx="70" cy="50" r="5" />
+                {/* Piece 1 (Top Left) */}
+                <path d="M40 20 h20 a10 10 0 0 1 0 20 h-20 v-20 M60 30 v10 M40 40 h10 a10 10 0 0 1 20 0 h10 v20 h-40 v-20" className="opacity-95" />
+                <path d="M20 20 h25 v30 h-30 v-25 a5 5 0 0 1 5 0 v5 a5 5 0 0 0 10 0 v-5 a5 5 0 0 1 5 0" />
+
+                {/* Simplified but clean cluster */}
+                <g transform="translate(10, 10)">
+                    {/* Piece 1 */}
+                    <path d="M30 10 h15 a5 5 0 0 1 5 5 v5 a5 5 0 0 0 10 0 v-5 a5 5 0 0 1 5 5 v15 h-35 z" />
+                    {/* Piece 2 */}
+                    <path d="M65 10 h15 v15 a5 5 0 0 1-5 5 h-5 a5 5 0 0 0 0 10 h 5 a5 5 0 0 1 5 5 v15 h-15 z" transform="translate(5, 0)" />
+                    {/* Piece 3 */}
+                    <path d="M30 45 h15 a5 5 0 0 0 0-10 h-15 v-15 h15 v25 z" transform="translate(0, 10)" opacity="0.9" />
+                    {/* Piece 4 */}
+                    <path d="M60 45 h15 v15 h-15 z" transform="translate(5, 10)" />
+                </g>
+
+                {/* A more professional representation of the 4 pieces interlocking */}
+                <rect x="30" y="20" width="30" height="30" rx="2" />
+                <rect x="62" y="20" width="30" height="30" rx="2" />
+                <rect x="30" y="52" width="30" height="30" rx="2" />
+                <rect x="62" y="52" width="30" height="30" rx="2" />
+                {/* Connecting circles */}
+                <circle cx="61" cy="35" r="6" />
+                <circle cx="45" cy="51" r="6" />
+                <circle cx="77" cy="51" r="6" />
+                <circle cx="61" cy="67" r="6" />
             </svg>
 
             {/* Divider line */}
