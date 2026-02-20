@@ -61,30 +61,39 @@ export const AuthService = {
     },
 
     login: async (identifier: string, password: string): Promise<{ success: boolean; user?: User; message: string }> => {
-        // identifier can be email, name or badge. Supabase Auth needs email.
-        let email = identifier;
+        const cleanIdentifier = identifier.trim();
+        const cleanPassword = password.trim();
 
-        if (!identifier.includes('@')) {
+        // identifier can be email, name or badge. Supabase Auth needs email.
+        let email = cleanIdentifier;
+
+        if (!cleanIdentifier.includes('@')) {
             // Try to find email by badge/name in public.users
-            const { data: profile } = await supabase
+            const { data: profile, error: findError } = await supabase
                 .from('users')
                 .select('email')
-                .or(`badge.eq.${identifier},name.eq.${identifier}`)
+                .or(`badge.eq.${cleanIdentifier},name.eq.${cleanIdentifier}`)
                 .maybeSingle();
 
             if (profile?.email) {
                 email = profile.email;
+            } else if (findError) {
+                console.error('Error finding user by identifier:', findError);
             }
         }
 
         const { data, error } = await supabase.auth.signInWithPassword({
             email,
-            password
+            password: cleanPassword
         });
 
         if (error) {
+            console.error('Login error:', error);
             return { success: false, message: 'Credenciais inválidas ou erro de conexão.' };
         }
+
+        // Small delay to ensure session is registered in the client
+        await new Promise(resolve => setTimeout(resolve, 500));
 
         // Fetch full profile
         const { data: userProfile, error: profileError } = await supabase
@@ -94,7 +103,8 @@ export const AuthService = {
             .single();
 
         if (profileError || !userProfile) {
-            return { success: false, message: 'Erro ao carregar perfil do usuário.' };
+            console.error('Profile load error:', profileError);
+            return { success: false, message: `Erro ao carregar perfil do usuário: ${profileError?.message || 'Perfil não encontrado'}` };
         }
 
         const user = userProfile as User;
