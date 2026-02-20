@@ -270,7 +270,11 @@ const DriversView: React.FC = () => {
                                                 <span className="material-icons-round text-sm">edit</span>
                                             </button>
                                             <button
-                                                onClick={async () => await deleteDriver(driver.id)}
+                                                onClick={async () => {
+                                                    if (window.confirm(`Tem certeza que deseja excluir o motorista ${driver.name}? Esta ação não pode ser desfeita.`)) {
+                                                        await deleteDriver(driver.id);
+                                                    }
+                                                }}
                                                 className="p-2 text-slate-400 hover:text-red-500 transition-colors"
                                                 title="Excluir"
                                             >
