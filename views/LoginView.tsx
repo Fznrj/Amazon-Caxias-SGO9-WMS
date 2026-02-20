@@ -38,10 +38,11 @@ const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigateRegiste
           <div className="absolute top-0 left-0 w-64 h-64 bg-secondary rounded-full -translate-x-1/2 -translate-y-1/2 blur-3xl"></div>
           <div className="absolute bottom-0 right-0 w-96 h-96 bg-primary rounded-full translate-x-1/3 translate-y-1/3 blur-3xl"></div>
         </div>
-        <div className="relative z-10 text-center space-y-10 flex flex-col items-center">
-          <DeLunaLogo className="mb-0 scale-95 md:scale-100" />
-          <div className="pt-2">
-            <h2 className="font-display text-6xl md:text-7xl text-secondary font-bold tracking-tighter lowercase opacity-90">warehouse</h2>
+        <div className="relative z-10 text-center space-y-6">
+          <div className="flex justify-center">
+            <div className="text-secondary">
+              <span className="material-icons text-8xl">warehouse</span>
+            </div>
           </div>
           <div className="space-y-1">
             <h1 className="font-display text-5xl md:text-6xl font-bold tracking-wider uppercase">Amazon Caxias</h1>
