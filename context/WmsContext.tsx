@@ -113,7 +113,7 @@ interface WmsContextData {
     totalInventoryScanned: number;
     totalLossItems: number;
     staleItemsCount: number; // +24h items
-    weeklyStats: { name: string; entradas: number; saudas: number }[];
+    weeklyStats: { name: string; entradas: number; saidas: number }[];
     resetTransactions: () => Promise<void>;
 
     // Helpers
@@ -215,7 +215,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const [treatmentItems, setTreatmentItems] = useState<TreatmentItem[]>([]);
 
     // --- Weekly Stats State ---
-    const [weeklyStats, setWeeklyStats] = useState<{ name: string; entradas: number; saudas: number }[]>([]);
+
     // --- Local Storage Keys ---
     const STORAGE_KEYS = {
         STOCK: 'wms_stock',
@@ -262,37 +262,41 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             setInboundItems(loadLocal(STORAGE_KEYS.INBOUND_LOG));
             setOutboundItems(loadLocal(STORAGE_KEYS.OUTBOUND_LOG));
             setInventoryItems(loadLocal(STORAGE_KEYS.INVENTORY_LOG));
-            updateWeeklyStatsFromLogs();
+
         } catch (err) {
             console.error('WmsContext: Error loading local data:', err);
         }
     };
 
-    const updateWeeklyStatsFromLogs = () => {
-        const statsMap: Record<string, { name: string, entradas: number, saudas: number }> = {};
+    const weeklyStats = React.useMemo(() => {
+        const statsMap: Record<string, { name: string, entradas: number, saidas: number }> = {};
+        const today = new Date();
+
         for (let i = 6; i >= 0; i--) {
-            const d = new Date();
-            d.setDate(d.getDate() - i);
+            const d = new Date(today);
+            d.setDate(today.getDate() - i);
             const label = d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
             const dateKey = d.toLocaleDateString('pt-BR');
-            statsMap[dateKey] = { name: label.charAt(0).toUpperCase() + label.slice(1), entradas: 0, saudas: 0 };
+            statsMap[dateKey] = {
+                name: label.charAt(0).toUpperCase() + label.slice(1),
+                entradas: 0,
+                saidas: 0
+            };
         }
 
-        const inLogs = loadLocal(STORAGE_KEYS.INBOUND_LOG);
-        const outLogs = loadLocal(STORAGE_KEYS.OUTBOUND_LOG);
-
-        inLogs.forEach((log: InboundItem) => {
+        inboundItems.forEach((log: InboundItem) => {
+            if (log.error) return;
             const dateKey = log.time.split(', ')[0];
             if (statsMap[dateKey]) statsMap[dateKey].entradas++;
         });
 
-        outLogs.forEach((log: OutboundItem) => {
+        outboundItems.forEach((log: OutboundItem) => {
             const dateKey = log.time.split(', ')[0];
-            if (statsMap[dateKey]) statsMap[dateKey].saudas++;
+            if (statsMap[dateKey]) statsMap[dateKey].saidas++;
         });
 
-        setWeeklyStats(Object.values(statsMap));
-    };
+        return Object.values(statsMap);
+    }, [inboundItems, outboundItems]);
 
     useEffect(() => {
         if (!currentUser) return;

@@ -56,10 +56,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                 <Tooltip
                   contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px', color: '#fff' }}
                   itemStyle={{ color: '#087f8c' }}
-                  formatter={(value: any) => [value, 'Volume']}
+                  formatter={(value: any, name: string) => [value, name]}
                 />
                 <Bar dataKey="entradas" name="Entradas" fill="#087f8c" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="saudas" name="Saídas" fill="#f3a847" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="saidas" name="Saídas" fill="#f3a847" radius={[4, 4, 0, 0]} />
               </BarChart>
             ) : (
               <div className="h-full flex items-center justify-center text-slate-400 text-xs italic">
