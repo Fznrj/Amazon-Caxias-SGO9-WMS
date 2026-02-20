@@ -56,6 +56,7 @@ interface WmsContextData {
     addInboundItem: (item: InboundItem) => Promise<void>;
     expectedInboundList: string[];
     setExpectedInboundList: (list: string[]) => Promise<void>;
+    clearInboundManifest: () => Promise<void>;
 
     // Outbound
     outboundItems: OutboundItem[];
@@ -297,6 +298,12 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (!currentUser) return;
         loadInitialData();
     }, [currentUser]);
+
+    const clearInboundManifest = async () => {
+        _setExpectedInboundList([]);
+        const config = loadLocal(STORAGE_KEYS.CONFIG, {});
+        saveLocal(STORAGE_KEYS.CONFIG, { ...config, expected_inbound: [] });
+    };
 
     const setExpectedInboundList = async (list: string[]) => {
         _setExpectedInboundList(list);
@@ -738,7 +745,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     return (
         <WmsContext.Provider value={{
-            inboundItems, addInboundItem, expectedInboundList, setExpectedInboundList,
+            inboundItems, addInboundItem, expectedInboundList, setExpectedInboundList, clearInboundManifest,
             outboundItems, addOutboundItem, deleteOutboundItem,
             inventoryItems, addInventoryItem, isInventoryActive, startInventory, stopInventory, stockItems, possibleLossItems,
             staleStockItems,
