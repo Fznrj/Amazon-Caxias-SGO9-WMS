@@ -73,7 +73,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                 <span className={`text-3xl font-display font-bold ${kpi.label === 'Saídas Hoje' ? 'flex items-baseline gap-2 justify-end' : ''}`}>
                   {kpi.value.includes('(') ? (
                     <>
-                      <span className="text-[14px] text-red-500 font-bold mb-1">{kpi.value.split(' ')[1]}</span>
+                      <span className="text-[14px] text-red-500 font-bold mb-1 cursor-help" title="Reversa">{kpi.value.split(' ')[1]}</span>
                       <span>{kpi.value.split(' ')[0]}</span>
                     </>
                   ) : kpi.value}
