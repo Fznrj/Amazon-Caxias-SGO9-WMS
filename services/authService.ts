@@ -78,19 +78,33 @@ export const AuthService = {
         // If identifier is not an email, try to find user by name or badge using secure RPC
         if (!identifier.includes('@')) {
             console.log('AuthService: resolving identifier:', identifier);
-            const { data: resolvedEmail, error: rpcError } = await supabase
-                .rpc('get_user_email_by_identifier', { p_identifier: identifier });
+            try {
+                const { data: resolvedEmail, error: rpcError } = await supabase
+                    .rpc('get_user_email_by_identifier', { p_identifier: String(identifier).trim() });
 
-            if (rpcError) {
-                console.error('AuthService: RPC resolution error:', rpcError);
-                return { success: false, message: 'Erro ao validar identificador de usuário.' };
-            }
+                if (rpcError) {
+                    console.error('AuthService: RPC resolution error:', rpcError);
+                    // If RPC fails (e.g. 406), attempt a direct query if RLS allows (fallback)
+                    console.log('AuthService: Attempting fallback query for identifier');
+                    const { data: user } = await supabase.from('users')
+                        .select('email')
+                        .or(`name.eq."${identifier}",badge.eq."${identifier}"`)
+                        .maybeSingle();
 
-            if (resolvedEmail) {
-                console.log('AuthService: identifier resolved to:', resolvedEmail);
-                email = resolvedEmail;
-            } else {
-                return { success: false, message: 'Usuário não encontrado pelo Nome ou ID.' };
+                    if (user?.email) {
+                        email = user.email;
+                    } else {
+                        return { success: false, message: 'Identificador não reconhecido ou erro de conexão.' };
+                    }
+                } else if (resolvedEmail) {
+                    console.log('AuthService: identifier resolved to:', resolvedEmail);
+                    email = resolvedEmail;
+                } else {
+                    return { success: false, message: 'Usuário não encontrado pelo Nome ou ID.' };
+                }
+            } catch (err) {
+                console.error('AuthService: Critical error in identifier resolution:', err);
+                return { success: false, message: 'Falha crítica ao validar usuário.' };
             }
         }
 
