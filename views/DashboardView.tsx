@@ -18,12 +18,47 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
     weeklyStats
   } = useWms();
 
+  // Calculate trends comparing Today vs Yesterday
+  const yesterdayData = weeklyStats && weeklyStats.length >= 2 ? weeklyStats[weeklyStats.length - 2] : null;
+  const todayData = weeklyStats && weeklyStats.length >= 1 ? weeklyStats[weeklyStats.length - 1] : null;
+
+  const calculateTrend = (current: number, previous: number) => {
+    if (!previous || previous === 0) return current > 0 ? '+100%' : '0%';
+    const diff = ((current - previous) / previous) * 100;
+    return `${diff >= 0 ? '+' : ''}${Math.round(diff)}%`;
+  };
+
+  const totalDepartures = totalOutboundToday + (typeof (useWms() as any).totalReversaToday === 'number' ? (useWms() as any).totalReversaToday : 0);
+  const totalReversa = (useWms() as any).totalReversaToday || 0;
+
   const kpis = [
-    { label: 'Total em Estoque', value: stockItems.filter(i => i.status === 'Em Estoque').length.toString(), icon: 'view_in_ar', color: 'primary', trend: '0%' },
-    { label: 'Entradas Hoje', value: totalInboundToday.toString(), icon: 'arrow_upward', color: 'green-500', trend: '0%' },
-    { label: 'Saídas Hoje', value: totalOutboundToday.toString(), icon: 'arrow_downward', color: 'orange-500', trend: '0%' },
-    { label: 'Parados +1 Dia', value: staleItemsCount.toString(), icon: 'schedule', color: 'yellow-600', trend: '0' },
-    { label: 'Possíveis Perdas', value: stockItems.filter(i => i.status === 'Possível Perda').length.toString(), icon: 'warning', color: 'red-500', trend: '0' },
+    {
+      label: 'Total em Estoque',
+      value: stockItems.filter(i => i.status === 'Em Estoque').length.toString(),
+      icon: 'view_in_ar',
+      color: 'primary',
+      trend: calculateTrend(
+        stockItems.filter(i => i.status === 'Em Estoque').length,
+        // Estimation: current stock - (today's net change) = yesterday's stock
+        stockItems.filter(i => i.status === 'Em Estoque').length - ((todayData?.entradas || 0) - (todayData?.saidas || 0))
+      )
+    },
+    {
+      label: 'Entradas Hoje',
+      value: totalInboundToday.toString(),
+      icon: 'arrow_upward',
+      color: 'green-500',
+      trend: calculateTrend(totalInboundToday, yesterdayData?.entradas || 0)
+    },
+    {
+      label: 'Saídas Hoje',
+      value: `${totalDepartures}${totalReversa > 0 ? ` (${totalReversa})` : ''}`,
+      icon: 'arrow_downward',
+      color: 'orange-500',
+      trend: calculateTrend(totalDepartures, (yesterdayData?.saidas || 0))
+    },
+    { label: 'Parados +1 Dia', value: staleItemsCount.toString(), icon: 'schedule', color: 'yellow-600', trend: 'Audit' },
+    { label: 'Possíveis Perdas', value: stockItems.filter(i => i.status === 'Possível Perda').length.toString(), icon: 'warning', color: 'red-500', trend: 'Audit' },
     { label: 'Perdas / Extravios', value: totalLossItems.toString(), icon: 'cancel', color: 'black', trend: 'Permanente' },
   ];
 
@@ -35,8 +70,17 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             <div className="flex justify-between items-start">
               <span className={`material-icons-round text-${kpi.color} opacity-80`}>{kpi.icon}</span>
               <div className="text-right">
-                <span className="text-3xl font-display font-bold">{kpi.value}</span>
-                <p className="text-[10px] text-green-500 font-bold">{kpi.trend}</p>
+                <span className={`text-3xl font-display font-bold ${kpi.label === 'Saídas Hoje' ? 'flex items-baseline gap-2 justify-end' : ''}`}>
+                  {kpi.value.includes('(') ? (
+                    <>
+                      <span className="text-[14px] text-red-500 font-bold mb-1">{kpi.value.split(' ')[1]}</span>
+                      <span>{kpi.value.split(' ')[0]}</span>
+                    </>
+                  ) : kpi.value}
+                </span>
+                <p className={`text-[10px] font-bold ${kpi.trend.startsWith('+') ? 'text-green-500' : kpi.trend.startsWith('-') ? 'text-red-500' : 'text-slate-400'}`}>
+                  {kpi.trend}
+                </p>
               </div>
             </div>
             <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">{kpi.label}</span>
