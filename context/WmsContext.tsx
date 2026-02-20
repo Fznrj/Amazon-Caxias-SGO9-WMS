@@ -245,7 +245,16 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 // 2. Fetch Drivers
                 const { data: driversData, error: driversError } = await supabase.from('drivers').select('*');
                 if (driversError) console.error('WmsContext: Error fetching drivers', driversError);
-                if (driversData) setDrivers(driversData as Driver[]);
+                if (driversData) setDrivers(driversData.map(d => ({
+                    id: d.id,
+                    name: d.name,
+                    cpf: d.cpf,
+                    plate: d.plate,
+                    company: d.company_id,
+                    status: d.status,
+                    vehicleProfile: d.vehicle || 'Moto',
+                    lastActivity: d.last_activity
+                })));
 
                 // 3. Fetch Treatments
                 const { data: treatmentsData, error: trtError } = await supabase.from('incidents').select('*');
@@ -406,20 +415,29 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 if (exists) {
                     return prev.map(s => s.id === item.id ? {
                         ...s,
-                        entryTime: now, // ISO string
+                        entryTime: now,
                         operator: item.operator,
                         status: 'Em Estoque'
                     } : s);
                 } else {
                     return [...prev, {
                         id: item.id,
-                        entryTime: now, // ISO string
+                        entryTime: now,
                         operator: item.operator,
                         status: 'Em Estoque'
                     }];
                 }
             });
             setPossibleLossItems(prev => prev.filter(p => p.id !== item.id));
+
+            // Gamification scan registration
+            try {
+                const { gamificationService } = await import('../services/gamificationService');
+                await gamificationService.registerScan(currentUser!.id, currentUser!.name);
+            } catch (gErr) {
+                console.error('Inbound Gamification Error:', gErr);
+            }
+
             playAudio('success');
         } else {
             playAudio('error');
@@ -450,6 +468,15 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 stock.id === item.id ? { ...stock, status: 'Saiu' } : stock
             ));
             setPossibleLossItems(prev => prev.filter(loss => loss.id !== item.id));
+
+            // Gamification scan registration
+            try {
+                const { gamificationService } = await import('../services/gamificationService');
+                await gamificationService.registerScan(currentUser!.id, currentUser!.name);
+            } catch (gErr) {
+                console.error('Outbound Gamification Error:', gErr);
+            }
+
             playAudio('success');
         } catch (e) {
             console.error('WmsContext: Outbound fatal error', e);
@@ -476,6 +503,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
 
     const addDriver = async (driverData: Omit<Driver, 'id' | 'lastActivity'>) => {
+        const nowStr = new Date().toLocaleString('pt-BR');
         const { data, error } = await supabase.from('drivers').insert({
             name: driverData.name,
             cpf: driverData.cpf,
@@ -483,11 +511,24 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             vehicle: driverData.vehicleProfile,
             status: driverData.status,
             company_id: currentUser?.company_id,
-            last_activity: new Date().toLocaleString('pt-BR')
+            last_activity: nowStr
         }).select().single();
 
-        if (data) {
-            setDrivers(prev => [...prev, data as any as Driver]);
+        if (data && !error) {
+            setDrivers(prev => [...prev, {
+                id: data.id,
+                name: data.name,
+                cpf: data.cpf,
+                plate: data.plate,
+                company: data.company_id,
+                status: data.status,
+                vehicleProfile: data.vehicle,
+                lastActivity: data.last_activity
+            }]);
+            playAudio('success');
+        } else {
+            console.error('WmsContext: Error adding driver', error);
+            playAudio('error');
         }
     };
 
@@ -502,9 +543,22 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             last_activity: new Date().toLocaleString('pt-BR')
         }));
 
-        const { data } = await supabase.from('drivers').insert(newDrivers).select();
-        if (data) {
-            setDrivers(prev => [...prev, ...data as any as Driver[]]);
+        const { data, error } = await supabase.from('drivers').insert(newDrivers).select();
+        if (data && !error) {
+            setDrivers(prev => [...prev, ...data.map(d => ({
+                id: d.id,
+                name: d.name,
+                cpf: d.cpf,
+                plate: d.plate,
+                company: d.company_id,
+                status: d.status,
+                vehicleProfile: d.vehicle,
+                lastActivity: d.last_activity
+            }))]);
+            playAudio('success');
+        } else {
+            console.error('WmsContext: Bulk add drivers error', error);
+            playAudio('error');
         }
     };
 
@@ -705,9 +759,20 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
 
     const logout = async () => {
-        await AuthService.logout();
-        setCurrentUser(null);
-        _setCurrentView(View.LOGIN);
+        try {
+            await AuthService.logout();
+        } finally {
+            setCurrentUser(null);
+            setInboundItems([]);
+            setOutboundItems([]);
+            setStockItems([]);
+            setInventoryItems([]);
+            setDrivers([]);
+            setTreatmentItems([]);
+            setUsers([]);
+            _setCurrentView(View.LOGIN);
+            localStorage.removeItem('wms_active_view');
+        }
     };
 
     const register = async (name: string, email: string, password: string, companyId: string, customId?: string) => {
