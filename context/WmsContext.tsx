@@ -237,13 +237,15 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             console.log('WmsContext: Fetching initial data for user', currentUser.id);
 
             try {
+                const cid = currentUser.company_id;
+
                 // 1. Fetch Expected List
-                const { data: config, error: configError } = await supabase.from('system_config').select('value').eq('key', 'expected_inbound').single();
+                const { data: config, error: configError } = await supabase.from('system_config').select('value').eq('key', 'expected_inbound').eq('company_id', cid).single();
                 if (configError && configError.code !== 'PGRST116') console.warn('WmsContext: Error fetching config', configError);
                 if (config) _setExpectedInboundList(config.value as string[]);
 
                 // 2. Fetch Drivers
-                const { data: driversData, error: driversError } = await supabase.from('drivers').select('*');
+                const { data: driversData, error: driversError } = await supabase.from('drivers').select('*').eq('company_id', cid);
                 if (driversError) console.error('WmsContext: Error fetching drivers', driversError);
                 if (driversData) setDrivers(driversData.map(d => ({
                     id: d.id,
@@ -257,7 +259,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 })));
 
                 // 3. Fetch Treatments
-                const { data: treatmentsData, error: trtError } = await supabase.from('incidents').select('*');
+                const { data: treatmentsData, error: trtError } = await supabase.from('incidents').select('*').eq('company_id', cid);
                 if (trtError) console.error('WmsContext: Error fetching incidents', trtError);
                 if (treatmentsData) setTreatmentItems(treatmentsData.map(t => ({
                     id: t.id,
@@ -270,12 +272,12 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 })));
 
                 // 4. Fetch Stock
-                const { data: stockData, error: stockError } = await supabase.from('stock').select('*');
+                const { data: stockData, error: stockError } = await supabase.from('stock').select('*').eq('company_id', cid);
                 if (stockError) console.error('WmsContext: Error fetching stock', stockError);
                 if (stockData) {
                     const mappedStock = stockData.map(s => ({
                         id: s.id,
-                        entryTime: s.entry_time, // Keep as ISO string in state for easier parsing
+                        entryTime: s.entry_time,
                         operator: s.operator,
                         status: s.status as StockItem['status'],
                         lossDetectedTime: s.loss_detected_time
@@ -285,7 +287,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 }
 
                 // 5. Fetch logs (limiting to recent)
-                const { data: inboundLogs, error: inLogErr } = await supabase.from('inbound_log').select('*').order('time', { ascending: false }).limit(200);
+                const { data: inboundLogs, error: inLogErr } = await supabase.from('inbound_log').select('*').eq('company_id', cid).order('time', { ascending: false }).limit(200);
                 if (inLogErr) console.error('WmsContext: Error fetching inbound logs', inLogErr);
                 if (inboundLogs) setInboundItems(inboundLogs.map(l => ({
                     id: l.tbr_id,
@@ -295,7 +297,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     error: l.error
                 })));
 
-                const { data: outboundLogs, error: outLogErr } = await supabase.from('outbound_log').select('*').order('time', { ascending: false }).limit(200);
+                const { data: outboundLogs, error: outLogErr } = await supabase.from('outbound_log').select('*').eq('company_id', cid).order('time', { ascending: false }).limit(200);
                 if (outLogErr) console.error('WmsContext: Error fetching outbound logs', outLogErr);
                 if (outboundLogs) setOutboundItems(outboundLogs.map(l => ({
                     id: l.tbr_id,
@@ -307,24 +309,30 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 })));
 
                 // 6. Aggregate Weekly Stats
-                const days = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
                 const statsMap: Record<string, { name: string, entradas: number, saudas: number }> = {};
+
+                // Initialize map with last 7 days
+                for (let i = 6; i >= 0; i--) {
+                    const d = new Date();
+                    d.setDate(d.getDate() - i);
+                    const label = d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
+                    const dateKey = d.toLocaleDateString('pt-BR');
+                    statsMap[dateKey] = { name: label.charAt(0).toUpperCase() + label.slice(1), entradas: 0, saudas: 0 };
+                }
 
                 const sevenDaysAgo = new Date();
                 sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-                if (!currentUser) return;
 
                 const { data: recentInbound } = await supabase.from('inbound_log')
                     .select('time')
                     .gte('time', sevenDaysAgo.toISOString())
                     .eq('error', false)
-                    .eq('company_id', currentUser.company_id);
+                    .eq('company_id', cid);
 
                 const { data: recentOutbound } = await supabase.from('outbound_log')
                     .select('time')
                     .gte('time', sevenDaysAgo.toISOString())
-                    .eq('company_id', currentUser.company_id);
+                    .eq('company_id', cid);
 
                 recentInbound?.forEach(log => {
                     const dateKey = new Date(log.time).toLocaleDateString('pt-BR');
@@ -887,9 +895,39 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
 
     // --- Stats ---
-    const totalInboundToday = new Set(inboundItems.filter(item => !item.error).map(item => item.id)).size;
-    const totalOutboundToday = new Set(outboundItems.filter(item => item.status === 'Saiu com Motorista').map(item => item.id)).size;
-    const totalReversaToday = new Set(outboundItems.filter(item => item.status === 'Reversa - Saiu com Motorista').map(item => item.id)).size;
+    const getTodayRange = () => {
+        const start = new Date();
+        start.setHours(0, 0, 0, 0);
+        const end = new Date();
+        end.setHours(23, 59, 59, 999);
+        return { start, end };
+    };
+
+    const isToday = (timeStr: string) => {
+        if (!timeStr) return false;
+        try {
+            // Support both ISO and Locale string (Locale string often has ', ' separator)
+            const dateStr = timeStr.includes('T') ? timeStr : timeStr.split(', ')[0];
+            const itemDate = new Date(timeStr.includes('T') ? timeStr : dateStr.split('/').reverse().join('-'));
+            const today = new Date();
+            return itemDate.getDate() === today.getDate() &&
+                itemDate.getMonth() === today.getMonth() &&
+                itemDate.getFullYear() === today.getFullYear();
+        } catch (e) {
+            return false;
+        }
+    };
+
+    const totalInboundToday = inboundItems.filter(item => !item.error && isToday(item.time)).length;
+
+    const totalOutboundToday = outboundItems.filter(item =>
+        item.status === 'Saiu com Motorista' && isToday(item.time)
+    ).length;
+
+    const totalReversaToday = outboundItems.filter(item =>
+        item.status === 'Reversa - Saiu com Motorista' && isToday(item.time)
+    ).length;
+
     const totalInventoryScanned = inventoryItems.length;
     const totalLossItems = stockItems.filter(s => s.status === 'Perda').length;
 
@@ -897,7 +935,6 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (item.status !== 'Em Estoque') return false;
         try {
             const now = new Date().getTime();
-            // entryTime is now kept as ISO string in the state for robustness
             const entryDate = new Date(item.entryTime).getTime();
             if (isNaN(entryDate)) return false;
             return (now - entryDate) / (1000 * 60 * 60) > 24;
