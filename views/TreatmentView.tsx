@@ -28,13 +28,14 @@ const TreatmentView: React.FC = () => {
 
   // 1. Calculate items stuck for more than 24 hours with display info
   const parados = staleStockItems.map(item => {
-    const [datePart, timePart] = item.entryTime.split(', ');
-    const [day, month, year] = datePart.split('/');
-    const entryDate = new Date(`${year}-${month}-${day}T${timePart}`).getTime();
-
-    const hours = (now - entryDate) / (1000 * 60 * 60);
-    const percent = Math.min(100, Math.round((hours / 72) * 100));
-    return { ...item, percent, timeRem: `${Math.max(0, Math.round(72 - hours))}h restantes` };
+    try {
+      const entryDate = new Date(item.entryTime).getTime();
+      const hours = (now - entryDate) / (1000 * 60 * 60);
+      const percent = Math.min(100, Math.round((hours / 72) * 100));
+      return { ...item, percent, timeRem: `${Math.max(0, Math.round(72 - hours))}h restantes` };
+    } catch (e) {
+      return { ...item, percent: 0, timeRem: 'Erro de data' };
+    }
   });
 
   const handleLogIncident = async (e: React.FormEvent) => {
@@ -82,23 +83,35 @@ const TreatmentView: React.FC = () => {
     <div className="space-y-8">
       {/* Header Cards ... (keep as is) ... */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white dark:bg-card-dark p-6 rounded-xl border-l-4 border-primary shadow-sm">
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Incidentes Abertos</p>
-          <h3 className="text-3xl font-display font-bold text-slate-800 dark:text-white">
-            {treatmentItems.filter(t => t.status !== 'Resolvido').length}
-          </h3>
+        <div className="bg-white dark:bg-card-dark p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all hover:scale-[1.02]">
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 opacity-70">Incidentes Abertos</p>
+          <div className="flex items-baseline gap-2">
+            <h3 className="text-3xl font-display font-bold text-slate-800 dark:text-white">
+              {treatmentItems.filter(t => t.status !== 'Resolvido').length}
+            </h3>
+            <span className="text-[10px] font-bold text-slate-400">UNID</span>
+          </div>
         </div>
-        <div className="bg-white dark:bg-card-dark p-6 rounded-xl border-l-4 border-secondary shadow-sm">
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Parados +1 Dia</p>
-          <h3 className="text-3xl font-display font-bold text-secondary">{parados.length}</h3>
+        <div className="bg-white dark:bg-card-dark p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all hover:scale-[1.02]">
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 opacity-70">Parados +1 Dia</p>
+          <div className="flex items-baseline gap-2">
+            <h3 className="text-3xl font-display font-bold text-secondary">{parados.length}</h3>
+            <span className="text-[10px] font-bold text-secondary/60">ALERTA</span>
+          </div>
         </div>
-        <div className="bg-white dark:bg-card-dark p-6 rounded-xl border-l-4 border-red-500 shadow-sm">
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Possíveis Perdas</p>
-          <h3 className="text-3xl font-display font-bold text-red-500">{possibleLossItems.length}</h3>
+        <div className="bg-white dark:bg-card-dark p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all hover:scale-[1.02]">
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 opacity-70">Possíveis Perdas</p>
+          <div className="flex items-baseline gap-2">
+            <h3 className="text-3xl font-display font-bold text-red-500">{possibleLossItems.length}</h3>
+            <span className="text-[10px] font-bold text-red-500/60">CRÍTICO</span>
+          </div>
         </div>
-        <div className="bg-white dark:bg-card-dark p-6 rounded-xl border-l-4 border-black shadow-sm">
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Perdas / Extravios</p>
-          <h3 className="text-3xl font-display font-bold text-black dark:text-white">{totalLossItems}</h3>
+        <div className="bg-white dark:bg-card-dark p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all hover:scale-[1.02]">
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 opacity-70">Perdas / Extravios</p>
+          <div className="flex items-baseline gap-2">
+            <h3 className="text-3xl font-display font-bold text-black dark:text-white">{totalLossItems}</h3>
+            <span className="text-[10px] font-bold text-slate-400">TOTAL</span>
+          </div>
         </div>
       </div>
 
