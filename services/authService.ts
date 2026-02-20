@@ -159,6 +159,9 @@ export const AuthService = {
             .from('users')
             .update(updates)
             .eq('id', userId);
+
+        // Note: Updating auth metadata for OTHER users requires a Service Role or Edge Function.
+        // For now, RLS will fall back to (auth.uid() = id) which is non-recursive.
     },
 
     updateUser: async (originalId: string, updates: Partial<User>): Promise<{ success: boolean; message: string }> => {

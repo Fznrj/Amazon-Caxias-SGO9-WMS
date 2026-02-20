@@ -229,9 +229,6 @@ export default function ReversaView() {
                                 <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">TBRs Scanned</p>
                                 <p className="text-4xl font-black text-primary">{scannedItems.length}</p>
                             </div>
-                            <div className="bg-primary/10 p-3 rounded-full">
-                                <span className="material-icons-round text-primary text-2xl">barcode_reader</span>
-                            </div>
                         </div>
                     </div>
                 </div>

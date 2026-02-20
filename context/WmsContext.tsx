@@ -35,6 +35,7 @@ interface StockItem {
     operator: string;
     status: 'Em Estoque' | 'Saiu' | 'Possível Perda' | 'Perda';
     lossDetectedTime?: string; // ISO string when it was marked as missing
+    localizedBy?: string;      // Who found it
 }
 
 interface TreatmentItem {
@@ -516,6 +517,34 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             }
         }
 
+        // Check if the item is already in stock and if the scannerInput is a valid rack location
+        // For now, we assume scannerInput is the rack location if it's not the item ID itself.
+        // If scannerInput is the item ID, it means we are just confirming its presence.
+        if (item && item.status === 'Em Estoque' && id !== scannerInput) {
+            // If the item is already in stock and the scanner input is different,
+            // it means we are re-allocating it to a new rack.
+            const updated = stockItems.map(s => s.id === id ? { ...s, rackLocation: scannerInput } : s);
+            setStockItems(updated);
+            saveLocal(STORAGE_KEYS.STOCK, updated);
+            playAudio('success');
+            return { success: true, message: `Item ${id} realocado para o rack ${scannerInput}.` };
+        }
+
+        // If the item is not in stock or is a possible loss, we are localizing it.
+        if (item) {
+            // Se o item estava como "Possível Perda", atualizamos para "Em Estoque" e logamos quem achou
+            if (item.status === 'Possível Perda') {
+                item.localizedBy = currentUser?.name || 'Sistema';
+            }
+            item.status = 'Em Estoque';
+            item.entryTime = new Date().toISOString();
+            item.operator = currentUser?.name || 'Sistema'; // O atual operador assume o item
+            setStockItems([...stockItems]);
+            playAudio('success');
+            return { success: true, message: `Item ${id} localizado e re-alocado no rack ${scannerInput}.` };
+        }
+
+
         if (currentUser) {
             await gamificationService.registerScan(currentUser.id, currentUser.name);
         }
@@ -597,28 +626,6 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         };
         loadUsers();
     }, [currentUser]); // Refresh users when admin logs in
-
-    useEffect(() => {
-        // Escuta mudanças de autenticação (como redirecionamento de confirmação de email)
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-            console.log('Auth event:', event);
-
-            // Se o usuário clicou no link de confirmação, o Supabase loga ele.
-            // O usuário quer que ele caia na tela de LOGIN, não logado direto.
-            // Além disso, se não temos a sessão no LocalStorage, deslogamos para sincronizar.
-            if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
-                const localUser = AuthService.getCurrentUser();
-                if (!localUser && session?.user) {
-                    // Clicou no link de confirmação e foi logado automaticamente sem passar pelo nosso login
-                    // Deslogamos para forçar ele a ir para o Login e ativar o reset de senha
-                    await AuthService.logout();
-                    setCurrentUser(null);
-                }
-            }
-        });
-
-        return () => subscription.unsubscribe();
-    }, []);
 
     const login = async (identifier: string, password: string) => {
         console.log('WmsContext: login attempt for', identifier);

@@ -12,9 +12,31 @@ const GamificationView: React.FC = () => {
     const { currentUser, inboundItems, outboundItems, inventoryItems } = useWms();
 
     // --- Aggregate data per operator ---
-    interface OperatorStats { scans: number; errors: number; dailyScans: Record<string, number>; dailyErrors: Record<string, number> }
+    interface OperatorStats {
+        scans: number;
+        errors: number;
+        dailyScans: Record<string, number>;
+        dailyErrors: Record<string, number>;
+        uniqueDays: Set<string>;
+        inventoryDays: Set<string>;
+        treatmentCount: number;
+        localizedCount: number;
+        incidentsCount: number;
+        driversExpedited: Set<string>;
+        reversaPallets: Set<string>;
+        dailyActivities: Record<string, Set<string>>;
+    }
+    const { treatmentItems, stockItems } = useWms(); // Add missing deps
     const operatorData: Map<string, OperatorStats> = React.useMemo(() => {
         const map = new Map<string, OperatorStats>();
+
+        const getEmptyStats = (): OperatorStats => ({
+            scans: 0, errors: 0, dailyScans: {}, dailyErrors: {},
+            uniqueDays: new Set(), inventoryDays: new Set(),
+            treatmentCount: 0, localizedCount: 0, incidentsCount: 0,
+            driversExpedited: new Set(), reversaPallets: new Set(),
+            dailyActivities: {}
+        });
 
         const todayStr = new Date().toISOString().split('T')[0];
 
@@ -30,9 +52,13 @@ const GamificationView: React.FC = () => {
 
         inboundItems.forEach(item => {
             const op = item.operator;
-            if (!map.has(op)) map.set(op, { scans: 0, errors: 0, dailyScans: {}, dailyErrors: {} });
+            if (!map.has(op)) map.set(op, getEmptyStats());
             const data = map.get(op)!;
             const dateKey = getDateKey(item.time);
+            data.uniqueDays.add(dateKey);
+            if (!data.dailyActivities[dateKey]) data.dailyActivities[dateKey] = new Set();
+            data.dailyActivities[dateKey].add('ENTRADA');
+
             if (item.error) {
                 data.errors++;
                 data.dailyErrors[dateKey] = (data.dailyErrors[dateKey] || 0) + 1;
@@ -44,24 +70,54 @@ const GamificationView: React.FC = () => {
 
         outboundItems.forEach(item => {
             const op = item.operator;
-            if (!map.has(op)) map.set(op, { scans: 0, errors: 0, dailyScans: {}, dailyErrors: {} });
+            if (!map.has(op)) map.set(op, getEmptyStats());
             const data = map.get(op)!;
             const dateKey = getDateKey(item.time);
+            data.uniqueDays.add(dateKey);
             data.scans++;
             data.dailyScans[dateKey] = (data.dailyScans[dateKey] || 0) + 1;
+            data.driversExpedited.add(item.driverName);
+            if (item.status === 'Reversa - Saiu com Motorista') {
+                data.reversaPallets.add(item.id); // Assuming item.id is part of a pallet
+            }
+
+            if (!data.dailyActivities[dateKey]) data.dailyActivities[dateKey] = new Set();
+            data.dailyActivities[dateKey].add('SAIDA');
         });
 
         inventoryItems.forEach(item => {
             const op = item.operator;
-            if (!map.has(op)) map.set(op, { scans: 0, errors: 0, dailyScans: {}, dailyErrors: {} });
+            if (!map.has(op)) map.set(op, getEmptyStats());
             const data = map.get(op)!;
             const dateKey = getDateKey(item.time);
+            data.uniqueDays.add(dateKey);
+            data.inventoryDays.add(dateKey);
             data.scans++;
             data.dailyScans[dateKey] = (data.dailyScans[dateKey] || 0) + 1;
+
+            if (!data.dailyActivities[dateKey]) data.dailyActivities[dateKey] = new Set();
+            data.dailyActivities[dateKey].add('INVENTARIO');
+        });
+
+        treatmentItems.forEach(item => {
+            const op = item.operator;
+            if (!map.has(op)) map.set(op, getEmptyStats());
+            const data = map.get(op)!;
+            data.treatmentCount++;
+            data.incidentsCount++;
+        });
+
+        stockItems.forEach(item => {
+            if (item.localizedBy) {
+                const op = item.localizedBy;
+                if (!map.has(op)) map.set(op, getEmptyStats());
+                const data = map.get(op)!;
+                data.localizedCount++;
+            }
         });
 
         return map;
-    }, [inboundItems, outboundItems, inventoryItems]);
+    }, [inboundItems, outboundItems, inventoryItems, treatmentItems, stockItems]);
 
     const [ranking, setRanking] = React.useState<GamificationProfile[]>([]);
     const [loadingRanking, setLoadingRanking] = React.useState(true);
@@ -94,6 +150,10 @@ const GamificationView: React.FC = () => {
                     ? Math.round(dayKeys.reduce((sum, d) => sum + ((data.dailyScans[d] || 0) / DAILY_GOAL) * 100, 0) / dayKeys.length)
                     : 0;
 
+                const mixedDays = Object.values(data.dailyActivities).filter(acts =>
+                    acts.has('ENTRADA') && acts.has('SAIDA') && acts.has('INVENTARIO')
+                ).length;
+
                 const profile = await gamificationService.recalculate(
                     operatorName,
                     operatorName,
@@ -107,6 +167,16 @@ const GamificationView: React.FC = () => {
                     consecutive,
                     zeroErrorDays,
                     avgMeta,
+                    {
+                        inventoryParticipations: data.inventoryDays.size,
+                        activeDays: data.uniqueDays.size,
+                        treatmentsDone: data.treatmentCount,
+                        localizedItems: data.localizedCount,
+                        driverExpeditions: data.driversExpedited.size,
+                        mixedActivityDays: mixedDays,
+                        incidentsLogged: data.incidentsCount,
+                        reversaPallets: data.reversaPallets.size
+                    }
                 );
                 profiles.push(profile);
             }

@@ -76,6 +76,17 @@ const DEFAULT_ACHIEVEMENTS: Achievement[] = [
     { id: 'zero_errors_30', title: 'Perfeição', description: '0 erros por 30 dias', icon: 'auto_awesome', unlocked: false },
     { id: 'top3_weekly', title: 'Pódio Semanal', description: 'Top 3 no ranking do período', icon: 'military_tech', unlocked: false },
     { id: 'avg_110', title: 'Superação', description: '110% meta média no mês', icon: 'speed', unlocked: false },
+    // Novas Conquistas
+    { id: 'dr_inventario', title: 'Doutor Inventário', description: 'Participar de 12 inventários cíclicos', icon: 'fact_check', unlocked: false },
+    { id: 'participacao_ativa', title: 'Participação Ativa', description: 'Bipar pacotes 24 dias no mês', icon: 'calendar_month', unlocked: false },
+    { id: 'protetor_pacotes', title: 'Protetor de Pacotes', description: '50 tratativas no mês', icon: 'verified_user', unlocked: false },
+    { id: 'investigador', title: 'O Investigador', description: 'Achar 50 possíveis perdas no mês', icon: 'manage_search', unlocked: false },
+    { id: 'expedidor_mestre', title: 'Expedidor Mestre', description: 'Expedir 120 motoristas no mês', icon: 'local_shipping', unlocked: false },
+    { id: 'scanner_lendario', title: 'Scanner Lendário', description: '10.000 scans no mês', icon: 'stars', unlocked: false },
+    { id: 'proativo', title: 'O Proativo', description: '20 dias com Entrada+Saída+Inventário', icon: 'bolt', unlocked: false },
+    { id: 'mestre_ps', title: 'Mestre do PS', description: '100 incidentes registrados no mês', icon: 'assignment_late', unlocked: false },
+    { id: 'mestre_reversa', title: 'Mestre da Reversa', description: 'Expedir 20 pallets de reversa no mês', icon: 'sync_alt', unlocked: false },
+    { id: 'incansavel', title: 'O Incansável', description: '30.000 scans no mês', icon: 'battery_full', unlocked: false },
 ];
 
 const STORAGE_KEY = 'wms_gamification_profiles';
@@ -197,6 +208,16 @@ export class GamificationService {
         consecutiveDays: number,
         zeroErrorDays: number,
         avgMetaPercent: number,
+        extraMetrics?: {
+            inventoryParticipations: number;
+            activeDays: number;
+            treatmentsDone: number;
+            localizedItems: number;
+            driverExpeditions: number;
+            mixedActivityDays: number;
+            incidentsLogged: number;
+            reversaPallets: number;
+        }
     ): Promise<GamificationProfile> {
         const profile = this.ensureProfile(userId, userName);
 
@@ -221,7 +242,15 @@ export class GamificationService {
         }
         profile.currentLevel = level.name;
 
-        await this.checkAchievements(profile, monthlyTotalScans, consecutiveDays, zeroErrorDays, isTop3Weekly, avgMetaPercent);
+        await this.checkAchievements(
+            profile,
+            monthlyTotalScans,
+            consecutiveDays,
+            zeroErrorDays,
+            isTop3Weekly,
+            avgMetaPercent,
+            extraMetrics
+        );
 
         if (profile.fraudFlag) {
             profile.xpMonthly = Math.round(profile.xpMonthly * 0.8);
@@ -252,13 +281,22 @@ export class GamificationService {
         zeroErrorDays: number,
         isTop3Weekly: boolean,
         avgMetaPercent: number,
+        extra?: {
+            inventoryParticipations: number;
+            activeDays: number;
+            treatmentsDone: number;
+            localizedItems: number;
+            driverExpeditions: number;
+            mixedActivityDays: number;
+            incidentsLogged: number;
+            reversaPallets: number;
+        }
     ): Promise<void> {
         const unlock = async (id: string) => {
             const badge = profile.badges.find(b => b.id === id);
             if (badge && !badge.unlocked) {
                 badge.unlocked = true;
                 badge.unlockedAt = new Date().toISOString();
-                // Persist achievements within profile save
             }
         };
 
@@ -267,6 +305,20 @@ export class GamificationService {
         if (zeroErrorDays >= 30) await unlock('zero_errors_30');
         if (isTop3Weekly) await unlock('top3_weekly');
         if (avgMetaPercent >= 110) await unlock('avg_110');
+
+        // Novas Conquistas
+        if (extra) {
+            if (extra.inventoryParticipations >= 12) await unlock('dr_inventario');
+            if (extra.activeDays >= 24) await unlock('participacao_ativa');
+            if (extra.treatmentsDone >= 50) await unlock('protetor_pacotes');
+            if (extra.localizedItems >= 50) await unlock('investigador');
+            if (extra.driverExpeditions >= 120) await unlock('expedidor_mestre');
+            if (monthlyScans >= 10000) await unlock('scanner_lendario');
+            if (extra.mixedActivityDays >= 20) await unlock('proativo');
+            if (extra.incidentsLogged >= 100) await unlock('mestre_ps');
+            if (extra.reversaPallets >= 20) await unlock('mestre_reversa');
+            if (monthlyScans >= 30000) await unlock('incansavel');
+        }
     }
 
     // ========================
