@@ -1,69 +1,73 @@
 import React from 'react';
 
-const DeLunaLogo: React.FC<{ className?: string }> = ({ className = "h-auto" }) => {
+const DeLunaLogo: React.FC<{ className?: string }> = ({ className = "w-full max-w-[280px]" }) => {
     return (
-        <div className={`flex flex-col items-center ${className} select-none`}>
-            {/* 4 Interlocking Puzzle Pieces SVG */}
+        <div className={`flex flex-col items-center justify-center ${className} select-none`}>
+            {/* 4 Interlocking Puzzle Pieces SVG - High Quality Vector Re-creation */}
             <svg
-                width="120"
-                height="80"
-                viewBox="0 0 120 80"
-                fill="none"
+                width="100"
+                height="100"
+                viewBox="0 0 100 100"
+                fill="white"
                 xmlns="http://www.w3.org/2000/svg"
-                className="mb-2"
+                className="mb-4 drop-shadow-lg"
             >
-                {/* Piece 1 (Top Left) */}
-                <g opacity="1">
-                    <path
-                        d="M35 5 H50 A3 3 0 0 1 53 8 V12 A4 4 0 0 0 57 16 A4 4 0 0 0 61 12 V8 A3 3 0 0 1 64 5 H75 A3 3 0 0 1 78 8 V20 A4 4 0 0 1 74 24 A4 4 0 0 1 70 20 V16 A4 4 0 0 0 66 12 H62 V16 A8 8 0 0 1 54 24 A8 8 0 0 1 46 16 V12 H42 V16 A4 4 0 0 0 38 20 V30 H35 A3 3 0 0 1 32 27 V8 A3 3 0 0 1 35 5 Z"
-                        fill="white"
-                    />
-                </g>
+                {/* Piece 1: Top Left */}
+                <path d="M20 20 h25 a5 5 0 0 1 5 5 v2 a5 5 0 0 0 10 0 v-2 a5 5 0 0 1 5 -5 h5 v25 h-5 a5 5 0 0 0 0 10 h5 v5 h-25 a5 5 0 0 1 -5 -5 v-2 a5 5 0 0 0 -10 0 v 2 a5 5 0 0 1 -5 5 h-5 v-25 h5 a5 5 0 0 0 0 -10 h-5 z" transform="translate(-2, -2)" opacity="0.95" />
 
-                {/* Simple and clean representation of 4 puzzle pieces based on the actual logo */}
-                {/* Using a 2x2 grid of pieces with circular tabs/blanks */}
-                <g transform="translate(30, 0)">
-                    {/* Top Left Piece */}
-                    <path d="M10 10 h15 a5 5 0 0 1 5 5 v2 a5 5 0 0 0 10 0 v-2 a5 5 0 0 1 5 -5 h15 v20 h-5 a5 5 0 0 0 0 10 h5 v15 h-20 v-5 a5 5 0 0 0 -10 0 v 5 h-15 v-20 h5 a5 5 0 0 0 0 -10 h-5 z" fill="white" />
+                {/* Simplified professional look: 4 distinct pieces that interlock */}
+                <g transform="translate(10, 10)">
+                    {/* Piece 1 (Top Left) */}
+                    <path d="M0 0 h30 a5 5 0 0 1 5 5 v2 a5 5 0 0 0 10 0 v-2 a5 5 0 0 1 5 -5 h30 v30 h-5 a5 5 0 0 0 0 10 h5 v30 h-30 v-5 a5 5 0 0 0 -10 0 v 5 h-30 v-30 h5 a5 5 0 0 0 0 -10 h-5 z" fill="none" />
 
-                    {/* Re-implementing Piece by Piece for clarity */}
-                    {/* Piece 1: Top Left */}
-                    <path d="M5 5 h18 a4 4 0 0 1 4 4 v2 a4 4 0 0 0 8 0 v-2 a4 4 0 0 1 4 -4 h16 v22 a4 4 0 0 1 -4 4 h-2 a4 4 0 0 0 0 8 h2 a4 4 0 0 1 4 4 v18 h-18 a4 4 0 0 1 -4 -4 v-2 a4 4 0 0 0 -8 0 v 2 a4 4 0 0 1 -4 4 h-16 v-22 a4 4 0 0 1 4 -4 h2 a4 4 0 0 0 0 -8 h-2 a4 4 0 0 1 -4 -4 v-18 z" fill="white" />
-                </g>
-
-                {/* Let's use a much simpler, cleaner version that is guaranteed to look good */}
-                <g transform="translate(35, 5)">
+                    {/* Re-drawing 4 clean squares with interlocking tabs */}
                     {/* Top Left */}
-                    <rect x="0" y="0" width="24" height="24" rx="2" fill="white" />
-                    <circle cx="24" cy="12" r="5" fill="white" />
-                    <circle cx="12" cy="24" r="5" fill="white" />
+                    <path d="M0 0 h32 a6 6 0 0 1 6 6 a6 6 0 0 1 6 -6 h32 V32 h-6 a6 6 0 0 0 -6 6 a6 6 0 0 0 6 6 h6 V76 h-32 a6 6 0 0 1 -6 -6 a6 6 0 0 1 -6 6 h-32 V44 h6 a6 6 0 0 0 6 -6 a6 6 0 0 0 -6 -6 h-6 V0 z" fill="none" />
 
-                    {/* Top Right */}
-                    <rect x="26" y="0" width="24" height="24" rx="2" fill="white" />
-                    <circle cx="38" cy="24" r="5" fill="white" />
-                    <circle cx="50" cy="12" r="5" fill="white" />
+                    {/* ACTUAL LOGO RECREATION: 4 Rounded Blocks with Tabs */}
+                    {/* Top Left Piece */}
+                    <path d="M5 5 h25 a4 4 0 0 1 4 4 a4 4 0 0 0 8 0 a4 4 0 0 1 4 -4 h25 v30 a4 4 0 0 1 -4 4 a4 4 0 0 0 0 8 a4 4 0 0 1 4 4 v30 h-25 a4 4 0 0 1 -4 -4 a4 4 0 0 0 -8 0 a4 4 0 0 1 -4 4 h-25 v-30 a4 4 0 0 1 4 -4 a4 4 0 0 0 0 -8 a4 4 0 0 1 -4 -4 v-30 z" fill="none" />
 
-                    {/* Bottom Left */}
-                    <rect x="0" y="26" width="24" height="24" rx="2" fill="white" />
-                    <circle cx="12" cy="50" r="5" fill="white" />
-
-                    {/* Bottom Right */}
-                    <rect x="26" y="26" width="24" height="24" rx="2" fill="white" />
-                    <circle cx="50" cy="38" r="5" fill="white" />
+                    {/* Let's use clean individual pieces as seen in the DELUNA logo */}
+                    {/* Piece 1: Top Left (Slightly separated) */}
+                    <g transform="translate(0, 0)">
+                        <rect x="0" y="0" width="38" height="38" rx="4" />
+                        <circle cx="38" cy="19" r="7" />
+                        <circle cx="19" cy="38" r="7" />
+                    </g>
+                    {/* Piece 2: Top Right */}
+                    <g transform="translate(42, 0)">
+                        <rect x="0" y="0" width="38" height="38" rx="4" />
+                        <circle cx="19" cy="38" r="7" />
+                        <rect x="-8" y="15" width="10" height="8" fill="#1b2531" className="dark:fill-[#1b2531] fill-brand-blue" /> {/* Subtraction */}
+                        <circle cx="0" cy="19" r="6" fill="#1b2531" className="dark:fill-[#1b2531] fill-brand-blue" />
+                    </g>
+                    {/* Piece 3: Bottom Left */}
+                    <g transform="translate(0, 42)">
+                        <rect x="0" y="0" width="38" height="38" rx="4" />
+                        <circle cx="38" cy="19" r="7" />
+                        <circle cx="19" cy="0" r="6" fill="#1b2531" className="dark:fill-[#1b2531] fill-brand-blue" />
+                    </g>
+                    {/* Piece 4: Bottom Right */}
+                    <g transform="translate(42, 42)">
+                        <rect x="0" y="0" width="38" height="38" rx="4" />
+                        <circle cx="0" cy="19" r="6" fill="#1b2531" className="dark:fill-[#1b2531] fill-brand-blue" />
+                        <circle cx="19" cy="0" r="6" fill="#1b2531" className="dark:fill-[#1b2531] fill-brand-blue" />
+                    </g>
                 </g>
             </svg>
 
             {/* Divider line */}
-            <div className="w-48 h-[1px] bg-white/30 mb-4"></div>
+            <div className="w-full h-[1px] bg-white/20 mb-6"></div>
 
-            {/* DeLUNA Text - Matching original typography better */}
+            {/* DeLUNA Text - Perfected Typography */}
             <div className="flex items-baseline mb-1">
-                <span className="text-white text-5xl font-light tracking-tight">De</span>
-                <span className="text-white text-5xl font-bold tracking-tight uppercase">Luna</span>
+                <span className="text-white text-6xl font-light tracking-tight">De</span>
+                <span className="text-white text-6xl font-black tracking-tight uppercase ml-1">Luna</span>
             </div>
 
             {/* Subtitle */}
-            <div className="text-[12px] font-medium uppercase tracking-[0.2em] text-white/90">
+            <div className="text-[14px] font-bold uppercase tracking-[0.25em] text-white/80 text-center">
                 Soluções em Transportes e Logística
             </div>
         </div>
