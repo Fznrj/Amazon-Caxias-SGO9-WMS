@@ -1,7 +1,6 @@
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { User, Driver, Role, UserStatus, VehicleProfile, View } from '../types';
 import { AuthService } from '../services/authService';
-import { supabase } from '../services/supabase';
+// import { supabase } from '../services/supabase'; // Mocked but unused in Context now
 
 // ... (keep InboundItem, OutboundItem, InventoryItem, StockItem interfaces as is) ...
 
@@ -165,7 +164,6 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // --- Navigation State ---
     const [currentView, _setCurrentView] = useState<View>(() => {
         const saved = localStorage.getItem('wms_active_view') as View;
-        // Basic check to avoid 'LOGIN' or empty values
         if (saved && saved !== View.LOGIN && Object.values(View).includes(saved)) {
             return saved;
         }
@@ -183,29 +181,14 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const [currentUser, setCurrentUser] = useState<User | null>(AuthService.getCurrentUser());
     const [users, setUsers] = useState<User[]>([]);
 
+    // Offline mode: Trust AuthService for session
     useEffect(() => {
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-            if (session?.user) {
-                console.log('Auth state change: session detected', session.user.id);
-                const { data: userData, error } = await supabase.from('users').select('*').eq('id', session.user.id).single();
-                if (userData && !error) {
-                    const user = userData as User;
-                    console.log('User profile loaded:', user.name);
-                    setCurrentUser(user);
-                    AuthService.saveSession(user);
-                } else {
-                    console.error('Failed to load user profile after session detection', error);
-                }
-            } else {
-                console.log('Auth state change: no session (event:', event, ')');
-                if (event === 'SIGNED_OUT') {
-                    setCurrentUser(null);
-                    _setCurrentView(View.LOGIN);
-                }
-            }
-        });
-
-        return () => subscription.unsubscribe();
+        const user = AuthService.getCurrentUser();
+        if (user) {
+            setCurrentUser(user);
+        } else {
+            _setCurrentView(View.LOGIN);
+        }
     }, []);
 
     // --- Initial Sync ---
@@ -230,388 +213,204 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     // --- Weekly Stats State ---
     const [weeklyStats, setWeeklyStats] = useState<{ name: string; entradas: number; saudas: number }[]>([]);
-    // --- Initial Sync ---
+    // --- Local Storage Keys ---
+    const STORAGE_KEYS = {
+        STOCK: 'wms_stock',
+        INBOUND_LOG: 'wms_inbound_log',
+        OUTBOUND_LOG: 'wms_outbound_log',
+        DRIVERS: 'wms_drivers',
+        INCIDENTS: 'wms_incidents',
+        CONFIG: 'wms_system_config'
+    };
+
+    // --- Helper for Local Persistence ---
+    const saveLocal = (key: string, data: any) => {
+        localStorage.setItem(key, JSON.stringify(data));
+    };
+
+    const loadLocal = (key: string, defaultValue: any = []) => {
+        const data = localStorage.getItem(key);
+        return data ? JSON.parse(data) : defaultValue;
+    };
+
+    // --- Initial Sync (Offline) ---
     useEffect(() => {
-        const fetchInitialData = async () => {
-            if (!currentUser) return;
-            console.log('WmsContext: Fetching initial data for user', currentUser.id);
+        if (!currentUser) return;
+        console.log('WmsContext: Loading local data for user', currentUser.id);
 
-            try {
-                const cid = currentUser.company_id;
+        try {
+            // 1. Load Config
+            const config = loadLocal(STORAGE_KEYS.CONFIG, {});
+            if (config.expected_inbound) _setExpectedInboundList(config.expected_inbound);
 
-                // 1. Fetch Expected List
-                const { data: config, error: configError } = await supabase.from('system_config').select('value').eq('key', 'expected_inbound').eq('company_id', cid).single();
-                if (configError && configError.code !== 'PGRST116') console.warn('WmsContext: Error fetching config', configError);
-                if (config) _setExpectedInboundList(config.value as string[]);
+            // 2. Load Drivers
+            setDrivers(loadLocal(STORAGE_KEYS.DRIVERS));
 
-                // 2. Fetch Drivers
-                const { data: driversData, error: driversError } = await supabase.from('drivers').select('*').eq('company_id', cid);
-                if (driversError) console.error('WmsContext: Error fetching drivers', driversError);
-                if (driversData) setDrivers(driversData.map(d => ({
-                    id: d.id,
-                    name: d.name,
-                    cpf: d.cpf,
-                    plate: d.plate,
-                    company: d.company_id,
-                    status: d.status,
-                    vehicleProfile: d.vehicle || 'Moto',
-                    lastActivity: d.last_activity
-                })));
+            // 3. Load Treatments
+            setTreatmentItems(loadLocal(STORAGE_KEYS.INCIDENTS));
 
-                // 3. Fetch Treatments
-                const { data: treatmentsData, error: trtError } = await supabase.from('incidents').select('*').eq('company_id', cid);
-                if (trtError) console.error('WmsContext: Error fetching incidents', trtError);
-                if (treatmentsData) setTreatmentItems(treatmentsData.map(t => ({
-                    id: t.id,
-                    tbrId: t.tbr_id,
-                    type: t.type,
-                    description: t.description,
-                    status: t.status,
-                    operator: t.operator,
-                    time: t.time ? new Date(t.time).toLocaleString('pt-BR') : ''
-                })));
+            // 4. Load Stock
+            const stock = loadLocal(STORAGE_KEYS.STOCK);
+            setStockItems(stock);
+            setPossibleLossItems(stock.filter((s: StockItem) => s.status === 'Possível Perda'));
 
-                // 4. Fetch Stock
-                const { data: stockData, error: stockError } = await supabase.from('stock').select('*').eq('company_id', cid);
-                if (stockError) console.error('WmsContext: Error fetching stock', stockError);
-                if (stockData) {
-                    const mappedStock = stockData.map(s => ({
-                        id: s.id,
-                        entryTime: s.entry_time,
-                        operator: s.operator,
-                        status: s.status as StockItem['status'],
-                        lossDetectedTime: s.loss_detected_time
-                    }));
-                    setStockItems(mappedStock);
-                    setPossibleLossItems(mappedStock.filter(s => s.status === 'Possível Perda'));
-                }
+            // 5. Load Logs
+            setInboundItems(loadLocal(STORAGE_KEYS.INBOUND_LOG));
+            setOutboundItems(loadLocal(STORAGE_KEYS.OUTBOUND_LOG));
 
-                // 5. Fetch logs (limiting to recent)
-                const { data: inboundLogs, error: inLogErr } = await supabase.from('inbound_log').select('*').eq('company_id', cid).order('time', { ascending: false }).limit(200);
-                if (inLogErr) console.error('WmsContext: Error fetching inbound logs', inLogErr);
-                if (inboundLogs) setInboundItems(inboundLogs.map(l => ({
-                    id: l.tbr_id,
-                    status: l.status as InboundItem['status'],
-                    operator: l.operator,
-                    time: l.time ? new Date(l.time).toLocaleString('pt-BR') : '',
-                    error: l.error
-                })));
-
-                const { data: outboundLogs, error: outLogErr } = await supabase.from('outbound_log').select('*').eq('company_id', cid).order('time', { ascending: false }).limit(200);
-                if (outLogErr) console.error('WmsContext: Error fetching outbound logs', outLogErr);
-                if (outboundLogs) setOutboundItems(outboundLogs.map(l => ({
-                    id: l.tbr_id,
-                    driverName: l.driver_name,
-                    vehicle: l.vehicle,
-                    time: l.time ? new Date(l.time).toLocaleString('pt-BR') : '',
-                    operator: l.operator,
-                    status: l.status as OutboundItem['status']
-                })));
-
-                // 6. Aggregate Weekly Stats
-                const statsMap: Record<string, { name: string, entradas: number, saudas: number }> = {};
-
-                // Initialize map with last 7 days
-                for (let i = 6; i >= 0; i--) {
-                    const d = new Date();
-                    d.setDate(d.getDate() - i);
-                    const label = d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
-                    const dateKey = d.toLocaleDateString('pt-BR');
-                    statsMap[dateKey] = { name: label.charAt(0).toUpperCase() + label.slice(1), entradas: 0, saudas: 0 };
-                }
-
-                const sevenDaysAgo = new Date();
-                sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-                const { data: recentInbound } = await supabase.from('inbound_log')
-                    .select('time')
-                    .gte('time', sevenDaysAgo.toISOString())
-                    .eq('error', false)
-                    .eq('company_id', cid);
-
-                const { data: recentOutbound } = await supabase.from('outbound_log')
-                    .select('time')
-                    .gte('time', sevenDaysAgo.toISOString())
-                    .eq('company_id', cid);
-
-                recentInbound?.forEach(log => {
-                    const dateKey = new Date(log.time).toLocaleDateString('pt-BR');
-                    if (statsMap[dateKey]) statsMap[dateKey].entradas++;
-                });
-
-                recentOutbound?.forEach(log => {
-                    const dateKey = new Date(log.time).toLocaleDateString('pt-BR');
-                    if (statsMap[dateKey]) statsMap[dateKey].saudas++;
-                });
-
-                setWeeklyStats(Object.values(statsMap));
-            } catch (err) {
-                console.error('WmsContext: Critical error in fetchInitialData:', err);
+            // 6. Aggregate Weekly Stats
+            const statsMap: Record<string, { name: string, entradas: number, saudas: number }> = {};
+            for (let i = 6; i >= 0; i--) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                const label = d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
+                const dateKey = d.toLocaleDateString('pt-BR');
+                statsMap[dateKey] = { name: label.charAt(0).toUpperCase() + label.slice(1), entradas: 0, saudas: 0 };
             }
-        };
 
-        fetchInitialData();
+            const inLogs = loadLocal(STORAGE_KEYS.INBOUND_LOG);
+            const outLogs = loadLocal(STORAGE_KEYS.OUTBOUND_LOG);
+
+            inLogs.forEach((log: InboundItem) => {
+                const dateKey = log.time.split(', ')[0];
+                if (statsMap[dateKey]) statsMap[dateKey].entradas++;
+            });
+
+            outLogs.forEach((log: OutboundItem) => {
+                const dateKey = log.time.split(', ')[0];
+                if (statsMap[dateKey]) statsMap[dateKey].saudas++;
+            });
+
+            setWeeklyStats(Object.values(statsMap));
+        } catch (err) {
+            console.error('WmsContext: Error in offline init:', err);
+        }
     }, [currentUser]);
 
     const setExpectedInboundList = async (list: string[]) => {
         _setExpectedInboundList(list);
-        await supabase.from('system_config').upsert({ key: 'expected_inbound', value: list, company_id: currentUser?.company_id });
+        const config = loadLocal(STORAGE_KEYS.CONFIG, {});
+        saveLocal(STORAGE_KEYS.CONFIG, { ...config, expected_inbound: list });
     };
 
     const addInboundItem = async (item: InboundItem) => {
-        // Enforce 72h rule for lost items
+        const now = new Date().toISOString();
+        const displayTime = new Date().toLocaleString('pt-BR');
+        const enrichedItem = { ...item, time: displayTime };
+
+        // 72h rule check (simplified for offline)
         const stockItem = stockItems.find(s => s.id === item.id);
         if (stockItem?.status === 'Possível Perda' && stockItem.lossDetectedTime) {
             const lossTime = new Date(stockItem.lossDetectedTime).getTime();
-            const now = new Date().getTime();
-            const hoursElapsed = (now - lossTime) / (1000 * 60 * 60);
+            const hoursElapsed = (Date.now() - lossTime) / (1000 * 60 * 60);
 
             if (hoursElapsed > 72) {
-                // Update stock in Supabase
-                await supabase.from('stock').update({ status: 'Perda' }).eq('id', item.id);
+                const errorLog: InboundItem = { ...enrichedItem, status: 'Perda Definitiva', error: true };
+                setInboundItems(prev => [errorLog, ...prev]);
+                saveLocal(STORAGE_KEYS.INBOUND_LOG, [errorLog, ...inboundItems]);
+
                 setStockItems(prev => prev.map(s => s.id === item.id ? { ...s, status: 'Perda' } : s));
-                setPossibleLossItems(prev => prev.filter(p => p.id !== item.id));
+                saveLocal(STORAGE_KEYS.STOCK, stockItems.map(s => s.id === item.id ? { ...s, status: 'Perda' } : s));
 
                 playAudio('error');
-                const errorLog = { ...item, status: 'Perda Definitiva' as const, error: true };
-                setInboundItems(prev => [errorLog, ...prev]);
-                await supabase.from('inbound_log').insert({
-                    tbr_id: item.id,
-                    status: 'Perda Definitiva',
-                    operator: item.operator,
-                    error: true,
-                    company_id: currentUser?.company_id
-                });
                 return;
             }
         }
 
-        setInboundItems(prev => [item, ...prev]);
+        setInboundItems(prev => [enrichedItem, ...prev]);
+        saveLocal(STORAGE_KEYS.INBOUND_LOG, [enrichedItem, ...inboundItems]);
 
-        try {
-            // Log Inbound
-            const { error: logErr } = await supabase.from('inbound_log').insert({
-                tbr_id: item.id,
-                status: item.status,
-                operator: item.operator,
-                error: item.error,
-                company_id: currentUser?.company_id
+        if (!item.error) {
+            // 1. Resolve treatments
+            const updatedTreatments = treatmentItems.map(t =>
+                (t.tbrId === item.id && t.status !== 'Resolvido') ? { ...t, status: 'Resolvido' as const } : t
+            );
+            setTreatmentItems(updatedTreatments);
+            saveLocal(STORAGE_KEYS.INCIDENTS, updatedTreatments);
+
+            // 2. Update Stock
+            setStockItems(prev => {
+                const exists = prev.find(s => s.id === item.id);
+                const updated = exists
+                    ? prev.map(s => s.id === item.id ? { ...s, entryTime: now, operator: item.operator, status: 'Em Estoque' as const, lossDetectedTime: undefined } : s)
+                    : [...prev, { id: item.id, entryTime: now, operator: item.operator, status: 'Em Estoque' as const }];
+                saveLocal(STORAGE_KEYS.STOCK, updated);
+                return updated;
             });
-            if (logErr) console.error('WmsContext: Inbound log error', logErr);
 
-            if (!item.error) {
-                const now = new Date().toISOString();
+            setPossibleLossItems(prev => prev.filter(p => p.id !== item.id));
 
-                // 1. Auto-resolve treatments (local + remote)
-                setTreatmentItems(prev => prev.map(t =>
-                    (t.tbrId === item.id && t.status !== 'Resolvido')
-                        ? { ...t, status: 'Resolvido' }
-                        : t
-                ));
-                const { error: trtResError } = await supabase.from('incidents')
-                    .update({ status: 'Resolvido', updated_at: now })
-                    .eq('tbr_id', item.id)
-                    .eq('status', 'Pendente');
-                if (trtResError) console.error('WmsContext: Treatment resolution error', trtResError);
-
-                // 2. Upsert Stock Item (remote)
-                const { data: existing, error: checkErr } = await supabase.from('stock')
-                    .select('id')
-                    .eq('id', item.id)
-                    .single();
-
-                if (existing) {
-                    const { error: updErr } = await supabase.from('stock').update({
-                        entry_time: now,
-                        operator: item.operator,
-                        status: 'Em Estoque',
-                        company_id: currentUser?.company_id,
-                        loss_detected_time: null
-                    }).eq('id', item.id);
-                    if (updErr) console.error('WmsContext: Stock update error', updErr);
-                } else {
-                    const { error: insErr } = await supabase.from('stock').insert({
-                        id: item.id,
-                        entry_time: now,
-                        operator: item.operator,
-                        status: 'Em Estoque',
-                        company_id: currentUser?.company_id
-                    });
-                    if (insErr) console.error('WmsContext: Stock insert error', insErr);
-                }
-
-                // 3. Update Local State
-                setStockItems(prev => {
-                    const exists = prev.find(s => s.id === item.id);
-                    if (exists) {
-                        return prev.map(s => s.id === item.id ? {
-                            ...s,
-                            entryTime: now,
-                            operator: item.operator,
-                            status: 'Em Estoque' as const
-                        } : s);
-                    } else {
-                        return [...prev, {
-                            id: item.id,
-                            entryTime: now,
-                            operator: item.operator,
-                            status: 'Em Estoque' as const
-                        }];
-                    }
-                });
-
-                setPossibleLossItems(prev => prev.filter(p => p.id !== item.id));
-
-                // 4. Gamification
-                try {
-                    const { gamificationService } = await import('../services/gamificationService');
-                    await gamificationService.registerScan(currentUser!.id, currentUser!.name);
-                } catch (gErr) {
-                    console.error('Inbound Gamification Error:', gErr);
-                }
-
-                playAudio('success');
-            } else {
-                playAudio('error');
-            }
-        } catch (fatalErr) {
-            console.error('WmsContext: Fatal error in addInboundItem', fatalErr);
+            playAudio('success');
+        } else {
             playAudio('error');
         }
     };
 
     const addOutboundItem = async (item: OutboundItem) => {
-        if (!currentUser) return;
-        setOutboundItems(prev => [item, ...prev]);
+        const enrichedItem = { ...item, time: new Date().toLocaleString('pt-BR') };
+        setOutboundItems(prev => [enrichedItem, ...prev]);
+        saveLocal(STORAGE_KEYS.OUTBOUND_LOG, [enrichedItem, ...outboundItems]);
 
-        try {
-            // Update Stock
-            const { error: stockErr } = await supabase.from('stock').update({ status: 'Saiu' }).eq('id', item.id);
-            if (stockErr) console.error('WmsContext: Outbound stock update error', stockErr);
+        setStockItems(prev => {
+            const updated = prev.map(s => s.id === item.id ? { ...s, status: 'Saiu' as const } : s);
+            saveLocal(STORAGE_KEYS.STOCK, updated);
+            return updated;
+        });
+        setPossibleLossItems(prev => prev.filter(loss => loss.id !== item.id));
 
-            // Log Outbound
-            const { error: logErr } = await supabase.from('outbound_log').insert({
-                tbr_id: item.id,
-                driver_name: item.driverName,
-                vehicle: item.vehicle,
-                operator: item.operator,
-                company_id: currentUser.company_id
-            });
-            if (logErr) console.error('WmsContext: Outbound log insert error', logErr);
-
-            setStockItems(prev => prev.map(stock =>
-                stock.id === item.id ? { ...stock, status: 'Saiu' } : stock
-            ));
-            setPossibleLossItems(prev => prev.filter(loss => loss.id !== item.id));
-
-            // Gamification scan registration
-            try {
-                const { gamificationService } = await import('../services/gamificationService');
-                await gamificationService.registerScan(currentUser!.id, currentUser!.name);
-            } catch (gErr) {
-                console.error('Outbound Gamification Error:', gErr);
-            }
-
-            playAudio('success');
-        } catch (e) {
-            console.error('WmsContext: Outbound fatal error', e);
-            playAudio('error');
-        }
+        playAudio('success');
     };
 
     const deleteOutboundItem = async (id: string) => {
-        const itemToRemove = outboundItems.find(item => item.id === id);
-        if (!itemToRemove) return;
-
-        setOutboundItems(prev => prev.filter(item => item.id !== id));
-        // Delete log or just ignore it? Usually we keep logs, but user said "Clear Outbound" or similar before. 
-        // For now let's just update stock status back to 'Em Estoque'
-        await supabase.from('stock').update({ status: 'Em Estoque' }).eq('id', id);
-        // Remove from outbound_log? Logic says yes for a "delete expedition"
-        await supabase.from('outbound_log').delete().eq('tbr_id', id);
-
-        setStockItems(prev => prev.map(stock =>
-            stock.id === id ? { ...stock, status: 'Em Estoque' } : stock
-        ));
+        setOutboundItems(prev => {
+            const updated = prev.filter(item => item.id !== id);
+            saveLocal(STORAGE_KEYS.OUTBOUND_LOG, updated);
+            return updated;
+        });
+        setStockItems(prev => {
+            const updated = prev.map(s => s.id === id ? { ...s, status: 'Em Estoque' as const } : s);
+            saveLocal(STORAGE_KEYS.STOCK, updated);
+            return updated;
+        });
         playAudio('success');
     };
 
 
     const addDriver = async (driverData: Omit<Driver, 'id' | 'lastActivity'>) => {
-        const nowStr = new Date().toLocaleString('pt-BR');
-        const { data, error } = await supabase.from('drivers').insert({
-            name: driverData.name,
-            cpf: driverData.cpf,
-            plate: driverData.plate,
-            vehicle: driverData.vehicleProfile,
-            status: driverData.status,
-            company_id: currentUser?.company_id,
-            last_activity: nowStr
-        }).select().single();
-
-        if (data && !error) {
-            setDrivers(prev => [...prev, {
-                id: data.id,
-                name: data.name,
-                cpf: data.cpf,
-                plate: data.plate,
-                company: data.company_id,
-                status: data.status,
-                vehicleProfile: data.vehicle,
-                lastActivity: data.last_activity
-            }]);
-            playAudio('success');
-        } else {
-            console.error('WmsContext: Error adding driver', error);
-            playAudio('error');
-        }
+        const newDriver: Driver = {
+            ...driverData,
+            id: 'dr-' + Math.random().toString(36).substr(2, 9),
+            lastActivity: new Date().toLocaleString('pt-BR')
+        };
+        const updated = [...drivers, newDriver];
+        setDrivers(updated);
+        saveLocal(STORAGE_KEYS.DRIVERS, updated);
+        playAudio('success');
     };
 
     const bulkAddDrivers = async (driversList: Omit<Driver, 'id' | 'lastActivity'>[]) => {
-        const newDrivers = driversList.map(d => ({
-            name: d.name,
-            cpf: d.cpf,
-            plate: d.plate,
-            vehicle: d.vehicleProfile,
-            status: d.status,
-            company_id: currentUser?.company_id,
-            last_activity: new Date().toLocaleString('pt-BR')
+        const now = new Date().toLocaleString('pt-BR');
+        const newOnes = driversList.map(d => ({
+            ...d,
+            id: 'dr-' + Math.random().toString(36).substr(2, 9),
+            lastActivity: now
         }));
-
-        const { data, error } = await supabase.from('drivers').insert(newDrivers).select();
-        if (data && !error) {
-            setDrivers(prev => [...prev, ...data.map(d => ({
-                id: d.id,
-                name: d.name,
-                cpf: d.cpf,
-                plate: d.plate,
-                company: d.company_id,
-                status: d.status,
-                vehicleProfile: d.vehicle,
-                lastActivity: d.last_activity
-            }))]);
-            playAudio('success');
-        } else {
-            console.error('WmsContext: Bulk add drivers error', error);
-            playAudio('error');
-        }
+        const updated = [...drivers, ...newOnes];
+        setDrivers(updated);
+        saveLocal(STORAGE_KEYS.DRIVERS, updated);
+        playAudio('success');
     };
 
     const updateDriver = async (id: string, updates: Partial<Driver>) => {
-        const dbUpdates: any = {};
-        if (updates.name) dbUpdates.name = updates.name;
-        if (updates.cpf) dbUpdates.cpf = updates.cpf;
-        if (updates.plate) dbUpdates.plate = updates.plate;
-        if (updates.status) dbUpdates.status = updates.status;
-        if (updates.vehicleProfile) dbUpdates.vehicle = updates.vehicleProfile;
-
-        await supabase.from('drivers').update(dbUpdates).eq('id', id);
-        setDrivers(prev => prev.map(d => d.id === id ? { ...d, ...updates } : d));
+        const updated = drivers.map(d => d.id === id ? { ...d, ...updates } : d);
+        setDrivers(updated);
+        saveLocal(STORAGE_KEYS.DRIVERS, updated);
     };
 
     const deleteDriver = async (id: string) => {
-        await supabase.from('drivers').delete().eq('id', id);
-        setDrivers(prev => prev.filter(d => d.id !== id));
+        const updated = drivers.filter(d => d.id !== id);
+        setDrivers(updated);
+        saveLocal(STORAGE_KEYS.DRIVERS, updated);
     };
 
     const [isInventoryActive, setIsInventoryActive] = useState(false);
@@ -632,41 +431,21 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const stopInventory = async () => {
         setIsInventoryActive(false);
-        const missingItems = stockItems.filter(stock =>
-            stock.status === 'Em Estoque' && !inventoryItems.some(inv => inv.id === stock.id)
-        );
-
-        const now = new Date().toISOString();
-        const activeTreatmentTbrs = treatmentItems
-            .filter(t => t.status !== 'Resolvido')
-            .map(t => t.tbrId);
-
-        const idsToMark = stockItems
-            .filter(stock => (missingItems.some(m => m.id === stock.id) || activeTreatmentTbrs.includes(stock.id)) && stock.status === 'Em Estoque')
+        const missingIds = stockItems
+            .filter(s => s.status === 'Em Estoque' && !inventoryItems.some(inv => inv.id === s.id))
             .map(s => s.id);
 
-        if (idsToMark.length > 0) {
-            await supabase.from('stock')
-                .update({ status: 'Possível Perda', loss_detected_time: now })
-                .in('id', idsToMark);
-        }
-
-        setStockItems(prev => prev.map(stock => {
-            if (idsToMark.includes(stock.id)) {
-                return { ...stock, status: 'Possível Perda', loss_detected_time: stock.lossDetectedTime || now };
+        const now = new Date().toISOString();
+        const updatedStock = stockItems.map(s => {
+            if (missingIds.includes(s.id)) {
+                return { ...s, status: 'Possível Perda' as const, lossDetectedTime: s.lossDetectedTime || now };
             }
-            return stock;
-        }));
-
-        setPossibleLossItems(prev => {
-            // Need to calculate based on updated items
-            return stockItems.map(stock => {
-                if (idsToMark.includes(stock.id)) {
-                    return { ...stock, status: 'Possível Perda' as const, loss_detected_time: stock.lossDetectedTime || now };
-                }
-                return stock;
-            }).filter(s => s.status === 'Possível Perda');
+            return s;
         });
+
+        setStockItems(updatedStock);
+        saveLocal(STORAGE_KEYS.STOCK, updatedStock);
+        setPossibleLossItems(updatedStock.filter(s => s.status === 'Possível Perda'));
     };
 
     const localizeItem = async (id: string, scannerInput: string) => {
@@ -679,22 +458,21 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (!item) return { success: false, message: 'Item não encontrado!' };
 
         if (item.lossDetectedTime) {
-            const lossTime = new Date(item.lossDetectedTime).getTime();
-            const now = new Date().getTime();
-            const hoursElapsed = (now - lossTime) / (1000 * 60 * 60);
-
+            const hoursElapsed = (Date.now() - new Date(item.lossDetectedTime).getTime()) / (1000 * 60 * 60);
             if (hoursElapsed > 72) {
-                await supabase.from('stock').update({ status: 'Perda' }).eq('id', id);
-                setStockItems(prev => prev.map(s => s.id === id ? { ...s, status: 'Perda' } : s));
-                setPossibleLossItems(prev => prev.filter(p => p.id !== id));
+                const updated = stockItems.map(s => s.id === id ? { ...s, status: 'Perda' as const } : s);
+                setStockItems(updated);
+                saveLocal(STORAGE_KEYS.STOCK, updated);
+                setPossibleLossItems(updated.filter(p => p.id !== id));
                 playAudio('error');
                 return { success: false, message: 'Tempo limite de 72h excedido. Item marcado como Perda definitiva.' };
             }
         }
 
-        await supabase.from('stock').update({ status: 'Em Estoque', loss_detected_time: null }).eq('id', id);
-        setStockItems(prev => prev.map(s => s.id === id ? { ...s, status: 'Em Estoque', lossDetectedTime: undefined } : s));
-        setPossibleLossItems(prev => prev.filter(p => p.id !== id));
+        const updated = stockItems.map(s => s.id === id ? { ...s, status: 'Em Estoque' as const, lossDetectedTime: undefined } : s);
+        setStockItems(updated);
+        saveLocal(STORAGE_KEYS.STOCK, updated);
+        setPossibleLossItems(updated.filter(p => p.id !== id));
         playAudio('success');
         return { success: true, message: `TBR ${id} localizada com sucesso!` };
     };
@@ -720,42 +498,25 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         const trtId = `TRT-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
         const now = new Date().toISOString();
-
-        const { error } = await supabase.from('incidents').insert({
-            id: trtId,
-            tbr_id: itemData.tbrId,
-            type: itemData.type,
-            description: itemData.description,
-            status: 'Pendente',
-            operator: itemData.operator,
-            company_id: currentUser?.company_id,
-            time: now
-        });
-
-        if (error) {
-            console.error('WmsContext: Error saving incident', error);
-            playAudio('error');
-            return { success: false, message: 'Erro ao salvar incidente: ' + error.message };
-        }
+        const displayTime = new Date().toLocaleString('pt-BR');
 
         const newItem: TreatmentItem = {
             ...itemData,
             id: trtId,
-            time: new Date().toLocaleString('pt-BR'),
+            time: displayTime,
             status: 'Pendente'
         };
-        setTreatmentItems(prev => [newItem, ...prev]);
+
+        const updatedTreatments = [newItem, ...treatmentItems];
+        setTreatmentItems(updatedTreatments);
+        saveLocal(STORAGE_KEYS.INCIDENTS, updatedTreatments);
 
         if (itemData.type === 'Extravio' || itemData.type === 'Avaria') {
-            await supabase.from('stock')
-                .update({ status: 'Possível Perda', loss_detected_time: now })
-                .eq('id', itemData.tbrId);
-
-            setStockItems(prev => prev.map(s =>
-                s.id === itemData.tbrId
-                    ? { ...s, status: 'Possível Perda', lossDetectedTime: s.lossDetectedTime || now }
-                    : s
-            ));
+            const updatedStock = stockItems.map(s =>
+                s.id === itemData.tbrId ? { ...s, status: 'Possível Perda' as const, lossDetectedTime: s.lossDetectedTime || now } : s
+            );
+            setStockItems(updatedStock);
+            saveLocal(STORAGE_KEYS.STOCK, updatedStock);
         }
 
         playAudio('success');
@@ -763,13 +524,15 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
 
     const updateTreatmentStatus = async (id: string, status: TreatmentItem['status']) => {
-        await supabase.from('incidents').update({ status }).eq('id', id);
-        setTreatmentItems(prev => prev.map(t => t.id === id ? { ...t, status } : t));
+        const updated = treatmentItems.map(t => t.id === id ? { ...t, status } : t);
+        setTreatmentItems(updated);
+        saveLocal(STORAGE_KEYS.INCIDENTS, updated);
     };
 
     const updateTreatment = async (id: string, updates: Partial<Pick<TreatmentItem, 'type' | 'description'>>) => {
-        await supabase.from('incidents').update(updates).eq('id', id);
-        setTreatmentItems(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
+        const updated = treatmentItems.map(t => t.id === id ? { ...t, ...updates } : t);
+        setTreatmentItems(updated);
+        saveLocal(STORAGE_KEYS.INCIDENTS, updated);
         playAudio('success');
     };
 
@@ -869,29 +632,21 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     // --- Reset Logic ---
     const resetTransactions = async () => {
-        if (!currentUser) return;
-        const cid = currentUser.company_id;
-
         setInboundItems([]);
         setOutboundItems([]);
         setStockItems([]);
         setInventoryItems([]);
         setPossibleLossItems([]);
         setExpectedInboundList([]);
+        setTreatmentItems([]);
 
-        try {
-            // Wipe Supabase tables for THIS company only
-            await supabase.from('inbound_log').delete().eq('company_id', cid);
-            await supabase.from('outbound_log').delete().eq('company_id', cid);
-            await supabase.from('stock').delete().eq('company_id', cid);
-            await supabase.from('system_config').delete().eq('key', 'expected_inbound').eq('company_id', cid);
-            await supabase.from('incidents').delete().eq('company_id', cid); // Also wipe incidents for safety if resetting all
+        localStorage.removeItem(STORAGE_KEYS.INBOUND_LOG);
+        localStorage.removeItem(STORAGE_KEYS.OUTBOUND_LOG);
+        localStorage.removeItem(STORAGE_KEYS.STOCK);
+        localStorage.removeItem(STORAGE_KEYS.CONFIG);
+        localStorage.removeItem(STORAGE_KEYS.INCIDENTS);
 
-            playAudio('success');
-        } catch (e) {
-            console.error('WmsContext: Error resetting transactions', e);
-            playAudio('error');
-        }
+        playAudio('success');
     };
 
     // --- Stats ---
