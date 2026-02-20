@@ -46,7 +46,7 @@ export const AuthService = {
             password: tempPassword,
             options: {
                 data: {
-                    name: email.split('@')[0], // Provisional name
+                    name: email.split('@')[0],
                     company_id: adminUser.company_id,
                     force_password_reset: true,
                     status: 'active'
@@ -57,6 +57,9 @@ export const AuthService = {
         if (error) {
             return { success: false, message: error.message };
         }
+
+        // Restore admin session immediately to avoid hijacking
+        AuthService.saveSession(adminUser);
 
         // Trigger an official invitation email via Supabase Password Reset flow
         await supabase.auth.resetPasswordForEmail(email, {
