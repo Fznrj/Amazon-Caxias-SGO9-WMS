@@ -46,20 +46,26 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
 
       <div className="bg-white dark:bg-card-dark p-6 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm">
         <h3 className="font-display text-lg tracking-widest uppercase mb-6">Volume de Movimentação Semanal</h3>
-        <div className="h-80 w-full">
+        <div className="h-[250px] w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={weeklyStats}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#374151" opacity={0.1} />
-              <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
-              <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => Math.round(val).toString()} />
-              <Tooltip
-                contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px', color: '#fff' }}
-                itemStyle={{ color: '#087f8c' }}
-                formatter={(value: any) => [value, 'Volume']}
-              />
-              <Bar dataKey="entradas" name="Entradas" fill="#087f8c" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="saudas" name="Saídas" fill="#f3a847" radius={[4, 4, 0, 0]} />
-            </BarChart>
+            {weeklyStats && weeklyStats.length > 0 ? (
+              <BarChart data={weeklyStats}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#374151" opacity={0.1} />
+                <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => Math.round(val).toString()} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px', color: '#fff' }}
+                  itemStyle={{ color: '#087f8c' }}
+                  formatter={(value: any) => [value, 'Volume']}
+                />
+                <Bar dataKey="entradas" name="Entradas" fill="#087f8c" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="saudas" name="Saídas" fill="#f3a847" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            ) : (
+              <div className="h-full flex items-center justify-center text-slate-400 text-xs italic">
+                Carregando dados estatísticos...
+              </div>
+            )}
           </ResponsiveContainer>
         </div>
       </div>
