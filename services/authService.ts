@@ -100,11 +100,16 @@ export const AuthService = {
             .from('users')
             .select('*')
             .eq('id', data.user.id)
-            .single();
+            .maybeSingle();
 
-        if (profileError || !userProfile) {
+        if (profileError) {
             console.error('Profile load error:', profileError);
-            return { success: false, message: `Erro ao carregar perfil do usuário: ${profileError?.message || 'Perfil não encontrado'}` };
+            return { success: false, message: `Erro ao carregar perfil do usuário: ${profileError.message}` };
+        }
+
+        if (!userProfile) {
+            console.error('Profile not found for ID:', data.user.id);
+            return { success: false, message: 'Perfil do usuário não encontrado no banco de dados. Contate o suporte.' };
         }
 
         const user = userProfile as User;
