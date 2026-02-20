@@ -1,5 +1,6 @@
 import { User, Driver, Role, UserStatus, VehicleProfile, View } from '../types';
 import { AuthService } from '../services/authService';
+import { gamificationService } from '../services/gamificationService';
 // import { supabase } from '../services/supabase'; // Mocked but unused in Context now
 
 // ... (keep InboundItem, OutboundItem, InventoryItem, StockItem interfaces as is) ...
@@ -220,7 +221,8 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         OUTBOUND_LOG: 'wms_outbound_log',
         DRIVERS: 'wms_drivers',
         INCIDENTS: 'wms_incidents',
-        CONFIG: 'wms_system_config'
+        CONFIG: 'wms_system_config',
+        INVENTORY_LOG: 'wms_inventory_log'
     };
 
     // --- Helper for Local Persistence ---
@@ -233,58 +235,66 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return data ? JSON.parse(data) : defaultValue;
     };
 
-    // --- Initial Sync (Offline) ---
+    // --- Synchronization (Cross-tab) ---
     useEffect(() => {
-        if (!currentUser) return;
-        console.log('WmsContext: Loading local data for user', currentUser.id);
+        const handleStorageChange = (e: StorageEvent) => {
+            if (!currentUser) return;
+            if (Object.values(STORAGE_KEYS).includes(e.key as string)) {
+                console.log('WmsContext: Syncing data from another tab', e.key);
+                loadInitialData();
+            }
+        };
+        window.addEventListener('storage', handleStorageChange);
+        return () => window.removeEventListener('storage', handleStorageChange);
+    }, [currentUser]);
 
+    const loadInitialData = () => {
         try {
-            // 1. Load Config
             const config = loadLocal(STORAGE_KEYS.CONFIG, {});
             if (config.expected_inbound) _setExpectedInboundList(config.expected_inbound);
-
-            // 2. Load Drivers
             setDrivers(loadLocal(STORAGE_KEYS.DRIVERS));
-
-            // 3. Load Treatments
             setTreatmentItems(loadLocal(STORAGE_KEYS.INCIDENTS));
-
-            // 4. Load Stock
             const stock = loadLocal(STORAGE_KEYS.STOCK);
             setStockItems(stock);
             setPossibleLossItems(stock.filter((s: StockItem) => s.status === 'Possível Perda'));
-
-            // 5. Load Logs
             setInboundItems(loadLocal(STORAGE_KEYS.INBOUND_LOG));
             setOutboundItems(loadLocal(STORAGE_KEYS.OUTBOUND_LOG));
-
-            // 6. Aggregate Weekly Stats
-            const statsMap: Record<string, { name: string, entradas: number, saudas: number }> = {};
-            for (let i = 6; i >= 0; i--) {
-                const d = new Date();
-                d.setDate(d.getDate() - i);
-                const label = d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
-                const dateKey = d.toLocaleDateString('pt-BR');
-                statsMap[dateKey] = { name: label.charAt(0).toUpperCase() + label.slice(1), entradas: 0, saudas: 0 };
-            }
-
-            const inLogs = loadLocal(STORAGE_KEYS.INBOUND_LOG);
-            const outLogs = loadLocal(STORAGE_KEYS.OUTBOUND_LOG);
-
-            inLogs.forEach((log: InboundItem) => {
-                const dateKey = log.time.split(', ')[0];
-                if (statsMap[dateKey]) statsMap[dateKey].entradas++;
-            });
-
-            outLogs.forEach((log: OutboundItem) => {
-                const dateKey = log.time.split(', ')[0];
-                if (statsMap[dateKey]) statsMap[dateKey].saudas++;
-            });
-
-            setWeeklyStats(Object.values(statsMap));
+            setInventoryItems(loadLocal(STORAGE_KEYS.INVENTORY_LOG));
+            updateWeeklyStatsFromLogs();
         } catch (err) {
-            console.error('WmsContext: Error in offline init:', err);
+            console.error('WmsContext: Error loading local data:', err);
         }
+    };
+
+    const updateWeeklyStatsFromLogs = () => {
+        const statsMap: Record<string, { name: string, entradas: number, saudas: number }> = {};
+        for (let i = 6; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            const label = d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
+            const dateKey = d.toLocaleDateString('pt-BR');
+            statsMap[dateKey] = { name: label.charAt(0).toUpperCase() + label.slice(1), entradas: 0, saudas: 0 };
+        }
+
+        const inLogs = loadLocal(STORAGE_KEYS.INBOUND_LOG);
+        const outLogs = loadLocal(STORAGE_KEYS.OUTBOUND_LOG);
+
+        inLogs.forEach((log: InboundItem) => {
+            const dateKey = log.time.split(', ')[0];
+            if (statsMap[dateKey]) statsMap[dateKey].entradas++;
+        });
+
+        outLogs.forEach((log: OutboundItem) => {
+            const dateKey = log.time.split(', ')[0];
+            if (statsMap[dateKey]) statsMap[dateKey].saudas++;
+        });
+
+        setWeeklyStats(Object.values(statsMap));
+    };
+
+    useEffect(() => {
+        if (!currentUser) return;
+        loadInitialData();
     }, [currentUser]);
 
     const setExpectedInboundList = async (list: string[]) => {
@@ -317,8 +327,15 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             }
         }
 
-        setInboundItems(prev => [enrichedItem, ...prev]);
-        saveLocal(STORAGE_KEYS.INBOUND_LOG, [enrichedItem, ...inboundItems]);
+        if (item.status === 'Sucesso' && currentUser) {
+            await gamificationService.registerScan(currentUser.id, currentUser.name);
+        }
+
+        setInboundItems(prev => {
+            const updated = [enrichedItem, ...prev];
+            saveLocal(STORAGE_KEYS.INBOUND_LOG, updated);
+            return updated;
+        });
 
         if (!item.error) {
             // 1. Resolve treatments
@@ -348,8 +365,15 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const addOutboundItem = async (item: OutboundItem) => {
         const enrichedItem = { ...item, time: new Date().toLocaleString('pt-BR') };
-        setOutboundItems(prev => [enrichedItem, ...prev]);
-        saveLocal(STORAGE_KEYS.OUTBOUND_LOG, [enrichedItem, ...outboundItems]);
+        if (currentUser) {
+            await gamificationService.registerScan(currentUser.id, currentUser.name);
+        }
+
+        setOutboundItems(prev => {
+            const updated = [enrichedItem, ...prev];
+            saveLocal(STORAGE_KEYS.OUTBOUND_LOG, updated);
+            return updated;
+        });
 
         setStockItems(prev => {
             const updated = prev.map(s => s.id === item.id ? { ...s, status: 'Saiu' as const } : s);
@@ -420,13 +444,22 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             playAudio('error');
             return;
         }
-        setInventoryItems(prev => [item, ...prev]);
+        if (currentUser) {
+            await gamificationService.registerScan(currentUser.id, currentUser.name);
+        }
+
+        setInventoryItems(prev => {
+            const updated = [item, ...prev];
+            saveLocal(STORAGE_KEYS.INVENTORY_LOG, updated);
+            return updated;
+        });
         playAudio('success');
     };
 
     const startInventory = async () => {
         setIsInventoryActive(true);
         setInventoryItems([]);
+        localStorage.removeItem(STORAGE_KEYS.INVENTORY_LOG);
     };
 
     const stopInventory = async () => {
@@ -467,6 +500,10 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 playAudio('error');
                 return { success: false, message: 'Tempo limite de 72h excedido. Item marcado como Perda definitiva.' };
             }
+        }
+
+        if (currentUser) {
+            await gamificationService.registerScan(currentUser.id, currentUser.name);
         }
 
         const updated = stockItems.map(s => s.id === id ? { ...s, status: 'Em Estoque' as const, lossDetectedTime: undefined } : s);
@@ -645,6 +682,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         localStorage.removeItem(STORAGE_KEYS.STOCK);
         localStorage.removeItem(STORAGE_KEYS.CONFIG);
         localStorage.removeItem(STORAGE_KEYS.INCIDENTS);
+        localStorage.removeItem(STORAGE_KEYS.INVENTORY_LOG);
 
         playAudio('success');
     };
@@ -661,13 +699,10 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const isToday = (timeStr: string) => {
         if (!timeStr) return false;
         try {
-            // Support both ISO and Locale string (Locale string often has ', ' separator)
-            const dateStr = timeStr.includes('T') ? timeStr : timeStr.split(', ')[0];
-            const itemDate = new Date(timeStr.includes('T') ? timeStr : dateStr.split('/').reverse().join('-'));
-            const today = new Date();
-            return itemDate.getDate() === today.getDate() &&
-                itemDate.getMonth() === today.getMonth() &&
-                itemDate.getFullYear() === today.getFullYear();
+            // Robust check: compare date parts directly from locale string
+            const todayStr = new Date().toLocaleDateString('pt-BR');
+            const itemDateStr = timeStr.split(', ')[0];
+            return todayStr === itemDateStr;
         } catch (e) {
             return false;
         }
