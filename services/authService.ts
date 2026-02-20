@@ -1,186 +1,135 @@
 import { User, Role, UserStatus } from '../types';
-import { supabase } from './supabase';
 
 const CURRENT_USER_KEY = 'wms_current_user';
+const ALL_USERS_KEY = 'wms_all_users';
+
+// Initialize Master User in Offline mode
+const seedMasterUser = () => {
+    const users = JSON.parse(localStorage.getItem(ALL_USERS_KEY) || '[]');
+    const masterEmail = 'fernando10frango@gmail.com';
+    const hasMaster = users.some((u: User) => u.email === masterEmail);
+
+    if (!hasMaster) {
+        const masterUser: User = {
+            id: 'master-user-id-' + Math.random().toString(36).substr(2, 9),
+            name: 'Fernando Souza',
+            email: masterEmail,
+            password_hash: '142536Fernando*', // For local dev, storing plain/hash is same
+            role: 'superadmin',
+            status: 'active',
+            company_id: 'DeLuna Amazon Caxias SGO9',
+            created_at: new Date().toISOString()
+        };
+        users.push(masterUser);
+        localStorage.setItem(ALL_USERS_KEY, JSON.stringify(users));
+    }
+};
+
+seedMasterUser();
 
 export const AuthService = {
     // --- Data Management ---
     getUsers: async (): Promise<User[]> => {
-        const { data, error } = await supabase
-            .from('users')
-            .select('*')
-            .order('created_at', { ascending: false });
-
-        if (error) {
-            console.error('Error fetching users:', error);
-            return [];
-        }
-        return data as User[];
+        const users = JSON.parse(localStorage.getItem(ALL_USERS_KEY) || '[]');
+        return users.sort((a: User, b: User) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     },
 
     // --- Auth Actions ---
     register: async (name: string, email: string, password: string, companyId: string, customId?: string): Promise<{ success: boolean; message: string }> => {
-        const { data, error } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-                data: {
-                    name,
-                    company_id: companyId,
-                    badge: customId
-                }
-            }
-        });
+        const users = JSON.parse(localStorage.getItem(ALL_USERS_KEY) || '[]');
 
-        if (error) {
-            return { success: false, message: error.message };
+        if (users.some((u: User) => u.email === email)) {
+            return { success: false, message: 'Email já cadastrado.' };
         }
+
+        const newUser: User = {
+            id: 'user-' + Math.random().toString(36).substr(2, 9),
+            name,
+            email,
+            password_hash: password,
+            role: null,
+            status: 'pending',
+            company_id: companyId,
+            badge: customId,
+            created_at: new Date().toISOString()
+        };
+
+        users.push(newUser);
+        localStorage.setItem(ALL_USERS_KEY, JSON.stringify(users));
 
         return { success: true, message: 'Cadastro realizado! Aguarde aprovação.' };
     },
 
     inviteUser: async (email: string, adminUser: User): Promise<{ success: boolean; message: string }> => {
-        const tempPassword = 'Senh@Wms123';
-        const { data, error } = await supabase.auth.signUp({
-            email,
-            password: tempPassword,
-            options: {
-                data: {
-                    name: email.split('@')[0],
-                    company_id: adminUser.company_id,
-                    force_password_reset: true,
-                    status: 'active'
-                }
-            }
-        });
+        const users = JSON.parse(localStorage.getItem(ALL_USERS_KEY) || '[]');
 
-        if (error) {
-            // Restore admin session even on failure
-            AuthService.saveSession(adminUser);
-            return { success: false, message: error.message };
+        if (users.some((u: User) => u.email === email)) {
+            return { success: false, message: 'Usuário já existe.' };
         }
 
-        // Restore admin session immediately to avoid hijacking
-        AuthService.saveSession(adminUser);
+        const newUser: User = {
+            id: 'user-' + Math.random().toString(36).substr(2, 9),
+            name: email.split('@')[0],
+            email,
+            password_hash: 'Senh@Wms123',
+            role: 'operator',
+            status: 'active',
+            company_id: adminUser.company_id,
+            force_password_reset: true,
+            created_at: new Date().toISOString()
+        };
 
-        // Trigger an official invitation email via Supabase Password Reset flow
-        await supabase.auth.resetPasswordForEmail(email, {
-            redirectTo: window.location.origin
-        });
+        users.push(newUser);
+        localStorage.setItem(ALL_USERS_KEY, JSON.stringify(users));
 
-        // Final session restoration check
-        AuthService.saveSession(adminUser);
-
-        return { success: true, message: 'Usuário convidado! Um link de acesso foi enviado para o email: ' + email };
+        return { success: true, message: 'Usuário convidado! A senha temporária é Senh@Wms123' };
     },
 
     login: async (identifier: string, password: string): Promise<{ success: boolean; user?: User; message: string }> => {
-        let email = identifier;
+        const users = JSON.parse(localStorage.getItem(ALL_USERS_KEY) || '[]');
 
-        // If identifier is not an email, try to find user by name or badge using secure RPC
-        if (!identifier.includes('@')) {
-            console.log('AuthService: resolving identifier:', identifier);
-            try {
-                const { data: resolvedEmail, error: rpcError } = await supabase
-                    .rpc('get_user_email_by_identifier', { p_identifier: String(identifier).trim() });
+        const user = users.find((u: User) =>
+            (u.email === identifier || u.name === identifier || u.badge === identifier) &&
+            u.password_hash === password
+        );
 
-                if (rpcError) {
-                    console.error('AuthService: RPC resolution error:', rpcError);
-                    // If RPC fails (e.g. 406), attempt a direct query if RLS allows (fallback)
-                    console.log('AuthService: Attempting fallback query for identifier');
-                    const { data: user } = await supabase.from('users')
-                        .select('email')
-                        .or(`name.eq."${identifier}",badge.eq."${identifier}"`)
-                        .maybeSingle();
-
-                    if (user?.email) {
-                        email = user.email;
-                    } else {
-                        return { success: false, message: 'Identificador não reconhecido ou erro de conexão.' };
-                    }
-                } else if (resolvedEmail) {
-                    console.log('AuthService: identifier resolved to:', resolvedEmail);
-                    email = resolvedEmail;
-                } else {
-                    return { success: false, message: 'Usuário não encontrado pelo Nome ou ID.' };
-                }
-            } catch (err) {
-                console.error('AuthService: Critical error in identifier resolution:', err);
-                return { success: false, message: 'Falha crítica ao validar usuário.' };
-            }
+        if (!user) {
+            return { success: false, message: 'Credenciais inválidas.' };
         }
 
-        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-        });
-
-        if (authError) {
-            return { success: false, message: 'Credenciais inválidas ou erro no servidor.' };
+        if (user.status === 'blocked') {
+            return { success: false, message: 'Usuário bloqueado. Contate o admin.' };
         }
 
-        if (authData?.user) {
-            const { data: userData, error: userError } = await supabase
-                .from('users')
-                .select('*')
-                .eq('id', authData.user.id)
-                .single();
-
-            if (userError || !userData) {
-                return { success: false, message: 'Perfil do usuário não encontrado.' };
-            }
-
-            const user = userData as User;
-
-            if (user.status === 'blocked') {
-                await supabase.auth.signOut();
-                return { success: false, message: 'Usuário bloqueado. Contate o admin.' };
-            }
-
-            if (user.status === 'pending') {
-                await supabase.auth.signOut();
-                return { success: false, message: 'Cadastro em análise.' };
-            }
-
-            AuthService.saveSession(user);
-            return { success: true, user, message: 'Login realizado com sucesso!' };
+        if (user.status === 'pending') {
+            return { success: false, message: 'Cadastro em análise.' };
         }
 
-        return { success: false, message: 'Falha na autenticação.' };
+        AuthService.saveSession(user);
+        return { success: true, user, message: 'Login realizado com sucesso!' };
     },
 
     updatePassword: async (newPassword: string): Promise<{ success: boolean; message: string }> => {
-        const { error } = await supabase.auth.updateUser({
-            password: newPassword
-        });
-
-        if (error) {
-            return { success: false, message: error.message };
-        }
-
-        // Update public.users table to clear reset flag
         const currentUser = AuthService.getCurrentUser();
-        if (currentUser) {
-            await supabase
-                .from('users')
-                .update({ force_password_reset: false })
-                .eq('id', currentUser.id);
+        if (!currentUser) return { success: false, message: 'Não autenticado.' };
 
-            // Update local session
-            AuthService.saveSession({ ...currentUser, force_password_reset: false });
+        const users = JSON.parse(localStorage.getItem(ALL_USERS_KEY) || '[]');
+        const userIdx = users.findIndex((u: User) => u.id === currentUser.id);
+
+        if (userIdx >= 0) {
+            users[userIdx].password_hash = newPassword;
+            users[userIdx].force_password_reset = false;
+            localStorage.setItem(ALL_USERS_KEY, JSON.stringify(users));
+
+            AuthService.saveSession({ ...users[userIdx] });
+            return { success: true, message: 'Senha atualizada com sucesso!' };
         }
 
-        return { success: true, message: 'Senha atualizada com sucesso!' };
+        return { success: false, message: 'Usuário não encontrado.' };
     },
 
     logout: async () => {
-        try {
-            await supabase.auth.signOut();
-        } catch (e) {
-            console.error('Logout error:', e);
-        } finally {
-            localStorage.removeItem(CURRENT_USER_KEY);
-        }
+        localStorage.removeItem(CURRENT_USER_KEY);
     },
 
     // --- Session Management ---
@@ -201,35 +150,31 @@ export const AuthService = {
 
     // --- Admin Actions ---
     updateUserStatus: async (userId: string, status: UserStatus, role?: Role | null): Promise<void> => {
-        const updates: any = { status };
-        if (role !== undefined) updates.role = role;
+        const users = JSON.parse(localStorage.getItem(ALL_USERS_KEY) || '[]');
+        const userIdx = users.findIndex((u: User) => u.id === userId);
 
-        const { error } = await supabase
-            .from('users')
-            .update(updates)
-            .eq('id', userId);
-
-        if (error) console.error('Error updating user status:', error);
+        if (userIdx >= 0) {
+            users[userIdx].status = status;
+            if (role !== undefined) users[userIdx].role = role;
+            localStorage.setItem(ALL_USERS_KEY, JSON.stringify(users));
+        }
     },
 
     updateUser: async (originalId: string, updates: Partial<User>): Promise<{ success: boolean; message: string }> => {
-        const { error } = await supabase
-            .from('users')
-            .update(updates)
-            .eq('id', originalId);
+        const users = JSON.parse(localStorage.getItem(ALL_USERS_KEY) || '[]');
+        const userIdx = users.findIndex((u: User) => u.id === originalId);
 
-        if (error) {
-            return { success: false, message: error.message };
+        if (userIdx >= 0) {
+            users[userIdx] = { ...users[userIdx], ...updates };
+            localStorage.setItem(ALL_USERS_KEY, JSON.stringify(users));
+            return { success: true, message: 'Usuário atualizado com sucesso.' };
         }
-        return { success: true, message: 'Usuário atualizado com sucesso.' };
+        return { success: false, message: 'Usuário não encontrado.' };
     },
 
     deleteUser: async (userId: string): Promise<void> => {
-        const { error } = await supabase
-            .from('users')
-            .delete()
-            .eq('id', userId);
-
-        if (error) console.error('Error deleting user:', error);
+        const users = JSON.parse(localStorage.getItem(ALL_USERS_KEY) || '[]');
+        const filtered = users.filter((u: User) => u.id !== userId);
+        localStorage.setItem(ALL_USERS_KEY, JSON.stringify(filtered));
     }
 };
