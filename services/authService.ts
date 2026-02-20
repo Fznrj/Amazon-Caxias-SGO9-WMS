@@ -96,7 +96,8 @@ export const AuthService = {
             .single();
 
         if (profileError || !userProfile) {
-            return { success: false, message: 'Erro ao carregar perfil do usuário.' };
+            console.error('Profile load error:', profileError);
+            return { success: false, message: `Erro ao carregar perfil: ${profileError?.message || 'Perfil não encontrado'}` };
         }
 
         const user = userProfile as User;
