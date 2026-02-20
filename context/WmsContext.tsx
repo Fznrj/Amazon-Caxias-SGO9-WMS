@@ -360,10 +360,12 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     ? prev.map(s => s.id === item.id ? { ...s, entryTime: now, operator: item.operator, status: 'Em Estoque' as const, lossDetectedTime: undefined } : s)
                     : [...prev, { id: item.id, entryTime: now, operator: item.operator, status: 'Em Estoque' as const }];
                 saveLocal(STORAGE_KEYS.STOCK, updated);
+
+                // 3. Update Possible Loss list synchronized with the new stock update
+                setPossibleLossItems(updated.filter(p => p.status === 'Possível Perda'));
+
                 return updated;
             });
-
-            setPossibleLossItems(prev => prev.filter(p => p.id !== item.id));
 
             playAudio('success');
         } else {
@@ -504,7 +506,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 const updated = stockItems.map(s => s.id === id ? { ...s, status: 'Perda' as const } : s);
                 setStockItems(updated);
                 saveLocal(STORAGE_KEYS.STOCK, updated);
-                setPossibleLossItems(updated.filter(p => p.id !== id));
+                setPossibleLossItems(updated.filter(p => p.status === 'Possível Perda'));
                 playAudio('error');
                 return { success: false, message: 'Tempo limite de 72h excedido. Item marcado como Perda definitiva.' };
             }
@@ -517,7 +519,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const updated = stockItems.map(s => s.id === id ? { ...s, status: 'Em Estoque' as const, lossDetectedTime: undefined } : s);
         setStockItems(updated);
         saveLocal(STORAGE_KEYS.STOCK, updated);
-        setPossibleLossItems(updated.filter(p => p.id !== id));
+        setPossibleLossItems(updated.filter(p => p.status === 'Possível Perda'));
         playAudio('success');
         return { success: true, message: `TBR ${id} localizada com sucesso!` };
     };
