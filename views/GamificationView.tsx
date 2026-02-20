@@ -176,9 +176,9 @@ const GamificationView: React.FC = () => {
     return (
         <div className="space-y-8">
             {/* === USER HERO HEADER === */}
-            <div className="bg-gradient-to-r from-primary via-[#043630] to-primary p-8 rounded-2xl shadow-2xl relative overflow-hidden border border-white/10">
-                <div className="absolute top-0 right-0 w-80 h-80 bg-white rounded-full filter blur-[120px] opacity-10"></div>
-                <div className="absolute bottom-0 left-0 w-64 h-64 bg-white rounded-full filter blur-[100px] opacity-10"></div>
+            <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-8 rounded-2xl shadow-2xl relative overflow-hidden border border-slate-700">
+                <div className="absolute top-0 right-0 w-80 h-80 bg-purple-500 rounded-full filter blur-[120px] opacity-10"></div>
+                <div className="absolute bottom-0 left-0 w-64 h-64 bg-primary rounded-full filter blur-[100px] opacity-10"></div>
 
                 <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
                     {/* Avatar */}
@@ -325,7 +325,7 @@ const GamificationView: React.FC = () => {
             </div>
 
             {/* === ACHIEVEMENTS === */}
-            <div className="bg-white dark:bg-card-dark rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
                 <h3 className="font-display font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest text-sm mb-6">
                     🏅 Conquistas
                 </h3>
@@ -352,7 +352,7 @@ const GamificationView: React.FC = () => {
             </div>
 
             {/* === LEVEL PROGRESSION === */}
-            <div className="bg-white dark:bg-card-dark rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
                 <h3 className="font-display font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest text-sm mb-6">
                     📊 Progressão de Níveis
                 </h3>
@@ -386,7 +386,7 @@ const GamificationView: React.FC = () => {
 
             {/* === ANTI-FRAUD ALERTS (Admin only) === */}
             {(currentUser?.role === 'admin' || currentUser?.role === 'superadmin' || currentUser?.role === 'supervisor' || currentUser?.role === 'coordinator') && (
-                <div className="bg-white dark:bg-card-dark rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+                <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
                     <h3 className="font-display font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest text-sm mb-4">
                         🛡️ Anti-Fraude — Alertas
                     </h3>

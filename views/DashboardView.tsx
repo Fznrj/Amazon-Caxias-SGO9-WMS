@@ -31,7 +31,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
     <div className="space-y-8">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {kpis.map((kpi, idx) => (
-          <div key={idx} className="bg-white dark:bg-card-dark p-5 rounded border-l-4 shadow-sm flex flex-col justify-between h-32 transition-transform hover:scale-[1.02]" style={{ borderColor: `var(--tw-border-opacity, 1) ${kpi.color === 'primary' ? '#06453D' : kpi.color}` }}>
+          <div key={idx} className="bg-white dark:bg-card-dark p-5 rounded border-l-4 shadow-sm flex flex-col justify-between h-32 transition-transform hover:scale-[1.02]" style={{ borderColor: `var(--tw-border-opacity, 1) ${kpi.color === 'primary' ? '#087f8c' : kpi.color}` }}>
             <div className="flex justify-between items-start">
               <span className={`material-icons-round text-${kpi.color} opacity-80`}>{kpi.icon}</span>
               <div className="text-right">
@@ -54,11 +54,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                 <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
                 <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => Math.round(val).toString()} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: '#06453D', border: 'none', borderRadius: '8px', color: '#fff' }}
-                  itemStyle={{ color: '#f3a847' }}
+                  contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px', color: '#fff' }}
+                  itemStyle={{ color: '#087f8c' }}
                   formatter={(value: any) => [value, 'Volume']}
                 />
-                <Bar dataKey="entradas" name="Entradas" fill="#06453D" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="entradas" name="Entradas" fill="#087f8c" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="saudas" name="Saídas" fill="#f3a847" radius={[4, 4, 0, 0]} />
               </BarChart>
             ) : (
