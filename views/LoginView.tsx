@@ -107,6 +107,9 @@ const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigateRegiste
 
         </div>
       </div>
+      <div className="fixed bottom-4 right-4 text-[10px] text-gray-400 dark:text-gray-600 font-medium pointer-events-none">
+        Produzido por: Fernando Souza
+      </div>
     </div>
   );
 };

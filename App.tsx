@@ -128,6 +128,10 @@ const AppContent: React.FC = () => {
           {renderView()}
         </main>
       </div>
+
+      <div className="fixed bottom-4 right-4 text-[10px] text-slate-400 dark:text-slate-500 font-medium pointer-events-none z-50">
+        Produzido por: Fernando Souza
+      </div>
     </div>
   );
 };
