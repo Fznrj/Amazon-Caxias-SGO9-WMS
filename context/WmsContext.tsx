@@ -400,6 +400,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 }).eq('id', item.id);
                 if (updErr) console.error('WmsContext: Error updating stock', updErr);
             } else {
+                console.log('WmsContext: Inserting NEW stock item', item.id, 'for company', currentUser?.company_id);
                 const { error: insErr } = await supabase.from('stock').insert({
                     id: item.id,
                     entry_time: now,
@@ -742,11 +743,12 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     useEffect(() => {
         const loadUsers = async () => {
+            if (!currentUser) return;
             const allUsers = await AuthService.getUsers();
             setUsers(allUsers);
         };
         loadUsers();
-    }, []);
+    }, [currentUser]); // Refresh users when admin logs in
 
     const login = async (email: string, password: string) => {
         console.log('WmsContext: login attempt for', email);
