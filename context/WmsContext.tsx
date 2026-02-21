@@ -72,6 +72,7 @@ interface WmsContextData {
     staleStockItems: StockItem[]; // +24h items list
     addInventoryItem: (item: InventoryItem) => Promise<void>;
     isInventoryActive: boolean;
+    setIsInventoryActive: (active: boolean) => void;
     startInventory: () => Promise<void>;
     stopInventory: () => Promise<void>;
     localizeItem: (id: string, scannerInput: string) => Promise<{ success: boolean; message: string }>;
@@ -120,9 +121,7 @@ interface WmsContextData {
 
     // Helpers
     verifyStock: (id: string) => Promise<{ success: boolean; message: string }>;
-    isToday: (timeStr: string) => boolean;
-    getSystemDate: () => string;
-    getLocalDateIso: () => string;
+    isSameDay: (dateStr: string) => boolean;
 
     // Audio
     playAudio: (type: 'success' | 'error') => void;
@@ -236,12 +235,9 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     // --- Local Storage Keys ---
     const STORAGE_KEYS = {
-        STOCK: 'wms_stock',
-        INBOUND_LOG: 'wms_inbound_log',
-        OUTBOUND_LOG: 'wms_outbound_log',
-        DRIVERS: 'wms_drivers',
-        INCIDENTS: 'wms_incidents',
         CONFIG: 'wms_system_config',
+        ACTIVE_VIEW: 'wms_active_view',
+        STOCK: 'wms_stock',
         INVENTORY_LOG: 'wms_inventory_log'
     };
 
@@ -443,36 +439,17 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
 
     const addInboundItem = async (item: InboundItem) => {
+        if (!currentUser) return;
         const now = new Date().toISOString();
         const enrichedItem = { ...item, time: now };
 
-        // 72h rule check (simplified for offline)
-        const stockItem = stockItems.find(s => s.id === item.id);
-        if (stockItem?.status === 'Possível Perda' && stockItem.lossDetectedTime) {
-            const lossTime = new Date(stockItem.lossDetectedTime).getTime();
-            const hoursElapsed = (Date.now() - lossTime) / (1000 * 60 * 60);
-
-            if (hoursElapsed > 72) {
-                const errorLog: InboundItem = { ...enrichedItem, status: 'Perda Definitiva', error: true };
-                setInboundItems(prev => [errorLog, ...prev]);
-                saveLocal(STORAGE_KEYS.INBOUND_LOG, [errorLog, ...inboundItems]);
-
-                setStockItems(prev => prev.map(s => s.id === item.id ? { ...s, status: 'Perda' } : s));
-                saveLocal(STORAGE_KEYS.STOCK, stockItems.map(s => s.id === item.id ? { ...s, status: 'Perda' } : s));
-
-                playAudio('error');
-                return;
-            }
-        }
-
-        if (item.status === 'Sucesso' && currentUser) {
+        if (item.status === 'Sucesso') {
             await gamificationService.registerScan(currentUser.id, currentUser.name, currentUser.company_id);
         }
 
-        // Save to Supabase
         const { error } = await supabase.from('inbound_log').insert({
             ...enrichedItem,
-            company_id: currentUser?.company_id
+            company_id: currentUser.company_id
         });
 
         if (error) {
@@ -481,96 +458,73 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             return;
         }
 
-        // Optimistic update
-        setInboundItems(prev => [enrichedItem, ...prev]);
-
-        if (!item.error) {
-            // 1. Resolve treatments
-            const updatedTreatments = treatmentItems.map(t =>
-                (t.tbrId === item.id && t.status !== 'Resolvido') ? { ...t, status: 'Resolvido' as const } : t
-            );
-            setTreatmentItems(updatedTreatments);
-
-            if (currentUser) {
-                await supabase.from('incidents')
-                    .update({ status: 'Resolvido' })
-                    .eq('tbr_id', item.id)
-                    .eq('company_id', currentUser.company_id);
+        const exists = stockItems.find(s => s.id === item.id);
+        const stockData = exists
+            ? {
+                entry_time: now,
+                operator: item.operator,
+                status: 'Em Estoque' as const,
+                loss_detected_time: null,
+                company_id: currentUser.company_id
             }
+            : {
+                id: item.id,
+                entry_time: now,
+                operator: item.operator,
+                status: 'Em Estoque' as const,
+                company_id: currentUser.company_id
+            };
 
-            // 2. Update Stock in Supabase
-            const exists = stockItems.find(s => s.id === item.id);
-            const stockData = exists
-                ? {
-                    entry_time: now,
-                    operator: item.operator,
-                    status: 'Em Estoque' as const,
-                    loss_detected_time: null,
-                    company_id: currentUser?.company_id
-                }
-                : {
-                    id: item.id,
-                    entry_time: now,
-                    operator: item.operator,
-                    status: 'Em Estoque' as const,
-                    company_id: currentUser?.company_id
-                };
-
-            await supabase.from('stock_items').upsert(stockData);
-
-            // Re-fetch will happen via Realtime, but for responsiveness:
-            loadInitialData();
-
-            playAudio('success');
-        } else {
-            playAudio('error');
-        }
+        await supabase.from('stock_items').upsert(stockData);
+        loadInitialData();
+        playAudio('success');
     };
 
     const addOutboundItem = async (item: OutboundItem) => {
-        const enrichedItem = { ...item, time: new Date().toISOString() };
-        if (currentUser) {
-            await gamificationService.registerScan(currentUser.id, currentUser.name, currentUser.company_id);
+        if (!currentUser) return;
+        const now = new Date().toISOString();
+        const enrichedItem = { ...item, time: now };
 
-            const { error: insE } = await supabase.from('outbound_log').insert({
-                id: enrichedItem.id,
-                driver_name: enrichedItem.driverName,
-                vehicle: enrichedItem.vehicle,
-                time: enrichedItem.time,
-                operator: enrichedItem.operator,
-                status: enrichedItem.status,
-                company_id: currentUser.company_id
-            });
+        await gamificationService.registerScan(currentUser.id, currentUser.name, currentUser.company_id);
 
-            if (insE) {
-                console.error('WmsContext: Error adding outbound item:', insE);
-                playAudio('error');
-                return;
-            }
+        const { error: insE } = await supabase.from('outbound_log').insert({
+            id: enrichedItem.id,
+            driver_name: enrichedItem.driverName,
+            vehicle: enrichedItem.vehicle,
+            time: enrichedItem.time,
+            operator: enrichedItem.operator,
+            status: enrichedItem.status,
+            company_id: currentUser.company_id
+        });
 
-            const { error: updE } = await supabase.from('stock_items')
-                .update({ status: 'Saiu' })
-                .eq('id', item.id)
-                .eq('company_id', currentUser.company_id);
-
-            if (updE) console.error('WmsContext: Error updating stock on outbound:', updE);
+        if (insE) {
+            console.error('WmsContext: Error adding outbound item:', insE);
+            playAudio('error');
+            return;
         }
 
-        // Realtime will handle the update
+        await supabase.from('stock_items')
+            .update({ status: 'Saiu' })
+            .eq('id', item.id)
+            .eq('company_id', currentUser.company_id);
+
+        loadInitialData();
         playAudio('success');
     };
 
     const deleteOutboundItem = async (id: string) => {
-        setOutboundItems(prev => {
-            const updated = prev.filter(item => item.id !== id);
-            saveLocal(STORAGE_KEYS.OUTBOUND_LOG, updated);
-            return updated;
-        });
-        setStockItems(prev => {
-            const updated = prev.map(s => s.id === id ? { ...s, status: 'Em Estoque' as const } : s);
-            saveLocal(STORAGE_KEYS.STOCK, updated);
-            return updated;
-        });
+        if (!currentUser) return;
+        await supabase.from('outbound_log')
+            .delete()
+            .eq('id', id)
+            .eq('company_id', currentUser.company_id);
+
+        await supabase.from('stock_items')
+            .update({ status: 'Em Estoque' })
+            .eq('id', id)
+            .eq('company_id', currentUser.company_id);
+
+        loadInitialData();
         playAudio('success');
     };
 
@@ -868,7 +822,6 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const allUsers = await AuthService.getUsers();
         setUsers(allUsers);
     };
-
     const updateUserStatus = async (id: string, status: UserStatus, role?: Role | null) => {
         await AuthService.updateUserStatus(id, status, role);
         await refreshUsers();
@@ -878,17 +831,14 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const result = await AuthService.updateUser(originalId, updates);
         await refreshUsers();
 
-        // If the updated user is the current user, update the state to reflect changes (like name or ID)
         if (currentUser && currentUser.id === originalId) {
             const allUsers = await AuthService.getUsers();
             const updated = allUsers.find(u => u.id === (updates.id || originalId));
             if (updated) {
                 setCurrentUser(updated);
-                // Also update stored session to persist after refresh
                 AuthService.saveSession(updated);
             }
         }
-
         return result;
     };
 
@@ -906,14 +856,12 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const updatePassword = async (newPassword: string) => {
         const result = await AuthService.updatePassword(newPassword);
-        // Refresh currentUser state to reflect the change in force_password_reset flag
         if (result.success && currentUser) {
             setCurrentUser({ ...currentUser, force_password_reset: false });
         }
         return result;
     };
 
-    // --- Reset Logic ---
     const resetTransactions = async () => {
         if (!currentUser) return;
         const companyId = currentUser.company_id;
@@ -929,82 +877,71 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         playAudio('success');
     };
 
-    // --- Stats ---
-    const getTodayRange = () => {
-        const start = new Date();
-        start.setHours(0, 0, 0, 0);
-        const end = new Date();
-        end.setHours(23, 59, 59, 999);
-        return { start, end };
-    };
+    const todayKey = getDateKey(new Date().toISOString());
 
-    const getSystemDate = () => {
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    };
+    const totalInboundToday = React.useMemo(() =>
+        inboundItems.filter(item => {
+            if (item.error) return false;
+            const ts = (item as any).created_at || item.time;
+            return getDateKey(ts) === todayKey;
+        }).length,
+        [inboundItems, todayKey]);
 
-    const isToday = (timeStr: string) => {
-        if (!timeStr) return false;
-        return isSameDay(timeStr);
-    };
+    const totalOutboundToday = React.useMemo(() =>
+        outboundItems.filter(item => {
+            if (item.status !== 'Saiu com Motorista') return false;
+            const ts = (item as any).created_at || item.time;
+            return getDateKey(ts) === todayKey;
+        }).length,
+        [outboundItems, todayKey]);
 
-    const totalInboundToday = inboundItems.filter(item => {
-        if (item.error) return false;
-        // Favor created_at if it's in the item (Supabase usually returns it)
-        const timestamp = (item as any).created_at || item.time;
-        return isToday(timestamp);
-    }).length;
-
-    const totalOutboundToday = outboundItems.filter(item => {
-        if (item.status !== 'Saiu com Motorista') return false;
-        const timestamp = (item as any).created_at || item.time;
-        return isToday(timestamp);
-    }).length;
-
-    const totalReversaToday = outboundItems.filter(item => {
-        if (item.status !== 'Reversa - Saiu com Motorista') return false;
-        const timestamp = (item as any).created_at || item.time;
-        return isToday(timestamp);
-    }).length;
+    const totalReversaToday = React.useMemo(() =>
+        outboundItems.filter(item => {
+            if (item.status !== 'Reversa - Saiu com Motorista') return false;
+            const ts = (item as any).created_at || item.time;
+            return getDateKey(ts) === todayKey;
+        }).length,
+        [outboundItems, todayKey]);
 
     const totalInventoryScanned = inventoryItems.length;
     const totalLossItems = stockItems.filter(s => s.status === 'Perda').length;
 
-    const staleStockItems = stockItems.filter(item => {
+    const staleItemsCount = stockItems.filter(item => {
         if (item.status !== 'Em Estoque') return false;
         try {
             const now = new Date().getTime();
-            const entryDate = new Date(item.entryTime).getTime();
-            if (isNaN(entryDate)) return false;
-            return (now - entryDate) / (1000 * 60 * 60) > 24;
-        } catch (e) {
-            return false;
-        }
-    });
+            const entryTS = item.entryTime ? new Date(item.entryTime).getTime() : 0;
+            if (!entryTS) return false;
+            return (now - entryTS) / (1000 * 60 * 60) > 24;
+        } catch { return false; }
+    }).length;
 
-    const staleItemsCount = staleStockItems.length;
+    const staleStockItems = React.useMemo(() => stockItems.filter(item => {
+        if (item.status !== 'Em Estoque') return false;
+        try {
+            const now = new Date().getTime();
+            const entryTS = item.entryTime ? new Date(item.entryTime).getTime() : 0;
+            if (!entryTS) return false;
+            return (now - entryTS) / (1000 * 60 * 60) > 24;
+        } catch { return false; }
+    }), [stockItems]);
 
     return (
         <WmsContext.Provider value={{
-            currentUser, login, logout, register,
+            currentUser, logout, login, register,
+            updatePassword, users, inviteUser, refreshUsers, updateUserStatus, updateUser, deleteUser,
             currentView, setCurrentView,
+            stockItems, possibleLossItems, staleStockItems,
             inboundItems, addInboundItem, expectedInboundList, setExpectedInboundList, clearInboundManifest,
             outboundItems, addOutboundItem, deleteOutboundItem,
-            inventoryItems, addInventoryItem, isInventoryActive, startInventory, stopInventory,
-            stockItems, possibleLossItems, staleStockItems,
+            inventoryItems, isInventoryActive, setIsInventoryActive, addInventoryItem,
+            startInventory, stopInventory, localizeItem,
             drivers, addDriver, bulkAddDrivers, updateDriver, deleteDriver,
             treatmentItems, addTreatment, updateTreatmentStatus, updateTreatment,
-            users, refreshUsers, updateUserStatus, updateUser, deleteUser,
-            isToday, getSystemDate, getLocalDateIso: () => isSameDay(new Date().toISOString()) ? getSaoPauloDate() : getSaoPauloDate(), // Simplified but correct
             totalInboundToday, totalOutboundToday, totalReversaToday, totalInventoryScanned, totalLossItems, staleItemsCount,
             weeklyStats,
             resetTransactions,
-            verifyStock,
-            inviteUser, updatePassword,
-            localizeItem,
+            verifyStock, isSameDay,
             playAudio
         }}>
             {children}
