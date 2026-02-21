@@ -10,10 +10,11 @@ const ProductivityView: React.FC = () => {
     inboundItems,
     outboundItems,
     inventoryItems,
+    getLocalDateIso
   } = useWms();
 
-  const [startDate, setStartDate] = React.useState<string>(new Date().toISOString().split('T')[0]);
-  const [endDate, setEndDate] = React.useState<string>(new Date().toISOString().split('T')[0]);
+  const [startDate, setStartDate] = React.useState<string>(getLocalDateIso());
+  const [endDate, setEndDate] = React.useState<string>(getLocalDateIso());
 
   // Helper to filter items by date range
   const filterByDateRange = (items: any[]) => {

@@ -953,6 +953,14 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return new Date().toLocaleDateString('pt-BR');
     };
 
+    const getLocalDateIso = () => {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
     const isToday = (timeStr: string) => {
         if (!timeStr) return false;
         try {
@@ -1006,15 +1014,18 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             inboundItems, addInboundItem, expectedInboundList, setExpectedInboundList, clearInboundManifest,
             outboundItems, addOutboundItem, deleteOutboundItem,
             inventoryItems, addInventoryItem, isInventoryActive, startInventory, stopInventory, stockItems, possibleLossItems,
-            staleStockItems,
-            localizeItem,
+            stockItems, possibleLossItems, staleStockItems,
+            inventoryItems, addInventoryItem, isInventoryActive, startInventory, stopInventory,
+            drivers, addDriver, bulkAddDrivers, updateDriver, deleteDriver,
             treatmentItems, addTreatment, updateTreatmentStatus, updateTreatment,
             users, refreshUsers, updateUserStatus, updateUser, deleteUser,
-            drivers, addDriver, bulkAddDrivers, updateDriver, deleteDriver,
-            currentUser, login, logout, register,
-            currentView, setCurrentView,
-            totalInboundToday, totalOutboundToday, totalReversaToday, totalInventoryScanned, totalLossItems, staleItemsCount,
-            weeklyStats,
+            isToday,
+            getSystemDate,
+            getLocalDateIso,
+            login,
+            logout,
+            register,
+            localizeItem,
             resetTransactions,
             verifyStock,
             inviteUser, updatePassword,
