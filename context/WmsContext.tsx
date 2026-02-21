@@ -616,7 +616,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const addDriver = async (driverData: Omit<Driver, 'id' | 'lastActivity'>) => {
         if (!currentUser) return;
         const newDriverId = 'dr-' + Math.random().toString(36).substr(2, 9);
-        const now = new Date().toISOString();
+        const now = getTodayDate().toISOString();
 
         await supabase.from('drivers').insert({
             id: newDriverId,
