@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useWms } from '../context/WmsContext';
 import * as XLSX from 'xlsx';
-import { isSameDay } from '../utils/dateUtils';
+import { isSameDay, getTodayDate } from '../utils/dateUtils';
 
 const InboundView: React.FC = () => {
   const [scanValue, setScanValue] = useState('');
@@ -59,7 +59,7 @@ const InboundView: React.FC = () => {
         id: currentId,
         status: 'Duplicado',
         operator: currentUser?.name || 'Sistema',
-        time: new Date().toLocaleString('pt-BR'),
+        time: getTodayDate().toLocaleString('pt-BR'),
         error: true
       });
       setScanValue('');
@@ -71,15 +71,17 @@ const InboundView: React.FC = () => {
       id: currentId,
       status: (isError ? 'Prefixo Inválido' : 'Sucesso') as any,
       operator: currentUser?.name || 'Sistema',
-      time: new Date().toLocaleString('pt-BR'),
+      time: getTodayDate().toLocaleString('pt-BR'),
       error: isError
     });
     setScanValue('');
   };
 
-  // Progress Calculation
+  // Progress Calculation - Filter by Today (simulated)
   const successfulScans = Array.from(new Set(
-    inboundItems.filter(item => !item.error).map(item => item.id)
+    inboundItems
+      .filter(item => !item.error && isSameDay(item.time || (item as any).created_at))
+      .map(item => item.id)
   ));
 
   const missingItems = expectedInboundList.filter(id => !successfulScans.includes(id));
