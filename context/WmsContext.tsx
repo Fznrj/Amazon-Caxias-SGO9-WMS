@@ -264,8 +264,17 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 .eq('company_id', companyId);
 
             if (stock) {
-                setStockItems(stock);
-                setPossibleLossItems(stock.filter(s => s.status === 'Possível Perda'));
+                const mappedStock = stock.map(s => ({
+                    id: s.id,
+                    entryTime: s.entry_time, // Supabase returns ISO usually or we can cast
+                    operator: s.operator,
+                    status: s.status,
+                    lossDetectedTime: s.loss_detected_time,
+                    localizedBy: s.localized_by,
+                    rackLocation: s.rack_location
+                }));
+                setStockItems(mappedStock);
+                setPossibleLossItems(mappedStock.filter(s => s.status === 'Possível Perda'));
             }
 
             // 2. Inbound Log
@@ -282,14 +291,33 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 .select('*')
                 .eq('company_id', companyId)
                 .order('created_at', { ascending: false });
-            if (outbound) setOutboundItems(outbound);
+            if (outbound) {
+                const mappedOutbound = outbound.map(o => ({
+                    id: o.id,
+                    driverName: o.driver_name,
+                    vehicle: o.vehicle,
+                    time: o.time,
+                    operator: o.operator,
+                    status: o.status
+                }));
+                setOutboundItems(mappedOutbound);
+            }
 
             // 4. Drivers
             const { data: driversData } = await supabase
                 .from('drivers')
                 .select('*')
                 .eq('company_id', companyId);
-            if (driversData) setDrivers(driversData);
+            if (driversData) {
+                const mappedDrivers = driversData.map(d => ({
+                    id: d.id,
+                    name: d.name,
+                    badge: d.badge,
+                    vehicle_type: d.vehicle_type,
+                    lastActivity: d.last_activity
+                }));
+                setDrivers(mappedDrivers);
+            }
 
             // 5. Incidents
             const { data: incidents } = await supabase
@@ -622,13 +650,20 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         // If the item is not in stock or is a possible loss, we are localizing it.
         if (item) {
             // Se o item estava como "Possível Perda", atualizamos para "Em Estoque" e logamos quem achou
-            if (item.status === 'Possível Perda') {
-                item.localizedBy = currentUser?.name || 'Sistema';
-            }
-            item.status = 'Em Estoque';
-            item.entryTime = new Date().toISOString();
-            item.operator = currentUser?.name || 'Sistema'; // O atual operador assume o item
-            setStockItems([...stockItems]);
+            const updates = {
+                status: 'Em Estoque' as const,
+                entry_time: new Date().toISOString(),
+                operator: currentUser?.name || 'Sistema',
+                loss_detected_time: null,
+                localized_by: item.status === 'Possível Perda' ? (currentUser?.name || 'Sistema') : item.localized_by,
+                rack_location: scannerInput
+            };
+
+            await supabase.from('stock_items')
+                .update(updates)
+                .eq('id', id)
+                .eq('company_id', currentUser.company_id);
+
             playAudio('success');
             return { success: true, message: `Item ${id} localizado e re-alocado no rack ${scannerInput}.` };
         }
@@ -695,15 +730,19 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
 
     const updateTreatmentStatus = async (id: string, status: TreatmentItem['status']) => {
-        const updated = treatmentItems.map(t => t.id === id ? { ...t, status } : t);
-        setTreatmentItems(updated);
-        saveLocal(STORAGE_KEYS.INCIDENTS, updated);
+        if (!currentUser) return;
+        await supabase.from('incidents')
+            .update({ status })
+            .eq('id', id)
+            .eq('company_id', currentUser.company_id);
     };
 
     const updateTreatment = async (id: string, updates: Partial<Pick<TreatmentItem, 'type' | 'description'>>) => {
-        const updated = treatmentItems.map(t => t.id === id ? { ...t, ...updates } : t);
-        setTreatmentItems(updated);
-        saveLocal(STORAGE_KEYS.INCIDENTS, updated);
+        if (!currentUser) return;
+        await supabase.from('incidents')
+            .update(updates)
+            .eq('id', id)
+            .eq('company_id', currentUser.company_id);
         playAudio('success');
     };
 
@@ -803,21 +842,17 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     // --- Reset Logic ---
     const resetTransactions = async () => {
-        setInboundItems([]);
-        setOutboundItems([]);
-        setStockItems([]);
-        setInventoryItems([]);
-        setPossibleLossItems([]);
-        setExpectedInboundList([]);
-        setTreatmentItems([]);
+        if (!currentUser) return;
+        const companyId = currentUser.company_id;
 
-        localStorage.removeItem(STORAGE_KEYS.INBOUND_LOG);
-        localStorage.removeItem(STORAGE_KEYS.OUTBOUND_LOG);
-        localStorage.removeItem(STORAGE_KEYS.STOCK);
-        localStorage.removeItem(STORAGE_KEYS.CONFIG);
-        localStorage.removeItem(STORAGE_KEYS.INCIDENTS);
-        localStorage.removeItem(STORAGE_KEYS.INVENTORY_LOG);
+        await supabase.from('inbound_log').delete().eq('company_id', companyId);
+        await supabase.from('outbound_log').delete().eq('company_id', companyId);
+        await supabase.from('stock_items').delete().eq('company_id', companyId);
+        await supabase.from('incidents').delete().eq('company_id', companyId);
+        await supabase.from('inventory_log').delete().eq('company_id', companyId);
+        await supabase.from('system_configs').update({ expected_inbound: [] }).eq('company_id', companyId);
 
+        loadInitialData();
         playAudio('success');
     };
 
