@@ -568,10 +568,16 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             return { success: false, message: `Erro ao salvar logs: ${insE.message}` };
         }
 
-        // 2. Bulk Update stock_items status
+        // 2. Bulk Update stock_items status and pallet_id
         const ids = items.map(i => i.id);
+        // Note: For Reversa, all items in the batch usually share the same palletId
+        const batchPalletId = (items[0] as any).palletId;
+
         const { error: updE } = await supabase.from('stock_items')
-            .update({ status: 'Saiu' })
+            .update({
+                status: 'Saiu',
+                pallet_id: batchPalletId
+            })
             .in('id', ids)
             .eq('company_id', companyId);
 

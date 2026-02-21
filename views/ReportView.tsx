@@ -80,7 +80,7 @@ const ReportView: React.FC = () => {
 
       // Outbound & Reversa
       ...filterByDateRange(outboundItems).map(i => [
-        i.time, i.status.includes('Reversa') ? 'Reversa' : 'Saída', i.id, i.operator, i.driverName, i.vehicle, i.status, (i as any).palletId || '-'
+        i.time, i.status?.toLowerCase()?.includes('reversa') ? 'Reversa' : 'Saída', i.id, i.operator, i.driverName, i.vehicle, i.status, (i as any).palletId || '-'
       ]),
 
       // Possible Loss
@@ -89,7 +89,7 @@ const ReportView: React.FC = () => {
       ]),
 
       // Definite Loss
-      ...filterByDateRange(stockItems.filter(s => s.status === 'Perda')).map(i => [
+      ...filterByDateRange(stockItems.filter(s => s.status?.toLowerCase() === 'perda')).map(i => [
         i.entryTime, 'Perda Definitiva', i.id, i.operator, '-', '-', i.status, '-'
       ]),
 
