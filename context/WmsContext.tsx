@@ -275,18 +275,29 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         try {
             const companyId = currentUser.company_id;
-            console.log('WmsContext: Loading data for company:', `"${companyId}"`);
+            console.log('WmsContext: Batch loading data for company:', `"${companyId}"`);
 
-            // 1. Stock & Possible Loss
-            const { data: stock, error: se } = await supabase
-                .from('stock_items')
-                .select('*')
-                .eq('company_id', companyId);
+            const [
+                { data: stock, error: se },
+                { data: inbound, error: ie },
+                { data: outbound, error: oe },
+                { data: driversData, error: de },
+                { data: incidents, error: incE },
+                { data: config, error: confE },
+                { data: inventory, error: invE }
+            ] = await Promise.all([
+                supabase.from('stock_items').select('*').eq('company_id', companyId),
+                supabase.from('inbound_log').select('*').eq('company_id', companyId).order('created_at', { ascending: false }),
+                supabase.from('outbound_log').select('*').eq('company_id', companyId).order('created_at', { ascending: false }),
+                supabase.from('drivers').select('*').eq('company_id', companyId),
+                supabase.from('incidents').select('*').eq('company_id', companyId).order('created_at', { ascending: false }),
+                supabase.from('system_configs').select('expected_inbound').eq('company_id', companyId).maybeSingle(),
+                supabase.from('inventory_log').select('*').eq('company_id', companyId)
+            ]);
 
+            // Handle Stock
             if (se) console.error('WmsContext: Stock fetch error:', se);
-
-            if (stock) {
-                console.log(`WmsContext: Fetched ${stock.length} stock items`);
+            else if (stock) {
                 const mappedStock = stock.map(s => ({
                     id: s.id,
                     entryTime: s.entry_time,
@@ -300,31 +311,13 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 setPossibleLossItems(mappedStock.filter(s => s.status === 'Possível Perda'));
             }
 
-            // 2. Inbound Log
-            const { data: inbound, error: ie } = await supabase
-                .from('inbound_log')
-                .select('*')
-                .eq('company_id', companyId)
-                .order('created_at', { ascending: false });
-
+            // Handle Inbound
             if (ie) console.error('WmsContext: Inbound fetch error:', ie);
+            else if (inbound) setInboundItems(inbound);
 
-            if (inbound) {
-                console.log(`WmsContext: Fetched ${inbound.length} inbound logs`);
-                setInboundItems(inbound);
-            }
-
-            // 3. Outbound Log
-            const { data: outbound, error: oe } = await supabase
-                .from('outbound_log')
-                .select('*')
-                .eq('company_id', companyId)
-                .order('created_at', { ascending: false });
-
+            // Handle Outbound
             if (oe) console.error('WmsContext: Outbound fetch error:', oe);
-
-            if (outbound) {
-                console.log(`WmsContext: Fetched ${outbound.length} outbound logs`);
+            else if (outbound) {
                 const mappedOutbound = outbound.map(o => ({
                     id: o.id,
                     driverName: o.driver_name,
@@ -336,14 +329,9 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 setOutboundItems(mappedOutbound);
             }
 
-            // 4. Drivers
-            const { data: driversData, error: de } = await supabase
-                .from('drivers')
-                .select('*')
-                .eq('company_id', companyId);
+            // Handle Drivers
             if (de) console.error('WmsContext: Drivers fetch error:', de);
-            if (driversData) {
-                console.log(`WmsContext: Fetched ${driversData.length} drivers`);
+            else if (driversData) {
                 const mappedDrivers = driversData.map(d => ({
                     id: d.id,
                     name: d.name,
@@ -357,48 +345,23 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 setDrivers(mappedDrivers);
             }
 
-            // 5. Incidents
-            const { data: incidents, error: incE } = await supabase
-                .from('incidents')
-                .select('*')
-                .eq('company_id', companyId)
-                .order('created_at', { ascending: false });
+            // Handle Incidents
             if (incE) console.error('WmsContext: Incidents fetch error:', incE);
-            if (incidents) {
-                console.log(`WmsContext: Fetched ${incidents.length} incidents`);
-                setTreatmentItems(incidents);
-            }
+            else if (incidents) setTreatmentItems(incidents);
 
-            // 6. Config
-            const { data: config, error: confE } = await supabase
-                .from('system_configs')
-                .select('expected_inbound')
-                .eq('company_id', companyId)
-                .maybeSingle();
+            // Handle Config
             if (confE) console.error('WmsContext: Config fetch error:', confE);
-            if (config?.expected_inbound) {
-                console.log(`WmsContext: Fetched expected inbound list with ${config.expected_inbound.length} items`);
-                _setExpectedInboundList(config.expected_inbound);
-            }
+            else if (config?.expected_inbound) _setExpectedInboundList(config.expected_inbound);
 
-            // 8. Gamification
-            await gamificationService.init(companyId);
-            const profiles = await gamificationService.getAllProfiles();
-            console.log(`WmsContext: Gamification initialized with ${profiles.length} profiles`);
-
-            // 7. Inventory
-            const { data: inventory, error: invE } = await supabase
-                .from('inventory_log')
-                .select('*')
-                .eq('company_id', companyId);
+            // Handle Inventory
             if (invE) console.error('WmsContext: Inventory fetch error:', invE);
-            if (inventory) {
-                console.log(`WmsContext: Fetched ${inventory.length} inventory logs`);
-                setInventoryItems(inventory);
-            }
+            else if (inventory) setInventoryItems(inventory);
+
+            // Initialize Gamification
+            await gamificationService.init(companyId);
 
         } catch (err) {
-            console.error('WmsContext: Error loading Supabase data:', err);
+            console.error('WmsContext: Unexpected error in loadInitialData:', err);
         }
     };
 
@@ -505,10 +468,16 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
 
         // Save to Supabase
-        await supabase.from('inbound_log').insert({
+        const { error } = await supabase.from('inbound_log').insert({
             ...enrichedItem,
             company_id: currentUser?.company_id
         });
+
+        if (error) {
+            console.error('WmsContext: Error adding inbound item:', error);
+            playAudio('error');
+            return;
+        }
 
         // Optimistic update
         setInboundItems(prev => [enrichedItem, ...prev]);
@@ -561,7 +530,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (currentUser) {
             await gamificationService.registerScan(currentUser.id, currentUser.name, currentUser.company_id);
 
-            await supabase.from('outbound_log').insert({
+            const { error: insE } = await supabase.from('outbound_log').insert({
                 id: enrichedItem.id,
                 driver_name: enrichedItem.driverName,
                 vehicle: enrichedItem.vehicle,
@@ -571,10 +540,18 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 company_id: currentUser.company_id
             });
 
-            await supabase.from('stock_items')
+            if (insE) {
+                console.error('WmsContext: Error adding outbound item:', insE);
+                playAudio('error');
+                return;
+            }
+
+            const { error: updE } = await supabase.from('stock_items')
                 .update({ status: 'Saiu' })
                 .eq('id', item.id)
                 .eq('company_id', currentUser.company_id);
+
+            if (updE) console.error('WmsContext: Error updating stock on outbound:', updE);
         }
 
         // Realtime will handle the update
@@ -657,12 +634,20 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             playAudio('error');
             return;
         }
-        await gamificationService.registerScan(currentUser.id, currentUser.name);
+        if (currentUser) {
+            await gamificationService.registerScan(currentUser.id, currentUser.name, currentUser.company_id);
+        }
 
-        await supabase.from('inventory_log').insert({
+        const { error } = await supabase.from('inventory_log').insert({
             ...item,
             company_id: currentUser.company_id
         });
+
+        if (error) {
+            console.error('WmsContext: Error adding inventory item:', error);
+            playAudio('error');
+            return;
+        }
 
         playAudio('success');
     };

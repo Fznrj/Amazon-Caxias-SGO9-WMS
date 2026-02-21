@@ -177,7 +177,8 @@ const GamificationView: React.FC = () => {
                         mixedActivityDays: mixedDays,
                         incidentsLogged: data.incidentsCount,
                         reversaPallets: data.reversaPallets.size
-                    }
+                    },
+                    true // skipSave
                 );
                 profiles.push(profile);
             }
@@ -188,7 +189,9 @@ const GamificationView: React.FC = () => {
                     currentUser.id,
                     currentUser.name,
                     currentUser.company_id,
-                    0, 0, 0, 0, 0, false, false, 0, 0, 0
+                    0, 0, 0, 0, 0, false, false, 0, 0, 0,
+                    undefined,
+                    true // skipSave
                 );
                 profiles.push(profile);
             }

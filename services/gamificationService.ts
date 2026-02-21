@@ -219,7 +219,8 @@ export class GamificationService {
         consecutiveDays: number,
         zeroErrorDays: number,
         avgMetaPercent: number,
-        extraMetrics?: any
+        extraMetrics?: any,
+        skipSave: boolean = false
     ): Promise<GamificationProfile> {
         const profile = this.ensureProfile(userId, userName);
 
@@ -251,7 +252,9 @@ export class GamificationService {
             profile.xpMonthly = Math.round(profile.xpMonthly * 0.8);
         }
 
-        await this.save(userId, userName, companyId);
+        if (!skipSave) {
+            await this.save(userId, userName, companyId);
+        }
         return profile;
     }
 
