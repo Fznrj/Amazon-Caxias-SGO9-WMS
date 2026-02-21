@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { useWms } from '../context/WmsContext';
+import { getTodayDate } from '../utils/dateUtils';
 
 const TreatmentView: React.FC = () => {
   const {
@@ -24,7 +25,7 @@ const TreatmentView: React.FC = () => {
   const [editingIncident, setEditingIncident] = useState<any>(null);
   const [editFormData, setEditFormData] = useState({ type: 'Avaria' as any, description: '' });
 
-  const now = new Date().getTime();
+  const now = getTodayDate().getTime();
 
   // 1. Calculate items stuck for more than 24 hours with display info
   const parados = staleStockItems.map(item => {

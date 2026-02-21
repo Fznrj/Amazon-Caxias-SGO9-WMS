@@ -2,7 +2,7 @@ import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useWms } from '../context/WmsContext';
 import { View } from '../types';
-import { getSaoPauloDate, parseToDate, getDateKey } from '../utils/dateUtils';
+import { getSaoPauloDate, parseToDate, getDateKey, getTodayDate } from '../utils/dateUtils';
 
 interface DashboardViewProps {
   onNavigate: (view: View) => void;
@@ -18,8 +18,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
     weeklyStats
   } = useWms();
 
-  const [startDate, setStartDate] = React.useState(getSaoPauloDate());
-  const [endDate, setEndDate] = React.useState(getSaoPauloDate());
+  const [startDate, setStartDate] = React.useState(getSaoPauloDate(getTodayDate()));
+  const [endDate, setEndDate] = React.useState(getSaoPauloDate(getTodayDate()));
   const [isComparisonMode, setIsComparisonMode] = React.useState(false);
 
   // Calculate stats for the selected period
@@ -128,7 +128,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           </div>
           <button
             onClick={() => {
-              const today = getSaoPauloDate();
+              const today = getSaoPauloDate(getTodayDate());
               setStartDate(today);
               setEndDate(today);
               setIsComparisonMode(false);
