@@ -1,7 +1,5 @@
 // Gamification Engine — SPR, XP, Levels, Achievements, Anti-Fraud
-// import { supabase } from './supabase'; // Mocked but unused now
-
-// ... (keep types and constants as is) ...
+import { supabase } from './supabase';
 
 export interface GamificationLevel {
     name: string;
@@ -76,7 +74,6 @@ const DEFAULT_ACHIEVEMENTS: Achievement[] = [
     { id: 'zero_errors_30', title: 'Perfeição', description: '0 erros por 30 dias', icon: 'auto_awesome', unlocked: false },
     { id: 'top3_weekly', title: 'Pódio Semanal', description: 'Top 3 no ranking do período', icon: 'military_tech', unlocked: false },
     { id: 'avg_110', title: 'Superação', description: '110% meta média no mês', icon: 'speed', unlocked: false },
-    // Novas Conquistas
     { id: 'dr_inventario', title: 'Doutor Inventário', description: 'Participar de 12 inventários cíclicos', icon: 'fact_check', unlocked: false },
     { id: 'participacao_ativa', title: 'Participação Ativa', description: 'Bipar pacotes 24 dias no mês', icon: 'calendar_month', unlocked: false },
     { id: 'protetor_pacotes', title: 'Protetor de Pacotes', description: '50 tratativas no mês', icon: 'verified_user', unlocked: false },
@@ -88,20 +85,6 @@ const DEFAULT_ACHIEVEMENTS: Achievement[] = [
     { id: 'mestre_reversa', title: 'Mestre da Reversa', description: 'Expedir 20 pallets de reversa no mês', icon: 'sync_alt', unlocked: false },
     { id: 'incansavel', title: 'O Incansável', description: '30.000 scans no mês', icon: 'battery_full', unlocked: false },
 ];
-
-const STORAGE_KEY = 'wms_gamification_profiles';
-
-// ========================
-// SERVICE
-// ========================
-
-export class GamificationService {
-    private profiles: Map<string, GamificationProfile> = new Map();
-    private initialized: boolean = false;
-
-import { supabase } from './supabase';
-
-// ... (keep types and constants as is) ...
 
 export class GamificationService {
     private profiles: Map<string, GamificationProfile> = new Map();
@@ -126,10 +109,10 @@ export class GamificationService {
                         xpTotal: p.xp_total,
                         currentLevel: p.current_level,
                         sprMonthly: p.spr_monthly,
-                        badges: p.badges,
+                        badges: p.badges || DEFAULT_ACHIEVEMENTS.map(a => ({ ...a })),
                         fraudFlag: p.fraud_flag,
-                        fraudAlerts: p.fraud_alerts,
-                        performanceLogs: [], // Logs can be derived or kept local for now
+                        fraudAlerts: p.fraud_alerts || [],
+                        performanceLogs: [],
                         dailyScans: {},
                         dailyErrors: {},
                         consecutiveDaysAboveMeta: 0,
@@ -198,7 +181,22 @@ export class GamificationService {
         return this.profiles.get(userName)!;
     }
 
-    // ... (SPR and XP calculation formulas remain the same) ...
+    calculateSPR(totalScans: number, metaPercent: number, diasAcimaMeta: number, erros: number): number {
+        const raw = (totalScans * 0.5) + (metaPercent * 5) + (diasAcimaMeta * 20) - (erros * 30);
+        return Math.max(0, Math.round(raw));
+    }
+
+    calculateXP(spr: number): number {
+        return Math.round(spr * 1.2);
+    }
+
+    getLevel(xp: number): GamificationLevel {
+        let level = LEVELS[0];
+        for (const l of LEVELS) {
+            if (xp >= l.minXP) level = l;
+        }
+        return level;
+    }
 
     async recalculate(
         userId: string,
@@ -250,118 +248,80 @@ export class GamificationService {
         return profile;
     }
 
-    // ... (rest of the checkAchievements and anti-fraud methods) ...
-}
-
-    // ========================
-    // ACHIEVEMENTS
-    // ========================
     private async checkAchievements(
-    profile: GamificationProfile,
-    monthlyScans: number,
-    consecutiveDays: number,
-    zeroErrorDays: number,
-    isTop3Weekly: boolean,
-    avgMetaPercent: number,
-    extra ?: {
-        inventoryParticipations: number;
-        activeDays: number;
-        treatmentsDone: number;
-        localizedItems: number;
-        driverExpeditions: number;
-        mixedActivityDays: number;
-        incidentsLogged: number;
-        reversaPallets: number;
-    }
-): Promise < void> {
-    const unlock = async (id: string) => {
-        const badge = profile.badges.find(b => b.id === id);
-        if (badge && !badge.unlocked) {
-            badge.unlocked = true;
-            badge.unlockedAt = new Date().toISOString();
+        profile: GamificationProfile,
+        monthlyScans: number,
+        consecutiveDays: number,
+        zeroErrorDays: number,
+        isTop3Weekly: boolean,
+        avgMetaPercent: number,
+        extra?: any
+    ): Promise<void> {
+        const unlock = async (id: string) => {
+            const badge = profile.badges.find(b => b.id === id);
+            if (badge && !badge.unlocked) {
+                badge.unlocked = true;
+                badge.unlockedAt = new Date().toISOString();
+            }
+        };
+
+        if (consecutiveDays >= 10) await unlock('streak_10');
+        if (monthlyScans >= 1000) await unlock('scans_1000');
+        if (zeroErrorDays >= 30) await unlock('zero_errors_30');
+        if (isTop3Weekly) await unlock('top3_weekly');
+        if (avgMetaPercent >= 110) await unlock('avg_110');
+
+        if (extra) {
+            if (extra.inventoryParticipations >= 12) await unlock('dr_inventario');
+            if (extra.activeDays >= 24) await unlock('participacao_ativa');
+            if (extra.treatmentsDone >= 50) await unlock('protetor_pacotes');
+            if (extra.localizedItems >= 50) await unlock('investigador');
+            if (extra.driverExpeditions >= 120) await unlock('expedidor_mestre');
+            if (monthlyScans >= 10000) await unlock('scanner_lendario');
+            if (extra.mixedActivityDays >= 20) await unlock('proativo');
+            if (extra.incidentsLogged >= 100) await unlock('mestre_ps');
+            if (extra.reversaPallets >= 20) await unlock('mestre_reversa');
+            if (monthlyScans >= 30000) await unlock('incansavel');
         }
-    };
-
-    if(consecutiveDays >= 10) await unlock('streak_10');
-if (monthlyScans >= 1000) await unlock('scans_1000');
-if (zeroErrorDays >= 30) await unlock('zero_errors_30');
-if (isTop3Weekly) await unlock('top3_weekly');
-if (avgMetaPercent >= 110) await unlock('avg_110');
-
-// Novas Conquistas
-if (extra) {
-    if (extra.inventoryParticipations >= 12) await unlock('dr_inventario');
-    if (extra.activeDays >= 24) await unlock('participacao_ativa');
-    if (extra.treatmentsDone >= 50) await unlock('protetor_pacotes');
-    if (extra.localizedItems >= 50) await unlock('investigador');
-    if (extra.driverExpeditions >= 120) await unlock('expedidor_mestre');
-    if (monthlyScans >= 10000) await unlock('scanner_lendario');
-    if (extra.mixedActivityDays >= 20) await unlock('proativo');
-    if (extra.incidentsLogged >= 100) await unlock('mestre_ps');
-    if (extra.reversaPallets >= 20) await unlock('mestre_reversa');
-    if (monthlyScans >= 30000) await unlock('incansavel');
-}
     }
 
-    // ========================
-    // ANTI-FRAUD
-    // ========================
-    async registerScan(userId: string, userName: string): Promise < { suspicious: boolean; reason?: string } > {
-    const profile = this.ensureProfile(userId, userName);
-    const now = Date.now();
+    async registerScan(userId: string, userName: string, companyId: string): Promise<{ suspicious: boolean; reason?: string }> {
+        const profile = this.ensureProfile(userId, userName);
+        const now = Date.now();
 
-    profile.lastScanTimestamps.push(now);
-    if(profile.lastScanTimestamps.length > 20) profile.lastScanTimestamps = profile.lastScanTimestamps.slice(-20);
+        profile.lastScanTimestamps.push(now);
+        if (profile.lastScanTimestamps.length > 20) profile.lastScanTimestamps = profile.lastScanTimestamps.slice(-20);
 
-    const timestamps = profile.lastScanTimestamps;
+        const timestamps = profile.lastScanTimestamps;
 
-    if(timestamps.length >= 10) {
-    const last10 = timestamps.slice(-10);
-    const span = (last10[last10.length - 1] - last10[0]) / 1000;
-    if (span < 20) {
-        profile.fraudAlerts.push(`${new Date().toLocaleString()} - Velocidade suspeita: ${(10 / span).toFixed(1)} scans/s`);
-        profile.fraudFlag = true;
-        await this.save(userId);
-        return { suspicious: true, reason: 'Velocidade de scan suspeita detectada' };
+        if (timestamps.length >= 10) {
+            const last10 = timestamps.slice(-10);
+            const span = (last10[last10.length - 1] - last10[0]) / 1000;
+            if (span < 2) { // 2 seconds for 10 scans is inhumanly fast
+                profile.fraudAlerts.push(`${new Date().toLocaleString()} - Velocidade suspeita: ${(10 / span).toFixed(1)} scans/s`);
+                profile.fraudFlag = true;
+                await this.save(userId, userName, companyId);
+                return { suspicious: true, reason: 'Velocidade de scan suspeita detectada' };
+            }
+        }
+
+        await this.save(userId, userName, companyId);
+        return { suspicious: false };
+    }
+
+    async clearFraudFlag(userId: string, userName: string, companyId: string): Promise<void> {
+        const profile = this.profiles.get(userName);
+        if (profile) {
+            profile.fraudFlag = false;
+            await this.save(userId, userName, companyId);
+        }
+    }
+
+    async getMonthlyRanking(): Promise<GamificationProfile[]> {
+        return Array.from(this.profiles.values())
+            .filter(p => p.sprMonthly > 0)
+            .sort((a, b) => b.sprMonthly - a.sprMonthly);
     }
 }
 
-if (timestamps.length >= 6) {
-    const last6 = timestamps.slice(-6);
-    const intervals = [];
-    for (let i = 1; i < last6.length; i++) intervals.push(last6[i] - last6[i - 1]);
-    const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
-    const allSimilar = intervals.every(iv => Math.abs(iv - avgInterval) < 100);
-    if (allSimilar && avgInterval < 3000) {
-        profile.fraudAlerts.push(`${new Date().toLocaleString()} - Padrão repetitivo: intervalo constante de ${Math.round(avgInterval)}ms`);
-        profile.fraudFlag = true;
-        await this.save(userId);
-        return { suspicious: true, reason: 'Padrão repetitivo de scan detectado' };
-    }
-}
-
-await this.save(userId);
-return { suspicious: false };
-    }
-
-    async clearFraudFlag(userId: string): Promise < void> {
-    const profile = this.profiles.get(userId);
-    if(profile) {
-        profile.fraudFlag = false;
-        await this.save(userId);
-    }
-}
-
-    // ========================
-    // RANKING
-    // ========================
-    async getMonthlyRanking(): Promise < GamificationProfile[] > {
-    if(!this.initialized) await this.init();
-    return Array.from(this.profiles.values())
-        .filter(p => p.sprMonthly > 0)
-        .sort((a, b) => b.sprMonthly - a.sprMonthly);
-}
-}
-
-// Singleton
 export const gamificationService = new GamificationService();
