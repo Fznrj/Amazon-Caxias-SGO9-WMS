@@ -119,6 +119,9 @@ interface WmsContextData {
 
     // Helpers
     verifyStock: (id: string) => Promise<{ success: boolean; message: string }>;
+    isToday: (timeStr: string) => boolean;
+    getSystemDate: () => string;
+    getLocalDateIso: () => string;
 
     // Audio
     playAudio: (type: 'success' | 'error') => void;
@@ -1011,24 +1014,22 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     return (
         <WmsContext.Provider value={{
+            currentUser, login, logout, register,
+            currentView, setCurrentView,
             inboundItems, addInboundItem, expectedInboundList, setExpectedInboundList, clearInboundManifest,
             outboundItems, addOutboundItem, deleteOutboundItem,
-            inventoryItems, addInventoryItem, isInventoryActive, startInventory, stopInventory, stockItems, possibleLossItems,
-            stockItems, possibleLossItems, staleStockItems,
             inventoryItems, addInventoryItem, isInventoryActive, startInventory, stopInventory,
+            stockItems, possibleLossItems, staleStockItems,
             drivers, addDriver, bulkAddDrivers, updateDriver, deleteDriver,
             treatmentItems, addTreatment, updateTreatmentStatus, updateTreatment,
             users, refreshUsers, updateUserStatus, updateUser, deleteUser,
-            isToday,
-            getSystemDate,
-            getLocalDateIso,
-            login,
-            logout,
-            register,
-            localizeItem,
+            isToday, getSystemDate, getLocalDateIso,
+            totalInboundToday, totalOutboundToday, totalReversaToday, totalInventoryScanned, totalLossItems, staleItemsCount,
+            weeklyStats,
             resetTransactions,
             verifyStock,
             inviteUser, updatePassword,
+            localizeItem,
             playAudio
         }}>
             {children}
