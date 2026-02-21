@@ -3,7 +3,7 @@ import { User, Driver, Role, UserStatus, VehicleProfile, View } from '../types';
 import { AuthService } from '../services/authService';
 import { gamificationService } from '../services/gamificationService';
 import { supabase } from '../services/supabase';
-import { isSameDay, parseToDate, getDateKey } from '../utils/dateUtils';
+import { isSameDay, parseToDate, getDateKey, getSaoPauloDate } from '../utils/dateUtils';
 
 // ... (keep InboundItem, OutboundItem, InventoryItem, StockItem interfaces as is) ...
 
@@ -122,6 +122,7 @@ interface WmsContextData {
     verifyStock: (id: string) => Promise<{ success: boolean; message: string }>;
     isToday: (timeStr: string) => boolean;
     getSystemDate: () => string;
+    getLocalDateIso: () => string;
 
     // Audio
     playAudio: (type: 'success' | 'error') => void;
@@ -997,7 +998,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             drivers, addDriver, bulkAddDrivers, updateDriver, deleteDriver,
             treatmentItems, addTreatment, updateTreatmentStatus, updateTreatment,
             users, refreshUsers, updateUserStatus, updateUser, deleteUser,
-            isToday, getSystemDate,
+            isToday, getSystemDate, getLocalDateIso: () => isSameDay(new Date().toISOString()) ? getSaoPauloDate() : getSaoPauloDate(), // Simplified but correct
             totalInboundToday, totalOutboundToday, totalReversaToday, totalInventoryScanned, totalLossItems, staleItemsCount,
             weeklyStats,
             resetTransactions,

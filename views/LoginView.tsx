@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useWms } from '../context/WmsContext';
 import { LoginViewProps } from '../types';
-import DeLunaLogo from '../components/DeLunaLogo';
 
 const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigateRegister }) => {
   const { login } = useWms();
