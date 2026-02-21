@@ -499,58 +499,60 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
 
     const addDriver = async (driverData: Omit<Driver, 'id' | 'lastActivity'>) => {
+        if (!currentUser) return;
         const newDriver: Driver = {
             ...driverData,
             id: 'dr-' + Math.random().toString(36).substr(2, 9),
             lastActivity: new Date().toLocaleString('pt-BR')
         };
-        const updated = [...drivers, newDriver];
-        setDrivers(updated);
-        saveLocal(STORAGE_KEYS.DRIVERS, updated);
+        await supabase.from('drivers').insert({ ...newDriver, company_id: currentUser.company_id });
         playAudio('success');
     };
 
     const bulkAddDrivers = async (driversList: Omit<Driver, 'id' | 'lastActivity'>[]) => {
+        if (!currentUser) return;
         const now = new Date().toLocaleString('pt-BR');
         const newOnes = driversList.map(d => ({
             ...d,
             id: 'dr-' + Math.random().toString(36).substr(2, 9),
-            lastActivity: now
+            lastActivity: now,
+            company_id: currentUser.company_id
         }));
-        const updated = [...drivers, ...newOnes];
-        setDrivers(updated);
-        saveLocal(STORAGE_KEYS.DRIVERS, updated);
+        await supabase.from('drivers').insert(newOnes);
         playAudio('success');
     };
 
     const updateDriver = async (id: string, updates: Partial<Driver>) => {
-        const updated = drivers.map(d => d.id === id ? { ...d, ...updates } : d);
-        setDrivers(updated);
-        saveLocal(STORAGE_KEYS.DRIVERS, updated);
+        if (!currentUser) return;
+        await supabase.from('drivers')
+            .update(updates)
+            .eq('id', id)
+            .eq('company_id', currentUser.company_id);
     };
 
     const deleteDriver = async (id: string) => {
-        const updated = drivers.filter(d => d.id !== id);
-        setDrivers(updated);
-        saveLocal(STORAGE_KEYS.DRIVERS, updated);
+        if (!currentUser) return;
+        await supabase.from('drivers')
+            .delete()
+            .eq('id', id)
+            .eq('company_id', currentUser.company_id);
     };
 
     const [isInventoryActive, setIsInventoryActive] = useState(false);
 
     const addInventoryItem = async (item: InventoryItem) => {
+        if (!currentUser) return;
         if (inventoryItems.some(i => i.id === item.id)) {
             playAudio('error');
             return;
         }
-        if (currentUser) {
-            await gamificationService.registerScan(currentUser.id, currentUser.name);
-        }
+        await gamificationService.registerScan(currentUser.id, currentUser.name);
 
-        setInventoryItems(prev => {
-            const updated = [item, ...prev];
-            saveLocal(STORAGE_KEYS.INVENTORY_LOG, updated);
-            return updated;
+        await supabase.from('inventory_log').insert({
+            ...item,
+            company_id: currentUser.company_id
         });
+
         playAudio('success');
     };
 
@@ -561,22 +563,26 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
 
     const stopInventory = async () => {
+        if (!currentUser) return;
         setIsInventoryActive(false);
         const missingIds = stockItems
             .filter(s => s.status === 'Em Estoque' && !inventoryItems.some(inv => inv.id === s.id))
             .map(s => s.id);
 
         const now = new Date().toISOString();
-        const updatedStock = stockItems.map(s => {
-            if (missingIds.includes(s.id)) {
-                return { ...s, status: 'Possível Perda' as const, lossDetectedTime: s.lossDetectedTime || now };
-            }
-            return s;
-        });
 
-        setStockItems(updatedStock);
-        saveLocal(STORAGE_KEYS.STOCK, updatedStock);
-        setPossibleLossItems(updatedStock.filter(s => s.status === 'Possível Perda'));
+        // Update each missing item in Supabase
+        for (const id of missingIds) {
+            await supabase.from('stock_items')
+                .update({
+                    status: 'Possível Perda' as const,
+                    loss_detected_time: now
+                })
+                .eq('id', id)
+                .eq('company_id', currentUser.company_id);
+        }
+
+        loadInitialData();
     };
 
     const localizeItem = async (id: string, scannerInput: string) => {
@@ -653,6 +659,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
 
     const addTreatment = async (itemData: Omit<TreatmentItem, 'id' | 'time' | 'status'>) => {
+        if (!currentUser) return { success: false, message: 'Não logado' };
         const existingActive = treatmentItems.find(t => t.tbrId === itemData.tbrId && t.status !== 'Resolvido');
         if (existingActive) {
             playAudio('error');
@@ -663,23 +670,24 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const now = new Date().toISOString();
         const displayTime = new Date().toLocaleString('pt-BR');
 
-        const newItem: TreatmentItem = {
+        const newItem = {
             ...itemData,
             id: trtId,
             time: displayTime,
-            status: 'Pendente'
+            status: 'Pendente',
+            company_id: currentUser.company_id
         };
 
-        const updatedTreatments = [newItem, ...treatmentItems];
-        setTreatmentItems(updatedTreatments);
-        saveLocal(STORAGE_KEYS.INCIDENTS, updatedTreatments);
+        await supabase.from('incidents').insert(newItem);
 
         if (itemData.type === 'Extravio' || itemData.type === 'Avaria') {
-            const updatedStock = stockItems.map(s =>
-                s.id === itemData.tbrId ? { ...s, status: 'Possível Perda' as const, lossDetectedTime: s.lossDetectedTime || now } : s
-            );
-            setStockItems(updatedStock);
-            saveLocal(STORAGE_KEYS.STOCK, updatedStock);
+            await supabase.from('stock_items')
+                .update({
+                    status: 'Possível Perda' as const,
+                    loss_detected_time: now
+                })
+                .eq('id', itemData.tbrId)
+                .eq('company_id', currentUser.company_id);
         }
 
         playAudio('success');
