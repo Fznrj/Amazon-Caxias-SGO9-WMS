@@ -30,6 +30,8 @@ const GamificationView: React.FC = () => {
         driversExpedited: Set<string>;
         reversaPallets: Set<string>;
         dailyActivities: Record<string, Set<string>>;
+        monthlyScans: number; // For XP/SPR calculation (full month)
+        monthlyErrors: number;
     }
     const { treatmentItems, stockItems } = useWms(); // Add missing deps
     const operatorData: Map<string, OperatorStats> = React.useMemo(() => {
@@ -40,7 +42,9 @@ const GamificationView: React.FC = () => {
             uniqueDays: new Set(), inventoryDays: new Set(),
             treatmentCount: 0, localizedCount: 0, incidentsCount: 0,
             driversExpedited: new Set(), reversaPallets: new Set(),
-            dailyActivities: {}
+            dailyActivities: {},
+            monthlyScans: 0,
+            monthlyErrors: 0
         });
 
         const todayKey = getDateKey(getTodayDate().toISOString());
@@ -50,6 +54,10 @@ const GamificationView: React.FC = () => {
             if (!map.has(op)) map.set(op, getEmptyStats());
             const data = map.get(op)!;
             const dateKey = getDateKey(item.time || (item as any).created_at);
+            const isoCheck = dateKey.split('/').reverse().join('-');
+            const currentMonth = getTodayDate().toISOString().substring(0, 7); // YYYY-MM
+            const itemMonth = isoCheck.substring(0, 7);
+
             data.uniqueDays.add(dateKey);
             if (!data.dailyActivities[dateKey]) data.dailyActivities[dateKey] = new Set();
             data.dailyActivities[dateKey].add('ENTRADA');
@@ -57,12 +65,13 @@ const GamificationView: React.FC = () => {
             if (item.error) {
                 data.errors++;
                 data.dailyErrors[dateKey] = (data.dailyErrors[dateKey] || 0) + 1;
+                if (itemMonth === currentMonth) data.monthlyErrors++;
             } else {
-                const isoCheck = dateKey.split('/').reverse().join('-');
                 if (isoCheck >= startDate && isoCheck <= endDate) {
                     data.scans++;
                     data.dailyScans[dateKey] = (data.dailyScans[dateKey] || 0) + 1;
                 }
+                if (itemMonth === currentMonth) data.monthlyScans++;
             }
         });
 
@@ -71,12 +80,16 @@ const GamificationView: React.FC = () => {
             if (!map.has(op)) map.set(op, getEmptyStats());
             const data = map.get(op)!;
             const dateKey = getDateKey(item.time || (item as any).created_at);
-            data.uniqueDays.add(dateKey);
             const isoCheck = dateKey.split('/').reverse().join('-');
+            const currentMonth = getTodayDate().toISOString().substring(0, 7);
+            const itemMonth = isoCheck.substring(0, 7);
+
+            data.uniqueDays.add(dateKey);
             if (isoCheck >= startDate && isoCheck <= endDate) {
                 data.scans++;
                 data.dailyScans[dateKey] = (data.dailyScans[dateKey] || 0) + 1;
             }
+            if (itemMonth === currentMonth) data.monthlyScans++;
 
             // Count unique driver expeditions per day
             data.driversExpedited.add(`${item.driverName}_${dateKey}`);
@@ -95,13 +108,17 @@ const GamificationView: React.FC = () => {
             if (!map.has(op)) map.set(op, getEmptyStats());
             const data = map.get(op)!;
             const dateKey = getDateKey(item.time || (item as any).created_at);
+            const isoCheck = dateKey.split('/').reverse().join('-');
+            const currentMonth = getTodayDate().toISOString().substring(0, 7);
+            const itemMonth = isoCheck.substring(0, 7);
+
             data.uniqueDays.add(dateKey);
             data.inventoryDays.add(dateKey);
-            const isoCheck = dateKey.split('/').reverse().join('-');
             if (isoCheck >= startDate && isoCheck <= endDate) {
                 data.scans++;
                 data.dailyScans[dateKey] = (data.dailyScans[dateKey] || 0) + 1;
             }
+            if (itemMonth === currentMonth) data.monthlyScans++;
 
             if (!data.dailyActivities[dateKey]) data.dailyActivities[dateKey] = new Set();
             data.dailyActivities[dateKey].add('INVENTARIO');
