@@ -936,12 +936,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return { start, end };
     };
 
-    // --- Helper: Robust Date Check ---
     const getSystemDate = () => {
-        return new Date().toLocaleDateString('pt-BR');
-    };
-
-    const getLocalDateIso = () => {
         const now = new Date();
         const year = now.getFullYear();
         const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -952,18 +947,22 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const isToday = (timeStr: string) => {
         if (!timeStr) return false;
         try {
-            // Get today in DD/MM/YYYY format
             const todayStr = getSystemDate();
 
-            // If it's an ISO string (from DB created_at), convert to local date part
-            if (timeStr.includes('-') && timeStr.includes('T')) {
-                const date = new Date(timeStr);
-                return date.toLocaleDateString('pt-BR') === todayStr;
+            // Case 1: ISO String (YYYY-MM-DDTHH:mm:ss...)
+            if (timeStr.includes('T')) {
+                return timeStr.split('T')[0] === todayStr;
             }
 
-            // If it's a local string "DD/MM/YYYY, HH:MM:SS"
-            const [itemDate] = timeStr.split(',');
-            return itemDate.trim() === todayStr;
+            // Case 2: Local string "DD/MM/YYYY, HH:MM:SS"
+            if (timeStr.includes('/')) {
+                const [datePart] = timeStr.split(',');
+                const [d, m, y] = datePart.trim().split('/');
+                const formatted = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+                return formatted === todayStr;
+            }
+
+            return false;
         } catch (e) {
             console.error('WmsContext: isToday error', e);
             return false;
@@ -1008,7 +1007,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             drivers, addDriver, bulkAddDrivers, updateDriver, deleteDriver,
             treatmentItems, addTreatment, updateTreatmentStatus, updateTreatment,
             users, refreshUsers, updateUserStatus, updateUser, deleteUser,
-            isToday, getSystemDate, getLocalDateIso,
+            isToday, getSystemDate,
             totalInboundToday, totalOutboundToday, totalReversaToday, totalInventoryScanned, totalLossItems, staleItemsCount,
             weeklyStats,
             resetTransactions,
