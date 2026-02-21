@@ -10,7 +10,7 @@ interface ScannedItem {
 }
 
 export default function ReversaView() {
-    const { drivers, addOutboundItem, currentUser, verifyStock, playAudio } = useWms();
+    const { drivers, addOutboundItem, bulkAddOutboundItems, currentUser, verifyStock, playAudio } = useWms();
     const [scannedItems, setScannedItems] = useState<ScannedItem[]>([]);
     const [selectedDriverId, setSelectedDriverId] = useState('');
     const [palletId, setPalletId] = useState('');
