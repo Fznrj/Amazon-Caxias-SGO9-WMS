@@ -634,7 +634,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const bulkAddDrivers = async (driversList: Omit<Driver, 'id' | 'lastActivity'>[]) => {
         if (!currentUser) return;
-        const now = new Date().toISOString();
+        const now = getTodayDate().toISOString();
         const newOnes = driversList.map(d => ({
             id: 'dr-' + Math.random().toString(36).substr(2, 9),
             name: d.name,
