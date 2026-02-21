@@ -265,21 +265,28 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }, [currentUser]);
 
     const loadInitialData = async () => {
-        if (!currentUser) return;
+        if (!currentUser) {
+            console.log('WmsContext: Skipping loadInitialData - no currentUser');
+            return;
+        }
 
         try {
             const companyId = currentUser.company_id;
+            console.log('WmsContext: Loading data for company:', `"${companyId}"`);
 
             // 1. Stock & Possible Loss
-            const { data: stock } = await supabase
+            const { data: stock, error: se } = await supabase
                 .from('stock_items')
                 .select('*')
                 .eq('company_id', companyId);
 
+            if (se) console.error('WmsContext: Stock fetch error:', se);
+
             if (stock) {
+                console.log(`WmsContext: Fetched ${stock.length} stock items`);
                 const mappedStock = stock.map(s => ({
                     id: s.id,
-                    entryTime: s.entry_time, // Supabase returns ISO usually or we can cast
+                    entryTime: s.entry_time,
                     operator: s.operator,
                     status: s.status,
                     lossDetectedTime: s.loss_detected_time,
@@ -291,20 +298,30 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             }
 
             // 2. Inbound Log
-            const { data: inbound } = await supabase
+            const { data: inbound, error: ie } = await supabase
                 .from('inbound_log')
                 .select('*')
                 .eq('company_id', companyId)
                 .order('created_at', { ascending: false });
-            if (inbound) setInboundItems(inbound);
+
+            if (ie) console.error('WmsContext: Inbound fetch error:', ie);
+
+            if (inbound) {
+                console.log(`WmsContext: Fetched ${inbound.length} inbound logs`);
+                setInboundItems(inbound);
+            }
 
             // 3. Outbound Log
-            const { data: outbound } = await supabase
+            const { data: outbound, error: oe } = await supabase
                 .from('outbound_log')
                 .select('*')
                 .eq('company_id', companyId)
                 .order('created_at', { ascending: false });
+
+            if (oe) console.error('WmsContext: Outbound fetch error:', oe);
+
             if (outbound) {
+                console.log(`WmsContext: Fetched ${outbound.length} outbound logs`);
                 const mappedOutbound = outbound.map(o => ({
                     id: o.id,
                     driverName: o.driver_name,
@@ -317,11 +334,13 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             }
 
             // 4. Drivers
-            const { data: driversData } = await supabase
+            const { data: driversData, error: de } = await supabase
                 .from('drivers')
                 .select('*')
                 .eq('company_id', companyId);
+            if (de) console.error('WmsContext: Drivers fetch error:', de);
             if (driversData) {
+                console.log(`WmsContext: Fetched ${driversData.length} drivers`);
                 const mappedDrivers = driversData.map(d => ({
                     id: d.id,
                     name: d.name,
@@ -336,27 +355,39 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             }
 
             // 5. Incidents
-            const { data: incidents } = await supabase
+            const { data: incidents, error: incE } = await supabase
                 .from('incidents')
                 .select('*')
                 .eq('company_id', companyId)
                 .order('created_at', { ascending: false });
-            if (incidents) setTreatmentItems(incidents);
+            if (incE) console.error('WmsContext: Incidents fetch error:', incE);
+            if (incidents) {
+                console.log(`WmsContext: Fetched ${incidents.length} incidents`);
+                setTreatmentItems(incidents);
+            }
 
             // 6. Config
-            const { data: config } = await supabase
+            const { data: config, error: confE } = await supabase
                 .from('system_configs')
                 .select('expected_inbound')
                 .eq('company_id', companyId)
                 .maybeSingle();
-            if (config?.expected_inbound) _setExpectedInboundList(config.expected_inbound);
+            if (confE) console.error('WmsContext: Config fetch error:', confE);
+            if (config?.expected_inbound) {
+                console.log(`WmsContext: Fetched expected inbound list with ${config.expected_inbound.length} items`);
+                _setExpectedInboundList(config.expected_inbound);
+            }
 
             // 7. Inventory
-            const { data: inventory } = await supabase
+            const { data: inventory, error: invE } = await supabase
                 .from('inventory_log')
                 .select('*')
                 .eq('company_id', companyId);
-            if (inventory) setInventoryItems(inventory);
+            if (invE) console.error('WmsContext: Inventory fetch error:', invE);
+            if (inventory) {
+                console.log(`WmsContext: Fetched ${inventory.length} inventory logs`);
+                setInventoryItems(inventory);
+            }
 
         } catch (err) {
             console.error('WmsContext: Error loading Supabase data:', err);
@@ -370,17 +401,14 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const companyId = currentUser.company_id;
 
         const channels = [
-            supabase.channel('stock_realtime')
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_items' },
-                    () => loadInitialData())
-                .subscribe(),
-
-            supabase.channel('logs_realtime')
-                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'inbound_log' },
-                    () => loadInitialData())
-                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'outbound_log' },
-                    () => loadInitialData())
-                .subscribe()
+            supabase.channel('wms_realtime_all')
+                .on('postgres_changes', { event: '*', schema: 'public' }, (payload) => {
+                    console.log('WmsContext: Realtime event received:', payload.table, payload.eventType);
+                    loadInitialData();
+                })
+                .subscribe((status) => {
+                    console.log('WmsContext: Realtime subscription status:', status);
+                })
         ];
 
         return () => {
@@ -561,22 +589,35 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const addDriver = async (driverData: Omit<Driver, 'id' | 'lastActivity'>) => {
         if (!currentUser) return;
-        const newDriver: Driver = {
-            ...driverData,
-            id: 'dr-' + Math.random().toString(36).substr(2, 9),
-            lastActivity: new Date().toLocaleString('pt-BR')
-        };
-        await supabase.from('drivers').insert({ ...newDriver, company_id: currentUser.company_id });
+        const newDriverId = 'dr-' + Math.random().toString(36).substr(2, 9);
+        const now = new Date().toISOString();
+
+        await supabase.from('drivers').insert({
+            id: newDriverId,
+            name: driverData.name,
+            cpf: driverData.cpf,
+            plate: driverData.plate,
+            company: driverData.company,
+            status: driverData.status,
+            vehicle_profile: driverData.vehicleProfile,
+            last_activity: now,
+            company_id: currentUser.company_id
+        });
         playAudio('success');
     };
 
     const bulkAddDrivers = async (driversList: Omit<Driver, 'id' | 'lastActivity'>[]) => {
         if (!currentUser) return;
-        const now = new Date().toLocaleString('pt-BR');
+        const now = new Date().toISOString();
         const newOnes = driversList.map(d => ({
-            ...d,
             id: 'dr-' + Math.random().toString(36).substr(2, 9),
-            lastActivity: now,
+            name: d.name,
+            cpf: d.cpf,
+            plate: d.plate,
+            company: d.company,
+            status: d.status,
+            vehicle_profile: d.vehicleProfile,
+            last_activity: now,
             company_id: currentUser.company_id
         }));
         await supabase.from('drivers').insert(newOnes);
@@ -739,10 +780,13 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const displayTime = new Date().toLocaleString('pt-BR');
 
         const newItem = {
-            ...itemData,
             id: trtId,
+            tbr_id: itemData.tbrId,
+            type: itemData.type,
+            description: itemData.description,
+            operator: itemData.operator,
             time: displayTime,
-            status: 'Pendente',
+            status: 'Pendente' as const,
             company_id: currentUser.company_id
         };
 
@@ -901,11 +945,18 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const isToday = (timeStr: string) => {
         if (!timeStr) return false;
         try {
-            // Robust check: compare date parts directly from locale string
-            const todayStr = new Date().toLocaleDateString('pt-BR');
-            const itemDateStr = timeStr.split(', ')[0];
-            return todayStr === itemDateStr;
+            const date = new Date(timeStr.includes(',') ? timeStr.split(',')[0].split('/').reverse().join('-') : timeStr);
+            const today = new Date();
+            return date.getDate() === today.getDate() &&
+                date.getMonth() === today.getMonth() &&
+                date.getFullYear() === today.getFullYear();
         } catch (e) {
+            // Fallback for pt-BR string "DD/MM/YYYY, HH:MM:SS"
+            if (timeStr.includes('/')) {
+                const todayStr = new Date().toLocaleDateString('pt-BR');
+                const itemDateStr = timeStr.split(',')[0].trim();
+                return todayStr === itemDateStr;
+            }
             return false;
         }
     };
