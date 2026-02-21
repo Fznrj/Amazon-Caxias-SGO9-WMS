@@ -3,6 +3,7 @@ import { User, Driver, Role, UserStatus, VehicleProfile, View } from '../types';
 import { AuthService } from '../services/authService';
 import { gamificationService } from '../services/gamificationService';
 import { supabase } from '../services/supabase';
+import { isSameDay, parseToDate, getDateKey } from '../utils/dateUtils';
 
 // ... (keep InboundItem, OutboundItem, InventoryItem, StockItem interfaces as is) ...
 
@@ -405,24 +406,12 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         inboundItems.forEach((log: InboundItem) => {
             if (log.error) return;
-            let dateKey = '';
-            if (log.time.includes(',')) {
-                dateKey = log.time.split(',')[0].trim();
-            } else if (log.time.includes('T')) {
-                const [y, m, d] = log.time.split('T')[0].split('-');
-                dateKey = `${d}/${m}/${y}`;
-            }
+            const dateKey = getDateKey(log.time);
             if (statsMap[dateKey]) statsMap[dateKey].entradas++;
         });
 
         outboundItems.forEach((log: OutboundItem) => {
-            let dateKey = '';
-            if (log.time.includes(',')) {
-                dateKey = log.time.split(',')[0].trim();
-            } else if (log.time.includes('T')) {
-                const [y, m, d] = log.time.split('T')[0].split('-');
-                dateKey = `${d}/${m}/${y}`;
-            }
+            const dateKey = getDateKey(log.time);
             if (statsMap[dateKey]) statsMap[dateKey].saidas++;
         });
 
@@ -452,8 +441,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const addInboundItem = async (item: InboundItem) => {
         const now = new Date().toISOString();
-        const displayTime = new Date().toLocaleString('pt-BR');
-        const enrichedItem = { ...item, time: displayTime };
+        const enrichedItem = { ...item, time: now };
 
         // 72h rule check (simplified for offline)
         const stockItem = stockItems.find(s => s.id === item.id);
@@ -537,7 +525,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
 
     const addOutboundItem = async (item: OutboundItem) => {
-        const enrichedItem = { ...item, time: new Date().toLocaleString('pt-BR') };
+        const enrichedItem = { ...item, time: new Date().toISOString() };
         if (currentUser) {
             await gamificationService.registerScan(currentUser.id, currentUser.name, currentUser.company_id);
 
@@ -957,27 +945,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const isToday = (timeStr: string) => {
         if (!timeStr) return false;
-        try {
-            const todayStr = getSystemDate();
-
-            // Case 1: ISO String (YYYY-MM-DDTHH:mm:ss...)
-            if (timeStr.includes('T')) {
-                return timeStr.split('T')[0] === todayStr;
-            }
-
-            // Case 2: Local string "DD/MM/YYYY, HH:MM:SS"
-            if (timeStr.includes('/')) {
-                const [datePart] = timeStr.split(',');
-                const [d, m, y] = datePart.trim().split('/');
-                const formatted = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
-                return formatted === todayStr;
-            }
-
-            return false;
-        } catch (e) {
-            console.error('WmsContext: isToday error', e);
-            return false;
-        }
+        return isSameDay(timeStr);
     };
 
     const totalInboundToday = inboundItems.filter(item => !item.error && isToday(item.time)).length;

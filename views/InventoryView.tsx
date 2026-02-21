@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { useWms } from '../context/WmsContext';
+import { formatToLocalTime } from '../utils/dateUtils';
 
 const InventoryView: React.FC = () => {
   const { inventoryItems, addInventoryItem, isInventoryActive, startInventory, stopInventory, stockItems, possibleLossItems, currentUser, localizeItem } = useWms();
@@ -26,7 +27,7 @@ const InventoryView: React.FC = () => {
 
     await addInventoryItem({
       id: tbrId.toUpperCase(),
-      time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+      time: new Date().toISOString(),
       operator: currentUser?.name || 'Sistema'
     });
 
@@ -269,7 +270,7 @@ const InventoryView: React.FC = () => {
                     <div className="mt-4 flex items-center justify-between bg-black/40 px-3 py-2.5 rounded-lg border border-white/5">
                       <div className="flex items-center gap-2">
                         <span className="material-icons-round text-xs text-secondary animate-pulse">schedule</span>
-                        <span className="text-xs font-bold text-secondary font-mono tracking-tighter">{item.entryTime.split(' ')[1] || item.entryTime}</span>
+                        <span className="text-xs font-bold text-secondary font-mono tracking-tighter">{formatToLocalTime(item.entryTime)}</span>
                       </div>
                       <button
                         onClick={() => canLocalize && setLocalizingItem(item.id)}
