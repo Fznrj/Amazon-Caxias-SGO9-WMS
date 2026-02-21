@@ -26,7 +26,7 @@ export interface TBRUnit {
   location: string;
 }
 
-export type Role = 'operator' | 'coordinator' | 'supervisor' | 'Leader' | 'admin' | 'superadmin';
+export type Role = 'operator' | 'coordinator' | 'supervisor' | 'leader' | 'admin' | 'superadmin';
 export type UserStatus = 'pending' | 'active' | 'blocked';
 
 export interface User {
