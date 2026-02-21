@@ -21,7 +21,7 @@ const ProductivityView: React.FC = () => {
   const filterByDateRange = (items: any[]) => {
     if (!startDate || !endDate) return items;
     return items.filter(item => {
-      const timeStr = item.time || item.entryTime || '';
+      const timeStr = item.time || item.entryTime || item.created_at || '';
       if (!timeStr) return false;
 
       const spDate = getSaoPauloDate(parseToDate(timeStr)); // Returns YYYY-MM-DD

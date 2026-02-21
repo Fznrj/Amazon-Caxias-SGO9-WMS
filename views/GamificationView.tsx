@@ -45,7 +45,7 @@ const GamificationView: React.FC = () => {
             const op = item.operator;
             if (!map.has(op)) map.set(op, getEmptyStats());
             const data = map.get(op)!;
-            const dateKey = getDateKey(item.time);
+            const dateKey = getDateKey(item.time || (item as any).created_at);
             data.uniqueDays.add(dateKey);
             if (!data.dailyActivities[dateKey]) data.dailyActivities[dateKey] = new Set();
             data.dailyActivities[dateKey].add('ENTRADA');
@@ -63,7 +63,7 @@ const GamificationView: React.FC = () => {
             const op = item.operator;
             if (!map.has(op)) map.set(op, getEmptyStats());
             const data = map.get(op)!;
-            const dateKey = getDateKey(item.time);
+            const dateKey = getDateKey(item.time || (item as any).created_at);
             data.uniqueDays.add(dateKey);
             data.scans++;
             data.dailyScans[dateKey] = (data.dailyScans[dateKey] || 0) + 1;
@@ -84,7 +84,7 @@ const GamificationView: React.FC = () => {
             const op = item.operator;
             if (!map.has(op)) map.set(op, getEmptyStats());
             const data = map.get(op)!;
-            const dateKey = getDateKey(item.time);
+            const dateKey = getDateKey(item.time || (item as any).created_at);
             data.uniqueDays.add(dateKey);
             data.inventoryDays.add(dateKey);
             data.scans++;
@@ -321,7 +321,7 @@ const GamificationView: React.FC = () => {
 
             {/* === INDIVIDUAL CARDS === */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                <StatCard label="Total Scans" value={myData?.scans || 0} icon="qr_code_scanner" color="text-primary" />
+                <StatCard label="Total Scans (Hoje)" value={myData ? (myData.dailyScans[getDateKey(new Date().toISOString())] || 0) : 0} icon="qr_code_scanner" color="text-primary" />
                 <StatCard label="Meta %" value={`${myMetaPercent}%`} icon="flag" color={myMetaPercent >= 100 ? 'text-green-400' : myMetaPercent >= 70 ? 'text-blue-400' : 'text-red-400'} />
                 <StatCard label="Dias Acima Meta" value={myDaysAbove} icon="calendar_today" color="text-emerald-400" />
                 <StatCard label="Erros" value={myData?.errors || 0} icon="error" color="text-red-400" />
