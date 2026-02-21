@@ -1,6 +1,7 @@
 import React from 'react';
 import { useWms } from '../context/WmsContext';
 import { downloadCSV } from '../utils/download';
+import { getSaoPauloDate, parseToDate } from '../utils/dateUtils';
 
 // Daily scan goal per operator
 const DAILY_GOAL = 350;
@@ -22,15 +23,9 @@ const ProductivityView: React.FC = () => {
     return items.filter(item => {
       const timeStr = item.time || item.entryTime || '';
       if (!timeStr) return false;
-      let itemDateStr = '';
-      if (timeStr.includes(',')) {
-        const [datePart] = timeStr.split(',');
-        const [day, month, year] = datePart.trim().split('/');
-        itemDateStr = `${year}-${month}-${day}`;
-      } else if (timeStr.includes('-')) {
-        itemDateStr = timeStr.split(' ')[0];
-      }
-      return itemDateStr >= startDate && itemDateStr <= endDate;
+
+      const spDate = getSaoPauloDate(parseToDate(timeStr)); // Returns YYYY-MM-DD
+      return spDate >= startDate && spDate <= endDate;
     });
   };
 
