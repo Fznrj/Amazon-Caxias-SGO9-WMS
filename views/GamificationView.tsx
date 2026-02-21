@@ -7,6 +7,7 @@ import {
     type GamificationProfile,
     type GamificationLevel,
 } from '../services/gamificationService';
+import { getDateKey, isSameDay } from '../utils/dateUtils';
 
 const GamificationView: React.FC = () => {
     const { currentUser, inboundItems, outboundItems, inventoryItems } = useWms();
@@ -38,17 +39,7 @@ const GamificationView: React.FC = () => {
             dailyActivities: {}
         });
 
-        const todayStr = new Date().toISOString().split('T')[0];
-
-        const getDateKey = (timeStr: string): string => {
-            if (!timeStr) return todayStr;
-            if (timeStr.includes(',')) {
-                const [datePart] = timeStr.split(',');
-                const [day, month, year] = datePart.trim().split('/');
-                return `${year}-${month}-${day}`;
-            }
-            return timeStr.split(' ')[0] || todayStr;
-        };
+        const todayKey = getDateKey(new Date().toISOString());
 
         inboundItems.forEach(item => {
             const op = item.operator;
@@ -76,9 +67,13 @@ const GamificationView: React.FC = () => {
             data.uniqueDays.add(dateKey);
             data.scans++;
             data.dailyScans[dateKey] = (data.dailyScans[dateKey] || 0) + 1;
-            data.driversExpedited.add(item.driverName);
+
+            // Count unique driver expeditions per day
+            data.driversExpedited.add(`${item.driverName}_${dateKey}`);
             if (item.status === 'Reversa - Saiu com Motorista') {
-                data.reversaPallets.add(item.id); // Assuming item.id is part of a pallet
+                // Group by operator + driverName + minute to count as 1 Pallet
+                const minuteKey = item.time.substring(0, 16); // Works for ISO
+                data.reversaPallets.add(`${item.driverName}_${minuteKey}`);
             }
 
             if (!data.dailyActivities[dateKey]) data.dailyActivities[dateKey] = new Set();
@@ -137,9 +132,13 @@ const GamificationView: React.FC = () => {
                 const totalDays = Math.max(dayKeys.length, 1);
                 const zeroErrorDays = totalDays - errorDayKeys.filter(d => (data.dailyErrors[d] || 0) > 0).length;
 
-                // Consecutive days above meta
+                const todayKeyVal = getDateKey(new Date().toISOString());
                 let consecutive = 0;
-                const sortedDays = [...dayKeys].sort();
+                const sortedDays = [...dayKeys].sort((a, b) => {
+                    const [da, ma, ya] = a.split('/').map(Number);
+                    const [db, mb, yb] = b.split('/').map(Number);
+                    return new Date(ya, ma - 1, da).getTime() - new Date(yb, mb - 1, db).getTime();
+                });
                 for (let i = sortedDays.length - 1; i >= 0; i--) {
                     if ((data.dailyScans[sortedDays[i]] || 0) >= DAILY_GOAL) {
                         consecutive++;
@@ -336,7 +335,7 @@ const GamificationView: React.FC = () => {
                         🏆 Ranking Geral — Mensal
                     </h3>
                     <span className="text-[10px] text-slate-400 font-mono">
-                        {new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+                        {new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase()}
                     </span>
                 </div>
                 <div className="overflow-x-auto">
@@ -405,24 +404,44 @@ const GamificationView: React.FC = () => {
                     🏅 Conquistas
                 </h3>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                    {(myProfile?.badges || []).map(badge => (
-                        <div
-                            key={badge.id}
-                            className={`p-4 rounded-xl border text-center transition-all ${badge.unlocked
-                                ? 'bg-gradient-to-b from-yellow-50 to-white dark:from-yellow-900/10 dark:to-slate-800 border-yellow-400 shadow-lg shadow-yellow-500/10'
-                                : 'bg-slate-50 dark:bg-slate-900/30 border-slate-200 dark:border-slate-800 opacity-60'
-                                }`}
-                        >
-                            <span className={`material-icons-round text-3xl block mb-2 ${badge.unlocked ? 'text-yellow-500' : 'text-slate-400'}`}>
-                                {badge.icon}
-                            </span>
-                            <p className="font-bold text-xs text-slate-700 dark:text-slate-200">{badge.title}</p>
-                            <p className="text-[10px] text-slate-400 mt-1">{badge.description}</p>
-                            {badge.unlocked && badge.unlockedAt && (
-                                <p className="text-[9px] text-yellow-600 font-bold mt-2 uppercase tracking-tighter">Conquistado!</p>
-                            )}
-                        </div>
-                    ))}
+                    {(myProfile?.badges || []).map(badge => {
+                        // Progress calculation (heuristics)
+                        let progress: string | null = null;
+                        if (!badge.unlocked && myProfile) {
+                            if (badge.id === 'streak_10') progress = `${myProfile.consecutiveDaysAboveMeta}/10`;
+                            if (badge.id === 'scans_1000') progress = `${myData?.scans || 0}/1000`;
+                            if (badge.id === 'participacao_ativa') progress = `${myData?.uniqueDays.size || 0}/24`;
+                            if (badge.id === 'dr_inventario') progress = `${myData?.inventoryDays.size || 0}/12`;
+                            if (badge.id === 'mestre_reversa') progress = `${myData?.reversaPallets.size || 0}/20`;
+                        }
+
+                        return (
+                            <div
+                                key={badge.id}
+                                className={`p-4 rounded-xl border text-center transition-all ${badge.unlocked
+                                    ? 'bg-gradient-to-b from-yellow-50 to-white dark:from-yellow-900/10 dark:to-slate-800 border-yellow-400 shadow-lg shadow-yellow-500/10'
+                                    : 'bg-slate-50 dark:bg-slate-900/30 border-slate-200 dark:border-slate-800 opacity-60'
+                                    }`}
+                            >
+                                <span className={`material-icons-round text-3xl block mb-2 ${badge.unlocked ? 'text-yellow-500' : 'text-slate-400'}`}>
+                                    {badge.icon}
+                                </span>
+                                <p className="font-bold text-xs text-slate-700 dark:text-slate-200">{badge.title}</p>
+                                <p className="text-[10px] text-slate-400 mt-1">{badge.description}</p>
+                                {progress && (
+                                    <div className="mt-2 h-1 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                                        <div className="h-full bg-primary" style={{ width: `${Math.min(100, (parseInt(progress.split('/')[0]) / parseInt(progress.split('/')[1])) * 100)}%` }} />
+                                    </div>
+                                )}
+                                {badge.unlocked && badge.unlockedAt && (
+                                    <p className="text-[9px] text-yellow-600 font-bold mt-2 uppercase tracking-tighter">Conquistado!</p>
+                                )}
+                                {!badge.unlocked && progress && (
+                                    <p className="text-[9px] text-slate-500 font-bold mt-1 uppercase tracking-tighter">{progress}</p>
+                                )}
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
 

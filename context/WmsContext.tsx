@@ -122,6 +122,7 @@ interface WmsContextData {
     // Helpers
     verifyStock: (id: string) => Promise<{ success: boolean; message: string }>;
     isSameDay: (dateStr: string) => boolean;
+    getLocalDateIso: () => string;
 
     // Audio
     playAudio: (type: 'success' | 'error') => void;
