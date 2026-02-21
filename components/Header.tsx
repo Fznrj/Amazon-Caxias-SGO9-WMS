@@ -43,8 +43,8 @@ const Header: React.FC<HeaderProps> = ({ viewTitle, isOffline, onToggleOffline }
           <span className={`w-2 h-2 rounded-full ${isOffline ? 'bg-red-500' : 'bg-green-500 animate-pulse'}`}></span>
           {isOffline ? 'Offline' : 'Online'}
         </button>
-        <div className="flex items-center gap-2 border-x border-slate-700 px-4 py-1 bg-slate-800/20 rounded">
-          {localStorage.getItem('debug_date_offset') ? (
+        {localStorage.getItem('debug_date_offset') && (
+          <div className="flex items-center gap-2 border-x border-slate-700 px-4 py-1 bg-slate-800/20 rounded">
             <button
               onClick={() => {
                 console.log('Resetting debug_date_offset');
@@ -56,20 +56,8 @@ const Header: React.FC<HeaderProps> = ({ viewTitle, isOffline, onToggleOffline }
             >
               <span className="material-icons-round text-sm">history</span> TEMPO REAL
             </button>
-          ) : (
-            <button
-              onClick={() => {
-                console.log('Setting debug_date_offset to 1');
-                localStorage.setItem('debug_date_offset', '1');
-                window.location.reload();
-              }}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-black uppercase px-3 py-2 rounded shadow-lg shadow-indigo-900/40 flex items-center gap-1 border border-indigo-400/50"
-              title="Avançar 1 dia para testes"
-            >
-              <span className="material-icons-round text-sm">fast_forward</span> TESTAR AMANHÃ
-            </button>
-          )}
-        </div>
+          </div>
+        )}
 
         <div className="hidden md:block text-slate-500 dark:text-slate-400 text-[10px] font-mono uppercase tracking-widest bg-slate-100 dark:bg-slate-900 px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-800">
           {getTodayDate().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
