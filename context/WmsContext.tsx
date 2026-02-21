@@ -64,6 +64,7 @@ interface WmsContextData {
     // Outbound
     outboundItems: OutboundItem[];
     addOutboundItem: (item: OutboundItem) => Promise<void>;
+    bulkAddOutboundItems: (items: OutboundItem[]) => Promise<void>;
     deleteOutboundItem: (id: string) => Promise<void>;
 
     // Inventory
@@ -388,11 +389,11 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         };
     }, [currentUser]);
 
-    const weeklyStats = React.useMemo(() => {
-        const stats: { dateKey: string; name: string; entradas: number; saidas: number }[] = [];
+    const statsSummary = React.useMemo(() => {
+        const days: { dateKey: string; name: string; entradas: number; saidas: number; reversas: number }[] = [];
         const today = new Date();
 
-        // Create the last 7 days in chronological order
+        // 1. Initialize stable 7-day array (UTC-3)
         for (let i = 6; i >= 0; i--) {
             const d = new Date(today);
             d.setDate(today.getDate() - i);
@@ -400,37 +401,50 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             const dateKey = getDateKey(iso);
             const label = new Date(parseToDate(iso)).toLocaleDateString('pt-BR', { weekday: 'short', timeZone: 'America/Sao_Paulo' }).replace('.', '');
 
-            stats.push({
+            days.push({
                 dateKey,
                 name: label.charAt(0).toUpperCase() + label.slice(1),
                 entradas: 0,
-                saidas: 0
+                saidas: 0,
+                reversas: 0
             });
         }
 
-        // Aggregate Inbound
-        inboundItems.forEach((log: InboundItem) => {
-            if (log.error) return;
-            const timestamp = (log as any).created_at || log.time;
-            const dateKey = getDateKey(timestamp);
-            const dayStat = stats.find(s => s.dateKey === dateKey);
-            if (dayStat) dayStat.entradas++;
+        // 2. Aggregate Inbound
+        inboundItems.forEach(item => {
+            if (item.error) return;
+            const key = getDateKey((item as any).created_at || item.time);
+            const day = days.find(d => d.dateKey === key);
+            if (day) day.entradas++;
         });
 
-        // Aggregate Outbound
-        outboundItems.forEach((log: OutboundItem) => {
-            const timestamp = (log as any).created_at || log.time;
-            const dateKey = getDateKey(timestamp);
-            const dayStat = stats.find(s => s.dateKey === dateKey);
-            if (dayStat) {
-                if (log.status === 'Saiu com Motorista' || log.status === 'Reversa - Saiu com Motorista') {
-                    dayStat.saidas++;
-                }
+        // 3. Aggregate Outbound & Reversa
+        outboundItems.forEach(item => {
+            const key = getDateKey((item as any).created_at || item.time);
+            const day = days.find(d => d.dateKey === key);
+            if (day) {
+                if (item.status === 'Saiu com Motorista') day.saidas++;
+                else if (item.status === 'Reversa - Saiu com Motorista') day.reversas++;
             }
         });
 
-        return stats;
+        // 4. Extract Today's values (Last item in our 7-day window)
+        const todayIdx = days.length - 1;
+        const currentDay = days[todayIdx] || { entradas: 0, saidas: 0, reversas: 0 };
+
+        return {
+            weeklyStats: days.map(d => ({ name: d.name, entradas: d.entradas, saidas: d.saidas + d.reversas })),
+            totalInboundToday: currentDay.entradas,
+            totalOutboundToday: currentDay.saidas,
+            totalReversaToday: currentDay.reversas
+        };
     }, [inboundItems, outboundItems]);
+
+    // Use derived values for backward compatibility
+    const weeklyStats = statsSummary.weeklyStats;
+    const totalInboundToday = statsSummary.totalInboundToday;
+    const totalOutboundToday = statsSummary.totalOutboundToday;
+    const totalReversaToday = statsSummary.totalReversaToday;
 
     useEffect(() => {
         if (!currentUser) return;
@@ -523,6 +537,48 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             .update({ status: 'Saiu' })
             .eq('id', item.id)
             .eq('company_id', currentUser.company_id);
+
+        loadInitialData();
+        playAudio('success');
+    };
+
+    const bulkAddOutboundItems = async (items: OutboundItem[]) => {
+        if (!currentUser || items.length === 0) return;
+        const now = new Date().toISOString();
+        const companyId = currentUser.company_id;
+
+        const enrichedItems = items.map(item => ({
+            id: item.id,
+            driver_name: item.driverName,
+            vehicle: item.vehicle,
+            time: item.time || now,
+            operator: item.operator,
+            status: item.status,
+            pallet_id: (item as any).palletId,
+            company_id: companyId
+        }));
+
+        // 1. Bulk Insert into outbound_log
+        const { error: insE } = await supabase.from('outbound_log').insert(enrichedItems);
+        if (insE) {
+            console.error('WmsContext: Error bulk adding outbound items:', insE);
+            playAudio('error');
+            return;
+        }
+
+        // 2. Bulk Update stock_items status
+        const ids = items.map(i => i.id);
+        const { error: updE } = await supabase.from('stock_items')
+            .update({ status: 'Saiu' })
+            .in('id', ids)
+            .eq('company_id', companyId);
+
+        if (updE) console.error('WmsContext: Error bulk updating stock status:', updE);
+
+        // 3. Register scans in gamification
+        for (const item of items) {
+            await gamificationService.registerScan(currentUser.id, currentUser.name, companyId);
+        }
 
         loadInitialData();
         playAudio('success');
@@ -893,28 +949,6 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         playAudio('success');
     };
 
-    const totalInboundToday = React.useMemo(() => {
-        return weeklyStats[weeklyStats.length - 1]?.entradas || 0;
-    }, [weeklyStats]);
-
-    const totalOutboundToday = React.useMemo(() => {
-        const tKey = weeklyStats[weeklyStats.length - 1]?.dateKey;
-        return outboundItems.filter(item => {
-            if (item.status !== 'Saiu com Motorista') return false;
-            const ts = (item as any).created_at || item.time;
-            return getDateKey(ts) === tKey;
-        }).length;
-    }, [outboundItems, weeklyStats]);
-
-    const totalReversaToday = React.useMemo(() => {
-        const tKey = weeklyStats[weeklyStats.length - 1]?.dateKey;
-        return outboundItems.filter(item => {
-            if (item.status !== 'Reversa - Saiu com Motorista') return false;
-            const ts = (item as any).created_at || item.time;
-            return getDateKey(ts) === tKey;
-        }).length;
-    }, [outboundItems, weeklyStats]);
-
     const totalInventoryScanned = inventoryItems.length;
     const totalLossItems = stockItems.filter(s => s.status === 'Perda').length;
 
@@ -945,7 +979,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             currentView, setCurrentView,
             stockItems, possibleLossItems, staleStockItems,
             inboundItems, addInboundItem, expectedInboundList, setExpectedInboundList, clearInboundManifest,
-            outboundItems, addOutboundItem, deleteOutboundItem,
+            outboundItems, addOutboundItem, bulkAddOutboundItems, deleteOutboundItem,
             inventoryItems, isInventoryActive, setIsInventoryActive, addInventoryItem,
             startInventory, stopInventory, localizeItem,
             drivers, addDriver, bulkAddDrivers, updateDriver, deleteDriver,
