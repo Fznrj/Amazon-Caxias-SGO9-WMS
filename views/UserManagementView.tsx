@@ -445,5 +445,3 @@ const UserManagementView: React.FC = () => {
 };
 
 export default UserManagementView;
-
-export default UserManagementView;
