@@ -93,17 +93,17 @@ export default function ReversaView() {
         if (confirmExpedicao) {
             try {
                 // Registrar a saída de cada item
-                for (const item of scannedItems) {
-                    await addOutboundItem({
-                        id: item.id,
-                        driverName: driver.name,
-                        vehicle: driver.plate,
-                        time: new Date().toISOString(),
-                        operator: currentUser?.name || 'Sistema',
-                        status: 'Reversa - Saiu com Motorista',
-                        palletId: palletId.toUpperCase()
-                    } as any);
-                }
+                const itemsToExpedite = scannedItems.map(item => ({
+                    id: item.id,
+                    driverName: driver.name,
+                    vehicle: driver.plate,
+                    time: new Date().toISOString(),
+                    operator: currentUser?.name || 'Sistema',
+                    status: 'Reversa - Saiu com Motorista',
+                    palletId: palletId.toUpperCase()
+                } as any));
+
+                await bulkAddOutboundItems(itemsToExpedite);
 
                 alert("Pallet expedido com sucesso!");
 
