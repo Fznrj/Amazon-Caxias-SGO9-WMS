@@ -470,7 +470,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const addInboundItem = async (item: InboundItem) => {
         if (!currentUser) return;
-        const now = new Date().toISOString();
+        const now = getTodayDate().toISOString();
         const enrichedItem = { ...item, time: now };
 
         if (item.status === 'Sucesso') {
@@ -546,7 +546,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const bulkAddOutboundItems = async (items: OutboundItem[]) => {
         if (!currentUser || items.length === 0) return { success: false, message: 'Nada para expedir' };
-        const now = new Date().toISOString();
+        const now = getTodayDate().toISOString();
         const companyId = currentUser.company_id;
 
         const enrichedItems = items.map(item => ({
@@ -743,7 +743,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
 
         if (stockItem.lossDetectedTime) {
-            const hoursElapsed = (Date.now() - new Date(stockItem.lossDetectedTime).getTime()) / (1000 * 60 * 60);
+            const hoursElapsed = (getTodayDate().getTime() - new Date(stockItem.lossDetectedTime).getTime()) / (1000 * 60 * 60);
             if (hoursElapsed > 72) {
                 // Update status to 'Perda' in DB and local state
                 await supabase.from('stock_items')
@@ -776,7 +776,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (stockItem.status?.toLowerCase() === 'possível perda') {
             const updates = {
                 status: 'Em Estoque' as const,
-                entry_time: new Date().toISOString(), // Update entry time as it's "re-entered"
+                entry_time: getTodayDate().toISOString(), // Update entry time as it's "re-entered"
                 operator: currentUser?.name || 'Sistema',
                 loss_detected_time: null,
                 localized_by: currentUser?.name || 'Sistema',
@@ -819,8 +819,8 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
 
         const trtId = `TRT-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
-        const now = new Date().toISOString();
-        const displayTime = new Date().toLocaleString('pt-BR');
+        const now = getTodayDate().toISOString();
+        const displayTime = getTodayDate().toLocaleString('pt-BR');
 
         const newItem = {
             id: trtId,
@@ -979,7 +979,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const staleItemsCount = stockItems.filter(item => {
         if (item.status?.toLowerCase() !== 'em estoque') return false;
         try {
-            const now = new Date().getTime();
+            const now = getTodayDate().getTime();
             const entryTS = item.entryTime ? new Date(item.entryTime).getTime() : 0;
             if (!entryTS) return false;
             return (now - entryTS) / (1000 * 60 * 60) > 24;
@@ -989,7 +989,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const staleStockItems = React.useMemo(() => stockItems.filter(item => {
         if (item.status !== 'Em Estoque') return false;
         try {
-            const now = new Date().getTime();
+            const now = getTodayDate().getTime();
             const entryTS = item.entryTime ? new Date(item.entryTime).getTime() : 0;
             if (!entryTS) return false;
             return (now - entryTS) / (1000 * 60 * 60) > 24;
