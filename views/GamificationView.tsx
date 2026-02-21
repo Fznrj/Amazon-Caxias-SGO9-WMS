@@ -187,11 +187,11 @@ const GamificationView: React.FC = () => {
                     operatorName, // userId
                     operatorName, // userName
                     currentUser!.company_id, // companyId
-                    data.scans,
+                    data.scans, // periodScans (for Ranking display)
                     metaPercent,
                     diasAcimaMeta,
-                    data.errors,
-                    data.scans, // totalScans (redundant, but kept for signature)
+                    data.monthlyErrors, // monthlyErrors
+                    data.monthlyScans, // monthlyScans (for XP/SPR)
                     false, // isTop3
                     false, // isChallenger
                     consecutive,
