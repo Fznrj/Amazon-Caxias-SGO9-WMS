@@ -387,35 +387,47 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }, [currentUser]);
 
     const weeklyStats = React.useMemo(() => {
-        const statsMap: Record<string, { name: string, entradas: number, saidas: number }> = {};
+        const stats: { dateKey: string; name: string; entradas: number; saidas: number }[] = [];
+        const today = new Date();
+
+        // Create the last 7 days in chronological order
         for (let i = 6; i >= 0; i--) {
-            const d = new Date();
-            d.setDate(d.getDate() - i);
+            const d = new Date(today);
+            d.setDate(today.getDate() - i);
             const iso = d.toISOString();
             const dateKey = getDateKey(iso);
             const label = new Date(parseToDate(iso)).toLocaleDateString('pt-BR', { weekday: 'short', timeZone: 'America/Sao_Paulo' }).replace('.', '');
 
-            statsMap[dateKey] = {
+            stats.push({
+                dateKey,
                 name: label.charAt(0).toUpperCase() + label.slice(1),
                 entradas: 0,
                 saidas: 0
-            };
+            });
         }
 
+        // Aggregate Inbound
         inboundItems.forEach((log: InboundItem) => {
             if (log.error) return;
             const timestamp = (log as any).created_at || log.time;
             const dateKey = getDateKey(timestamp);
-            if (statsMap[dateKey]) statsMap[dateKey].entradas++;
+            const dayStat = stats.find(s => s.dateKey === dateKey);
+            if (dayStat) dayStat.entradas++;
         });
 
+        // Aggregate Outbound
         outboundItems.forEach((log: OutboundItem) => {
             const timestamp = (log as any).created_at || log.time;
             const dateKey = getDateKey(timestamp);
-            if (statsMap[dateKey]) statsMap[dateKey].saidas++;
+            const dayStat = stats.find(s => s.dateKey === dateKey);
+            if (dayStat) {
+                if (log.status === 'Saiu com Motorista' || log.status === 'Reversa - Saiu com Motorista') {
+                    dayStat.saidas++;
+                }
+            }
         });
 
-        return Object.values(statsMap);
+        return stats;
     }, [inboundItems, outboundItems]);
 
     useEffect(() => {
@@ -878,34 +890,27 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         playAudio('success');
     };
 
-    const todayStats = React.useMemo(() => {
-        const now = new Date().toISOString();
-        const tKey = getDateKey(now);
+    const totalInboundToday = React.useMemo(() => {
+        return weeklyStats[weeklyStats.length - 1]?.entradas || 0;
+    }, [weeklyStats]);
 
-        const entradas = inboundItems.filter(item => {
-            if (item.error) return false;
-            const ts = (item as any).created_at || item.time;
-            return getDateKey(ts) === tKey;
-        }).length;
-
-        const saidas = outboundItems.filter(item => {
+    const totalOutboundToday = React.useMemo(() => {
+        const tKey = weeklyStats[weeklyStats.length - 1]?.dateKey;
+        return outboundItems.filter(item => {
             if (item.status !== 'Saiu com Motorista') return false;
             const ts = (item as any).created_at || item.time;
             return getDateKey(ts) === tKey;
         }).length;
+    }, [outboundItems, weeklyStats]);
 
-        const reversa = outboundItems.filter(item => {
+    const totalReversaToday = React.useMemo(() => {
+        const tKey = weeklyStats[weeklyStats.length - 1]?.dateKey;
+        return outboundItems.filter(item => {
             if (item.status !== 'Reversa - Saiu com Motorista') return false;
             const ts = (item as any).created_at || item.time;
             return getDateKey(ts) === tKey;
         }).length;
-
-        return { entradas, saidas, reversa };
-    }, [inboundItems, outboundItems]);
-
-    const totalInboundToday = todayStats.entradas;
-    const totalOutboundToday = todayStats.saidas;
-    const totalReversaToday = todayStats.reversa;
+    }, [outboundItems, weeklyStats]);
 
     const totalInventoryScanned = inventoryItems.length;
     const totalLossItems = stockItems.filter(s => s.status === 'Perda').length;
