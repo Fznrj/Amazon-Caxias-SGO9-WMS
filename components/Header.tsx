@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { View, User } from '../types';
+import { getTodayDate } from '../utils/dateUtils';
 
 interface HeaderProps {
   viewTitle: View;
@@ -42,8 +43,34 @@ const Header: React.FC<HeaderProps> = ({ viewTitle, isOffline, onToggleOffline }
           <span className={`w-2 h-2 rounded-full ${isOffline ? 'bg-red-500' : 'bg-green-500 animate-pulse'}`}></span>
           {isOffline ? 'Offline' : 'Online'}
         </button>
-        <div className="hidden md:block text-slate-500 dark:text-slate-400 text-[10px] font-mono uppercase tracking-widest">
-          {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+        <div className="flex items-center gap-2">
+          {localStorage.getItem('debug_date_offset') ? (
+            <button
+              onClick={() => {
+                localStorage.removeItem('debug_date_offset');
+                window.location.reload();
+              }}
+              className="bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-bold uppercase px-2 py-1.5 rounded transition-colors flex items-center gap-1"
+              title="Voltar para o tempo real"
+            >
+              <span className="material-icons-round text-xs">history</span> Tempo Real
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                localStorage.setItem('debug_date_offset', '1');
+                window.location.reload();
+              }}
+              className="bg-slate-800 hover:bg-slate-700 text-white text-[10px] font-bold uppercase px-2 py-1.5 rounded transition-colors flex items-center gap-1 border border-slate-700"
+              title="Avançar 1 dia para testes"
+            >
+              <span className="material-icons-round text-xs">fast_forward</span> Testar Amanhã
+            </button>
+          )}
+        </div>
+
+        <div className="hidden md:block text-slate-500 dark:text-slate-400 text-[10px] font-mono uppercase tracking-widest bg-slate-100 dark:bg-slate-900 px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-800">
+          {getTodayDate().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
         </div>
       </div>
     </header>

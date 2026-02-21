@@ -3,7 +3,7 @@ import { User, Driver, Role, UserStatus, VehicleProfile, View } from '../types';
 import { AuthService } from '../services/authService';
 import { gamificationService } from '../services/gamificationService';
 import { supabase } from '../services/supabase';
-import { isSameDay, parseToDate, getDateKey, getSaoPauloDate } from '../utils/dateUtils';
+import { isSameDay, parseToDate, getDateKey, getSaoPauloDate, getTodayDate } from '../utils/dateUtils';
 
 // ... (keep InboundItem, OutboundItem, InventoryItem, StockItem interfaces as is) ...
 
@@ -391,7 +391,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const statsSummary = React.useMemo(() => {
         const days: { dateKey: string; name: string; entradas: number; saidas: number; reversas: number }[] = [];
-        const today = new Date();
+        const today = getTodayDate();
 
         // 1. Initialize stable 7-day array (UTC-3)
         for (let i = 6; i >= 0; i--) {

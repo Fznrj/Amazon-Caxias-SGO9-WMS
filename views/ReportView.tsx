@@ -1,11 +1,12 @@
 import React from 'react';
 import { downloadCSV } from '../utils/download';
 import { useWms } from '../context/WmsContext';
+import { getTodayDate } from '../utils/dateUtils';
 
 const ReportView: React.FC = () => {
   const { inventoryItems, inboundItems, outboundItems, possibleLossItems, users } = useWms();
-  const [startDate, setStartDate] = React.useState<string>(new Date().toISOString().split('T')[0]);
-  const [endDate, setEndDate] = React.useState<string>(new Date().toISOString().split('T')[0]);
+  const [startDate, setStartDate] = React.useState<string>(getTodayDate().toISOString().split('T')[0]);
+  const [endDate, setEndDate] = React.useState<string>(getTodayDate().toISOString().split('T')[0]);
 
   // Helper to filter items by date range.
   const filterByDateRange = (items: any[]) => {

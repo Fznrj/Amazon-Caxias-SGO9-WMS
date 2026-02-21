@@ -7,13 +7,13 @@ import {
     type GamificationProfile,
     type GamificationLevel,
 } from '../services/gamificationService';
-import { getDateKey, isSameDay } from '../utils/dateUtils';
+import { getDateKey, isSameDay, getTodayDate } from '../utils/dateUtils';
 
 const GamificationView: React.FC = () => {
     const { currentUser, inboundItems, outboundItems, inventoryItems } = useWms();
 
-    const [startDate, setStartDate] = React.useState(getDateKey(new Date().toISOString()).split('/').reverse().join('-')); // YYYY-MM-DD
-    const [endDate, setEndDate] = React.useState(getDateKey(new Date().toISOString()).split('/').reverse().join('-'));
+    const [startDate, setStartDate] = React.useState(getDateKey(getTodayDate().toISOString()).split('/').reverse().join('-')); // YYYY-MM-DD
+    const [endDate, setEndDate] = React.useState(getDateKey(getTodayDate().toISOString()).split('/').reverse().join('-'));
     const [isComparisonMode, setIsComparisonMode] = React.useState(false);
 
     // --- Aggregate data per operator ---
@@ -43,7 +43,7 @@ const GamificationView: React.FC = () => {
             dailyActivities: {}
         });
 
-        const todayKey = getDateKey(new Date().toISOString());
+        const todayKey = getDateKey(getTodayDate().toISOString());
 
         inboundItems.forEach(item => {
             const op = item.operator;
@@ -145,7 +145,7 @@ const GamificationView: React.FC = () => {
                 const totalDays = Math.max(dayKeys.length, 1);
                 const zeroErrorDays = totalDays - errorDayKeys.filter(d => (data.dailyErrors[d] || 0) > 0).length;
 
-                const todayKeyVal = getDateKey(new Date().toISOString());
+                const todayKeyVal = getDateKey(getTodayDate().toISOString());
                 let consecutive = 0;
                 const sortedDays = [...dayKeys].sort((a, b) => {
                     const [da, ma, ya] = a.split('/').map(Number);
@@ -296,7 +296,7 @@ const GamificationView: React.FC = () => {
                     </div>
                     <button
                         onClick={() => {
-                            const today = getDateKey(new Date().toISOString()).split('/').reverse().join('-');
+                            const today = getDateKey(getTodayDate().toISOString()).split('/').reverse().join('-');
                             setStartDate(today);
                             setEndDate(today);
                             setIsComparisonMode(false);
@@ -392,7 +392,7 @@ const GamificationView: React.FC = () => {
 
             {/* === INDIVIDUAL CARDS === */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                <StatCard label="Total Scans (Hoje)" value={myData ? (myData.dailyScans[getDateKey(new Date().toISOString())] || 0) : 0} icon="qr_code_scanner" color="text-primary" />
+                <StatCard label="Total Scans (Hoje)" value={myData ? (myData.dailyScans[getDateKey(getTodayDate().toISOString())] || 0) : 0} icon="qr_code_scanner" color="text-primary" />
                 <StatCard label="Meta %" value={`${myMetaPercent}%`} icon="flag" color={myMetaPercent >= 100 ? 'text-green-400' : myMetaPercent >= 70 ? 'text-blue-400' : 'text-red-400'} />
                 <StatCard label="Dias Acima Meta" value={myDaysAbove} icon="calendar_today" color="text-emerald-400" />
                 <StatCard label="Erros" value={myData?.errors || 0} icon="error" color="text-red-400" />

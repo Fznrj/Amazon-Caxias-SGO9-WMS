@@ -1,7 +1,34 @@
 /**
- * Returns the current date (YYYY-MM-DD) in America/Sao_Paulo timezone.
+ * Utility to get the "current" date, supporting an optional offset for debugging/testing.
+ * Set localStorage.setItem('debug_date_offset', '1') for tomorrow, '-1' for yesterday, etc.
  */
-export const getSaoPauloDate = (date: Date = new Date()): string => {
+export const getTodayDate = (): Date => {
+    const now = new Date();
+    try {
+        const offset = localStorage.getItem('debug_date_offset');
+        if (offset) {
+            const days = parseInt(offset, 10);
+            if (!isNaN(days)) {
+                const target = new Date(now);
+                target.setDate(now.getDate() + days);
+                return target;
+            }
+        }
+
+        const fixed = localStorage.getItem('debug_fixed_date');
+        if (fixed) {
+            return new Date(fixed);
+        }
+    } catch (e) {
+        // Silently fail if localStorage is not accessible
+    }
+    return now;
+};
+
+/**
+ * Returns the date (YYYY-MM-DD) in America/Sao_Paulo timezone.
+ */
+export const getSaoPauloDate = (date: Date = getTodayDate()): string => {
     return date.toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
 };
 
@@ -9,7 +36,7 @@ export const getSaoPauloDate = (date: Date = new Date()): string => {
  * Robustly parses a date string that might be in ISO format or a localized pt-BR string.
  */
 export const parseToDate = (dateStr: string): Date => {
-    if (!dateStr) return new Date();
+    if (!dateStr) return getTodayDate();
 
     try {
         // Case 1: ISO String (YYYY-MM-DDTHH:mm:ss...)
@@ -42,7 +69,7 @@ export const parseToDate = (dateStr: string): Date => {
  * Checks if a date string refers to the same day as the reference date (Today in SP),
  * correctly forcing America/Sao_Paulo comparison.
  */
-export const isSameDay = (dateStr: string, referenceDate: Date = new Date()): boolean => {
+export const isSameDay = (dateStr: string, referenceDate: Date = getTodayDate()): boolean => {
     const date = parseToDate(dateStr);
     const spDate = getSaoPauloDate(date);
     const spRef = getSaoPauloDate(referenceDate);
