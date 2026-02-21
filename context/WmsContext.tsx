@@ -251,23 +251,98 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return () => window.removeEventListener('storage', handleStorageChange);
     }, [currentUser]);
 
-    const loadInitialData = () => {
+    const loadInitialData = async () => {
+        if (!currentUser) return;
+
         try {
-            const config = loadLocal(STORAGE_KEYS.CONFIG, {});
-            if (config.expected_inbound) _setExpectedInboundList(config.expected_inbound);
-            setDrivers(loadLocal(STORAGE_KEYS.DRIVERS));
-            setTreatmentItems(loadLocal(STORAGE_KEYS.INCIDENTS));
-            const stock = loadLocal(STORAGE_KEYS.STOCK);
-            setStockItems(stock);
-            setPossibleLossItems(stock.filter((s: StockItem) => s.status === 'Possível Perda'));
-            setInboundItems(loadLocal(STORAGE_KEYS.INBOUND_LOG));
-            setOutboundItems(loadLocal(STORAGE_KEYS.OUTBOUND_LOG));
-            setInventoryItems(loadLocal(STORAGE_KEYS.INVENTORY_LOG));
+            const companyId = currentUser.company_id;
+
+            // 1. Stock & Possible Loss
+            const { data: stock } = await supabase
+                .from('stock_items')
+                .select('*')
+                .eq('company_id', companyId);
+
+            if (stock) {
+                setStockItems(stock);
+                setPossibleLossItems(stock.filter(s => s.status === 'Possível Perda'));
+            }
+
+            // 2. Inbound Log
+            const { data: inbound } = await supabase
+                .from('inbound_log')
+                .select('*')
+                .eq('company_id', companyId)
+                .order('created_at', { ascending: false });
+            if (inbound) setInboundItems(inbound);
+
+            // 3. Outbound Log
+            const { data: outbound } = await supabase
+                .from('outbound_log')
+                .select('*')
+                .eq('company_id', companyId)
+                .order('created_at', { ascending: false });
+            if (outbound) setOutboundItems(outbound);
+
+            // 4. Drivers
+            const { data: driversData } = await supabase
+                .from('drivers')
+                .select('*')
+                .eq('company_id', companyId);
+            if (driversData) setDrivers(driversData);
+
+            // 5. Incidents
+            const { data: incidents } = await supabase
+                .from('incidents')
+                .select('*')
+                .eq('company_id', companyId)
+                .order('created_at', { ascending: false });
+            if (incidents) setTreatmentItems(incidents);
+
+            // 6. Config
+            const { data: config } = await supabase
+                .from('system_configs')
+                .select('expected_inbound')
+                .eq('company_id', companyId)
+                .maybeSingle();
+            if (config?.expected_inbound) _setExpectedInboundList(config.expected_inbound);
+
+            // 7. Inventory
+            const { data: inventory } = await supabase
+                .from('inventory_log')
+                .select('*')
+                .eq('company_id', companyId);
+            if (inventory) setInventoryItems(inventory);
 
         } catch (err) {
-            console.error('WmsContext: Error loading local data:', err);
+            console.error('WmsContext: Error loading Supabase data:', err);
         }
     };
+
+    // --- Realtime Implementation ---
+    useEffect(() => {
+        if (!currentUser) return;
+
+        const companyId = currentUser.company_id;
+
+        const channels = [
+            supabase.channel('stock_realtime')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_items', filter: `company_id=eq.${companyId}` },
+                    () => loadInitialData())
+                .subscribe(),
+
+            supabase.channel('logs_realtime')
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'inbound_log', filter: `company_id=eq.${companyId}` },
+                    () => loadInitialData())
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'outbound_log', filter: `company_id=eq.${companyId}` },
+                    () => loadInitialData())
+                .subscribe()
+        ];
+
+        return () => {
+            channels.forEach(channel => supabase.removeChannel(channel));
+        };
+    }, [currentUser]);
 
     const weeklyStats = React.useMemo(() => {
         const statsMap: Record<string, { name: string, entradas: number, saidas: number }> = {};
@@ -305,15 +380,19 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }, [currentUser]);
 
     const clearInboundManifest = async () => {
+        if (!currentUser) return;
         _setExpectedInboundList([]);
-        const config = loadLocal(STORAGE_KEYS.CONFIG, {});
-        saveLocal(STORAGE_KEYS.CONFIG, { ...config, expected_inbound: [] });
+        await supabase
+            .from('system_configs')
+            .upsert({ company_id: currentUser.company_id, expected_inbound: [] });
     };
 
     const setExpectedInboundList = async (list: string[]) => {
+        if (!currentUser) return;
         _setExpectedInboundList(list);
-        const config = loadLocal(STORAGE_KEYS.CONFIG, {});
-        saveLocal(STORAGE_KEYS.CONFIG, { ...config, expected_inbound: list });
+        await supabase
+            .from('system_configs')
+            .upsert({ company_id: currentUser.company_id, expected_inbound: list });
     };
 
     const addInboundItem = async (item: InboundItem) => {
@@ -344,11 +423,14 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             await gamificationService.registerScan(currentUser.id, currentUser.name);
         }
 
-        setInboundItems(prev => {
-            const updated = [enrichedItem, ...prev];
-            saveLocal(STORAGE_KEYS.INBOUND_LOG, updated);
-            return updated;
+        // Save to Supabase
+        await supabase.from('inbound_log').insert({
+            ...enrichedItem,
+            company_id: currentUser?.company_id
         });
+
+        // Optimistic update
+        setInboundItems(prev => [enrichedItem, ...prev]);
 
         if (!item.error) {
             // 1. Resolve treatments
@@ -356,21 +438,24 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 (t.tbrId === item.id && t.status !== 'Resolvido') ? { ...t, status: 'Resolvido' as const } : t
             );
             setTreatmentItems(updatedTreatments);
-            saveLocal(STORAGE_KEYS.INCIDENTS, updatedTreatments);
 
-            // 2. Update Stock
-            setStockItems(prev => {
-                const exists = prev.find(s => s.id === item.id);
-                const updated = exists
-                    ? prev.map(s => s.id === item.id ? { ...s, entryTime: now, operator: item.operator, status: 'Em Estoque' as const, lossDetectedTime: undefined } : s)
-                    : [...prev, { id: item.id, entryTime: now, operator: item.operator, status: 'Em Estoque' as const }];
-                saveLocal(STORAGE_KEYS.STOCK, updated);
+            if (currentUser) {
+                await supabase.from('incidents')
+                    .update({ status: 'Resolvido' })
+                    .eq('tbr_id', item.id)
+                    .eq('company_id', currentUser.company_id);
+            }
 
-                // 3. Update Possible Loss list synchronized with the new stock update
-                setPossibleLossItems(updated.filter(p => p.status === 'Possível Perda'));
+            // 2. Update Stock in Supabase
+            const exists = stockItems.find(s => s.id === item.id);
+            const stockData = exists
+                ? { entryTime: now, operator: item.operator, status: 'Em Estoque' as const, loss_detected_time: null, company_id: currentUser?.company_id }
+                : { id: item.id, entryTime: now, operator: item.operator, status: 'Em Estoque' as const, company_id: currentUser?.company_id };
 
-                return updated;
-            });
+            await supabase.from('stock_items').upsert(stockData);
+
+            // Re-fetch will happen via Realtime, but for responsiveness:
+            loadInitialData();
 
             playAudio('success');
         } else {
@@ -382,21 +467,19 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const enrichedItem = { ...item, time: new Date().toLocaleString('pt-BR') };
         if (currentUser) {
             await gamificationService.registerScan(currentUser.id, currentUser.name);
+
+            await supabase.from('outbound_log').insert({
+                ...enrichedItem,
+                company_id: currentUser.company_id
+            });
+
+            await supabase.from('stock_items')
+                .update({ status: 'Saiu' })
+                .eq('id', item.id)
+                .eq('company_id', currentUser.company_id);
         }
 
-        setOutboundItems(prev => {
-            const updated = [enrichedItem, ...prev];
-            saveLocal(STORAGE_KEYS.OUTBOUND_LOG, updated);
-            return updated;
-        });
-
-        setStockItems(prev => {
-            const updated = prev.map(s => s.id === item.id ? { ...s, status: 'Saiu' as const } : s);
-            saveLocal(STORAGE_KEYS.STOCK, updated);
-            return updated;
-        });
-        setPossibleLossItems(prev => prev.filter(loss => loss.id !== item.id));
-
+        // Realtime will handle the update
         playAudio('success');
     };
 
