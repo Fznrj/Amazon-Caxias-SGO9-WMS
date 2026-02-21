@@ -121,7 +121,6 @@ interface WmsContextData {
     verifyStock: (id: string) => Promise<{ success: boolean; message: string }>;
     isToday: (timeStr: string) => boolean;
     getSystemDate: () => string;
-    getLocalDateIso: () => string;
 
     // Audio
     playAudio: (type: 'success' | 'error') => void;
