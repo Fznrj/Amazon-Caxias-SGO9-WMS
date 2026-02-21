@@ -312,8 +312,11 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 const mappedDrivers = driversData.map(d => ({
                     id: d.id,
                     name: d.name,
-                    badge: d.badge,
-                    vehicle_type: d.vehicle_type,
+                    cpf: d.cpf,
+                    plate: d.plate,
+                    company: d.company,
+                    status: d.status,
+                    vehicleProfile: d.vehicle_profile,
                     lastActivity: d.last_activity
                 }));
                 setDrivers(mappedDrivers);
@@ -655,7 +658,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 entry_time: new Date().toISOString(),
                 operator: currentUser?.name || 'Sistema',
                 loss_detected_time: null,
-                localized_by: item.status === 'Possível Perda' ? (currentUser?.name || 'Sistema') : item.localized_by,
+                localized_by: item.status === 'Possível Perda' ? (currentUser?.name || 'Sistema') : item.localizedBy,
                 rack_location: scannerInput
             };
 
