@@ -30,12 +30,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
 
     inboundItems.forEach(item => {
       if (item.error) return;
-      const date = getSaoPauloDate(parseToDate((item as any).created_at || item.time));
+      const date = getSaoPauloDate(parseToDate(item.time || (item as any).created_at));
       if (date >= startDate && date <= endDate) entradas++;
     });
 
     outboundItems.forEach(item => {
-      const date = getSaoPauloDate(parseToDate((item as any).created_at || item.time));
+      const date = getSaoPauloDate(parseToDate(item.time || (item as any).created_at));
       if (date >= startDate && date <= endDate) {
         const st = item.status?.toLowerCase() || '';
         if (st === 'saiu com motorista') saidas++;

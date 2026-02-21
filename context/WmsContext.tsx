@@ -413,14 +413,14 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         // 2. Aggregate Inbound
         inboundItems.forEach(item => {
             if (item.error) return;
-            const key = getDateKey((item as any).created_at || item.time);
+            const key = getDateKey(item.time || (item as any).created_at);
             const day = days.find(d => d.dateKey === key);
             if (day) day.entradas++;
         });
 
         // 3. Aggregate Outbound & Reversa
         outboundItems.forEach(item => {
-            const key = getDateKey((item as any).created_at || item.time);
+            const key = getDateKey(item.time || (item as any).created_at);
             const day = days.find(d => d.dateKey === key);
             if (day && item.status) {
                 const status = item.status.toLowerCase();
@@ -512,7 +512,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const addOutboundItem = async (item: OutboundItem) => {
         if (!currentUser) return { success: false, message: 'Não logado' };
-        const now = new Date().toISOString();
+        const now = getTodayDate().toISOString();
         const enrichedItem = { ...item, time: now };
 
         await gamificationService.registerScan(currentUser.id, currentUser.name, currentUser.company_id);
