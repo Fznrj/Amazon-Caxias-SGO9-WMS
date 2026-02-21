@@ -13,7 +13,7 @@ const InventoryView: React.FC = () => {
   const [scanModalInput, setScanModalInput] = useState('');
 
   // Total Expected is the items currently marked as 'Em Estoque'
-  const totalExpected = stockItems.filter(item => item.status === 'Em Estoque').length;
+  const totalExpected = stockItems.filter(item => item.status?.toLowerCase() === 'em estoque').length;
   const currentCount = inventoryItems.length;
   // Prevent division by zero if stock is empty
   const progressPercentage = totalExpected > 0 ? Math.min((currentCount / totalExpected) * 100, 100) : 0;

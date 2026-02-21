@@ -308,7 +308,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     rackLocation: s.rack_location
                 }));
                 setStockItems(mappedStock);
-                setPossibleLossItems(mappedStock.filter(s => s.status === 'Possível Perda'));
+                setPossibleLossItems(mappedStock.filter(s => s.status && s.status.toLowerCase() === 'possível perda'));
             }
 
             // Handle Inbound
@@ -696,7 +696,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (!currentUser) return;
         setIsInventoryActive(false);
         const missingIds = stockItems
-            .filter(s => s.status === 'Em Estoque' && !inventoryItems.some(inv => inv.id === s.id))
+            .filter(s => s.status?.toLowerCase() === 'em estoque' && !inventoryItems.some(inv => inv.id === s.id))
             .map(s => s.id);
 
         const now = new Date().toISOString();
@@ -716,49 +716,65 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
 
     const localizeItem = async (id: string, scannerInput: string) => {
-        if (id !== scannerInput) {
+        if (!currentUser) return { success: false, message: 'Não logado' };
+
+        const stockItem = stockItems.find(s => s.id === id);
+
+        if (!stockItem) {
             playAudio('error');
-            return { success: false, message: 'ID da TBR não confere!' };
+            return { success: false, message: `TBR ${id} não encontrada no estoque.` };
         }
 
-        const item = stockItems.find(s => s.id === id);
-        if (!item) return { success: false, message: 'Item não encontrado!' };
+        if (stockItem.status?.toLowerCase() !== 'em estoque' && stockItem.status?.toLowerCase() !== 'possível perda') {
+            const status = stockItem?.status?.toLowerCase();
+            const statusMsg = status === 'saiu'
+                ? `ERRO: TBR ${id} já foi expedida anteriormente. Se ela retornou, faça o recebimento na Entrada.`
+                : status === 'perda'
+                    ? `ERRO: TBR ${id} está marcada como Perda definitiva.`
+                    : `ERRO: TBR ${id} está com status: ${stockItem.status}.`;
+            playAudio('error');
+            return { success: false, message: statusMsg };
+        }
 
-        if (item.lossDetectedTime) {
-            const hoursElapsed = (Date.now() - new Date(item.lossDetectedTime).getTime()) / (1000 * 60 * 60);
+        if (stockItem.lossDetectedTime) {
+            const hoursElapsed = (Date.now() - new Date(stockItem.lossDetectedTime).getTime()) / (1000 * 60 * 60);
             if (hoursElapsed > 72) {
-                const updated = stockItems.map(s => s.id === id ? { ...s, status: 'Perda' as const } : s);
-                setStockItems(updated);
-                saveLocal(STORAGE_KEYS.STOCK, updated);
-                setPossibleLossItems(updated.filter(p => p.status === 'Possível Perda'));
+                // Update status to 'Perda' in DB and local state
+                await supabase.from('stock_items')
+                    .update({ status: 'Perda' as const })
+                    .eq('id', id)
+                    .eq('company_id', currentUser.company_id);
+                loadInitialData(); // Reload to get updated status
                 playAudio('error');
                 return { success: false, message: 'Tempo limite de 72h excedido. Item marcado como Perda definitiva.' };
             }
         }
 
-        // Check if the item is already in stock and if the scannerInput is a valid rack location
-        // For now, we assume scannerInput is the rack location if it's not the item ID itself.
-        // If scannerInput is the item ID, it means we are just confirming its presence.
-        if (item && item.status === 'Em Estoque' && id !== scannerInput) {
-            // If the item is already in stock and the scanner input is different,
-            // it means we are re-allocating it to a new rack.
-            const updated = stockItems.map(s => s.id === id ? { ...s, rackLocation: scannerInput } : s);
-            setStockItems(updated);
-            saveLocal(STORAGE_KEYS.STOCK, updated);
+        // If the item is already in stock and the scanner input is different from the item ID,
+        // it means we are re-allocating it to a new rack.
+        if (stockItem.status?.toLowerCase() === 'em estoque' && id !== scannerInput) {
+            const updates = {
+                rack_location: scannerInput,
+                localized_by: currentUser?.name || 'Sistema'
+            };
+            await supabase.from('stock_items')
+                .update(updates)
+                .eq('id', id)
+                .eq('company_id', currentUser.company_id);
+            loadInitialData();
             playAudio('success');
             return { success: true, message: `Item ${id} realocado para o rack ${scannerInput}.` };
         }
 
         // If the item is not in stock or is a possible loss, we are localizing it.
-        if (item) {
-            // Se o item estava como "Possível Perda", atualizamos para "Em Estoque" e logamos quem achou
+        if (stockItem.status?.toLowerCase() === 'possível perda') {
             const updates = {
                 status: 'Em Estoque' as const,
-                entry_time: new Date().toISOString(),
+                entry_time: new Date().toISOString(), // Update entry time as it's "re-entered"
                 operator: currentUser?.name || 'Sistema',
                 loss_detected_time: null,
-                localized_by: item.status === 'Possível Perda' ? (currentUser?.name || 'Sistema') : item.localizedBy,
-                rack_location: scannerInput
+                localized_by: currentUser?.name || 'Sistema',
+                rack_location: scannerInput // Assuming scannerInput is the rack location
             };
 
             await supabase.from('stock_items')
@@ -766,21 +782,14 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 .eq('id', id)
                 .eq('company_id', currentUser.company_id);
 
+            loadInitialData();
             playAudio('success');
             return { success: true, message: `Item ${id} localizado e re-alocado no rack ${scannerInput}.` };
         }
 
-
-        if (currentUser) {
-            await gamificationService.registerScan(currentUser.id, currentUser.name, currentUser.company_id);
-        }
-
-        const updated = stockItems.map(s => s.id === id ? { ...s, status: 'Em Estoque' as const, lossDetectedTime: undefined } : s);
-        setStockItems(updated);
-        saveLocal(STORAGE_KEYS.STOCK, updated);
-        setPossibleLossItems(updated.filter(p => p.status === 'Possível Perda'));
+        // If it's already 'Em Estoque' and scannerInput is the same as ID, it's just a confirmation.
         playAudio('success');
-        return { success: true, message: `TBR ${id} localizada com sucesso!` };
+        return { success: true, message: `TBR ${id} confirmada no estoque.` };
     };
 
     const verifyStock = async (id: string) => {
@@ -788,7 +797,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (!item) {
             return { success: false, message: `TBR ${id} não encontrada no estoque.` };
         }
-        if (item.status !== 'Em Estoque') {
+        if (item.status?.toLowerCase() !== 'em estoque') {
             return { success: false, message: `TBR ${id} está com status: ${item.status}.` };
         }
         return { success: true, message: 'Item validado.' };
@@ -797,7 +806,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const addTreatment = async (itemData: Omit<TreatmentItem, 'id' | 'time' | 'status'>) => {
         if (!currentUser) return { success: false, message: 'Não logado' };
-        const existingActive = treatmentItems.find(t => t.tbrId === itemData.tbrId && t.status !== 'Resolvido');
+        const existingActive = treatmentItems.find(t => t.tbrId === itemData.tbrId && t.status?.toLowerCase() !== 'resolvido');
         if (existingActive) {
             playAudio('error');
             return { success: false, message: `Já existe uma tratativa ativa (${existingActive.id}) para esta TBR.` };
@@ -956,10 +965,13 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
 
     const totalInventoryScanned = inventoryItems.length;
-    const totalLossItems = stockItems.filter(s => s.status === 'Perda').length;
+    const totalLossItems = stockItems.filter(s => s.status?.toLowerCase() === 'perda').length;
+
+    // Total Expected is the items currently marked as 'Em Estoque'
+    const totalExpected = stockItems.filter(item => item.status?.toLowerCase() === 'em estoque').length;
 
     const staleItemsCount = stockItems.filter(item => {
-        if (item.status !== 'Em Estoque') return false;
+        if (item.status?.toLowerCase() !== 'em estoque') return false;
         try {
             const now = new Date().getTime();
             const entryTS = item.entryTime ? new Date(item.entryTime).getTime() : 0;
