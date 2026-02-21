@@ -103,15 +103,18 @@ export default function ReversaView() {
                     palletId: palletId.toUpperCase()
                 } as any));
 
-                await bulkAddOutboundItems(itemsToExpedite);
+                const result = await bulkAddOutboundItems(itemsToExpedite);
 
-                alert("Pallet expedido com sucesso!");
-
-                // Limpar todos os campos para o próximo pallet
-                setScannedItems([]);
-                setPalletId('');
-                setSelectedDriverId('');
-                setTbrInput('');
+                if (result.success) {
+                    alert("Pallet expedido com sucesso!");
+                    // Limpar estados
+                    setScannedItems([]);
+                    setPalletId('');
+                    setSelectedDriverId('');
+                    setTbrInput('');
+                } else {
+                    alert(`Falha na expedição: ${result.message}`);
+                }
             } catch (error) {
                 console.error("Erro ao expedir pallet:", error);
                 alert("Ocorreu um erro ao processar a expedição. Verifique o console.");

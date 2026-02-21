@@ -63,8 +63,8 @@ interface WmsContextData {
 
     // Outbound
     outboundItems: OutboundItem[];
-    addOutboundItem: (item: OutboundItem) => Promise<void>;
-    bulkAddOutboundItems: (items: OutboundItem[]) => Promise<void>;
+    addOutboundItem: (item: OutboundItem) => Promise<{ success: boolean; message?: string }>;
+    bulkAddOutboundItems: (items: OutboundItem[]) => Promise<{ success: boolean; message?: string }>;
     deleteOutboundItem: (id: string) => Promise<void>;
 
     // Inventory
@@ -422,9 +422,10 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         outboundItems.forEach(item => {
             const key = getDateKey((item as any).created_at || item.time);
             const day = days.find(d => d.dateKey === key);
-            if (day) {
-                if (item.status === 'Saiu com Motorista') day.saidas++;
-                else if (item.status === 'Reversa - Saiu com Motorista') day.reversas++;
+            if (day && item.status) {
+                const status = item.status.toLowerCase();
+                if (status === 'saiu com motorista') day.saidas++;
+                else if (status.includes('reversa')) day.reversas++;
             }
         });
 
@@ -510,7 +511,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
 
     const addOutboundItem = async (item: OutboundItem) => {
-        if (!currentUser) return;
+        if (!currentUser) return { success: false, message: 'Não logado' };
         const now = new Date().toISOString();
         const enrichedItem = { ...item, time: now };
 
@@ -530,7 +531,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (insE) {
             console.error('WmsContext: Error adding outbound item:', insE);
             playAudio('error');
-            return;
+            return { success: false, message: insE.message };
         }
 
         await supabase.from('stock_items')
@@ -540,10 +541,11 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         loadInitialData();
         playAudio('success');
+        return { success: true };
     };
 
     const bulkAddOutboundItems = async (items: OutboundItem[]) => {
-        if (!currentUser || items.length === 0) return;
+        if (!currentUser || items.length === 0) return { success: false, message: 'Nada para expedir' };
         const now = new Date().toISOString();
         const companyId = currentUser.company_id;
 
@@ -563,7 +565,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (insE) {
             console.error('WmsContext: Error bulk adding outbound items:', insE);
             playAudio('error');
-            return;
+            return { success: false, message: `Erro ao salvar logs: ${insE.message}` };
         }
 
         // 2. Bulk Update stock_items status
@@ -573,7 +575,10 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             .in('id', ids)
             .eq('company_id', companyId);
 
-        if (updE) console.error('WmsContext: Error bulk updating stock status:', updE);
+        if (updE) {
+            console.error('WmsContext: Error bulk updating stock status:', updE);
+            // We don't return here because the logs were already inserted
+        }
 
         // 3. Register scans in gamification
         for (const item of items) {
@@ -582,6 +587,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         loadInitialData();
         playAudio('success');
+        return { success: true };
     };
 
     const deleteOutboundItem = async (id: string) => {

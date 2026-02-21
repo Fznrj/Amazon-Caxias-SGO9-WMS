@@ -47,7 +47,7 @@ const OutboundView: React.FC = () => {
       return;
     }
 
-    await addOutboundItem({
+    const result = await addOutboundItem({
       id: currentId,
       driverName: driver.name,
       vehicle: `${driver.vehicleProfile} (${driver.plate})`,
@@ -56,9 +56,14 @@ const OutboundView: React.FC = () => {
       status: 'Saiu com Motorista'
     });
 
-    setMessage({ text: `Saída registrada: ${currentId}`, type: 'success' });
-    setTimeout(() => setMessage(null), 2000);
-    setTbrInput('');
+    if (result.success) {
+      setMessage({ text: `Saída registrada: ${currentId}`, type: 'success' });
+      setTimeout(() => setMessage(null), 2000);
+      setTbrInput('');
+    } else {
+      setMessage({ text: `ERRO: ${result.message}`, type: 'error' });
+      playAudio('error');
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
