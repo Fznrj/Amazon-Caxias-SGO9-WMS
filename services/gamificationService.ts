@@ -198,6 +198,13 @@ export class GamificationService {
         return level;
     }
 
+    getNextLevel(xp: number): GamificationLevel | null {
+        for (const l of LEVELS) {
+            if (l.minXP > xp) return l;
+        }
+        return null;
+    }
+
     async recalculate(
         userId: string,
         userName: string,

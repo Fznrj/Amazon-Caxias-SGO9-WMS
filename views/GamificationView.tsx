@@ -155,15 +155,16 @@ const GamificationView: React.FC = () => {
                 ).length;
 
                 const profile = await gamificationService.recalculate(
-                    operatorName,
-                    operatorName,
+                    operatorName, // userId
+                    operatorName, // userName
+                    currentUser!.company_id, // companyId
                     data.scans,
                     metaPercent,
                     diasAcimaMeta,
                     data.errors,
-                    data.scans,
-                    false,
-                    false,
+                    data.scans, // totalScans (redundant, but kept for signature)
+                    false, // isTop3
+                    false, // isChallenger
                     consecutive,
                     zeroErrorDays,
                     avgMeta,
@@ -184,8 +185,9 @@ const GamificationView: React.FC = () => {
             // Ensure current user is in profiles even if no scans
             if (currentUser && !processedOperators.has(currentUser.name)) {
                 const profile = await gamificationService.recalculate(
+                    currentUser.id,
                     currentUser.name,
-                    currentUser.name,
+                    currentUser.company_id,
                     0, 0, 0, 0, 0, false, false, 0, 0, 0
                 );
                 profiles.push(profile);
@@ -483,7 +485,7 @@ const GamificationView: React.FC = () => {
                                                 </div>
                                             </div>
                                             <button
-                                                onClick={async () => { await gamificationService.clearFraudFlag(p.userId); window.location.reload(); }}
+                                                onClick={async () => { await gamificationService.clearFraudFlag(p.userId, p.userName, currentUser!.company_id); window.location.reload(); }}
                                                 className="text-[10px] px-3 py-1 bg-green-500/10 text-green-500 border border-green-500/30 rounded font-bold uppercase hover:bg-green-500/20 transition-colors"
                                             >
                                                 Limpar Flag

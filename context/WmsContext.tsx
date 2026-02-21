@@ -556,7 +556,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const addOutboundItem = async (item: OutboundItem) => {
         const enrichedItem = { ...item, time: new Date().toLocaleString('pt-BR') };
         if (currentUser) {
-            await gamificationService.registerScan(currentUser.id, currentUser.name);
+            await gamificationService.registerScan(currentUser.id, currentUser.name, currentUser.company_id);
 
             await supabase.from('outbound_log').insert({
                 id: enrichedItem.id,
