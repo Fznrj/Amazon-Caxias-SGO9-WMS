@@ -878,31 +878,34 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         playAudio('success');
     };
 
-    const todayKey = getDateKey(new Date().toISOString());
+    const todayStats = React.useMemo(() => {
+        const now = new Date().toISOString();
+        const tKey = getDateKey(now);
 
-    const totalInboundToday = React.useMemo(() =>
-        inboundItems.filter(item => {
+        const entradas = inboundItems.filter(item => {
             if (item.error) return false;
             const ts = (item as any).created_at || item.time;
-            return getDateKey(ts) === todayKey;
-        }).length,
-        [inboundItems, todayKey]);
+            return getDateKey(ts) === tKey;
+        }).length;
 
-    const totalOutboundToday = React.useMemo(() =>
-        outboundItems.filter(item => {
+        const saidas = outboundItems.filter(item => {
             if (item.status !== 'Saiu com Motorista') return false;
             const ts = (item as any).created_at || item.time;
-            return getDateKey(ts) === todayKey;
-        }).length,
-        [outboundItems, todayKey]);
+            return getDateKey(ts) === tKey;
+        }).length;
 
-    const totalReversaToday = React.useMemo(() =>
-        outboundItems.filter(item => {
+        const reversa = outboundItems.filter(item => {
             if (item.status !== 'Reversa - Saiu com Motorista') return false;
             const ts = (item as any).created_at || item.time;
-            return getDateKey(ts) === todayKey;
-        }).length,
-        [outboundItems, todayKey]);
+            return getDateKey(ts) === tKey;
+        }).length;
+
+        return { entradas, saidas, reversa };
+    }, [inboundItems, outboundItems]);
+
+    const totalInboundToday = todayStats.entradas;
+    const totalOutboundToday = todayStats.saidas;
+    const totalReversaToday = todayStats.reversa;
 
     const totalInventoryScanned = inventoryItems.length;
     const totalLossItems = stockItems.filter(s => s.status === 'Perda').length;
