@@ -1,4 +1,3 @@
-// Header Component - Build ID: 2026-02-21-1854
 import React from 'react';
 import { View, User } from '../types';
 import { getTodayDate } from '../utils/dateUtils';
