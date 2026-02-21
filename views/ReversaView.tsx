@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useWms } from '../context/WmsContext';
 import { PrintService } from '../services/PrintService';
+import { getTodayDate } from '../utils/dateUtils';
 
 interface ScannedItem {
     id: string;
@@ -24,7 +25,7 @@ export default function ReversaView() {
             return;
         }
 
-        const now = new Date();
+        const now = getTodayDate();
         const formattedDate = now.toLocaleDateString('pt-BR') + ' ' + now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + ' BRT';
 
         PrintService.printPalletLabel({
@@ -59,7 +60,7 @@ export default function ReversaView() {
 
             const newItem: ScannedItem = {
                 id: input,
-                time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+                time: getTodayDate().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
                 status: 'success',
                 rack: Math.floor(Math.random() * 20) + 1 // Simulação de Rack
             };
@@ -97,7 +98,7 @@ export default function ReversaView() {
                     id: item.id,
                     driverName: driver.name,
                     vehicle: driver.plate,
-                    time: new Date().toISOString(),
+                    time: getTodayDate().toISOString(),
                     operator: currentUser?.name || 'Sistema',
                     status: 'Reversa - Saiu com Motorista',
                     palletId: palletId.toUpperCase()
