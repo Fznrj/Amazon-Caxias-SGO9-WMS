@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useWms } from '../context/WmsContext';
 import * as XLSX from 'xlsx';
+import { isSameDay } from '../utils/dateUtils';
 
 const InboundView: React.FC = () => {
   const [scanValue, setScanValue] = useState('');
@@ -288,31 +289,33 @@ const InboundView: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
-              {inboundItems.length === 0 ? (
-                <tr><td colSpan={4} className="px-6 py-8 text-center text-xs text-slate-400">Nenhum bipe realizado.</td></tr>
+              {inboundItems.filter(item => isSameDay(item.time || (item as any).created_at)).length === 0 ? (
+                <tr><td colSpan={4} className="px-6 py-8 text-center text-xs text-slate-400">Nenhum bipe realizado hoje.</td></tr>
               ) : (
-                inboundItems.map((scan, i) => {
-                  const isExpected = expectedInboundList.includes(scan.id);
-                  return (
-                    <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors">
-                      <td className="px-6 py-3">
-                        <div className={`flex items-center gap-2 ${scan.error ? 'text-red-500' : 'text-green-500'}`}>
-                          <span className="material-icons-round text-sm">{scan.error ? 'cancel' : 'check_circle'}</span>
-                          <span className="text-[10px] font-bold uppercase">{scan.status}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-3 font-mono text-sm font-bold text-slate-700 dark:text-slate-200">{scan.id}</td>
-                      <td className="px-6 py-3">
-                        {expectedInboundList.length > 0 && !scan.error && (
-                          <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase border ${isExpected ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-orange-500/10 text-orange-500 border-orange-500/20'}`}>
-                            {isExpected ? 'Previsto' : 'Surpresa'}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-3 text-right text-[10px] font-mono text-slate-400">{scan.time.split(', ')[1]}</td>
-                    </tr>
-                  );
-                })
+                inboundItems
+                  .filter(item => isSameDay(item.time || (item as any).created_at))
+                  .map((scan, i) => {
+                    const isExpected = expectedInboundList.includes(scan.id);
+                    return (
+                      <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors">
+                        <td className="px-6 py-3">
+                          <div className={`flex items-center gap-2 ${scan.error ? 'text-red-500' : 'text-green-500'}`}>
+                            <span className="material-icons-round text-sm">{scan.error ? 'cancel' : 'check_circle'}</span>
+                            <span className="text-[10px] font-bold uppercase">{scan.status}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-3 font-mono text-sm font-bold text-slate-700 dark:text-slate-200">{scan.id}</td>
+                        <td className="px-6 py-3">
+                          {expectedInboundList.length > 0 && !scan.error && (
+                            <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase border ${isExpected ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-orange-500/10 text-orange-500 border-orange-500/20'}`}>
+                              {isExpected ? 'Previsto' : 'Surpresa'}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-3 text-right text-[10px] font-mono text-slate-400">{scan.time.split(', ')[1]}</td>
+                      </tr>
+                    );
+                  })
               )}
             </tbody>
           </table>

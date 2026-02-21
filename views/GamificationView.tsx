@@ -12,6 +12,10 @@ import { getDateKey, isSameDay } from '../utils/dateUtils';
 const GamificationView: React.FC = () => {
     const { currentUser, inboundItems, outboundItems, inventoryItems } = useWms();
 
+    const [startDate, setStartDate] = React.useState(getDateKey(new Date().toISOString()).split('/').reverse().join('-')); // YYYY-MM-DD
+    const [endDate, setEndDate] = React.useState(getDateKey(new Date().toISOString()).split('/').reverse().join('-'));
+    const [isComparisonMode, setIsComparisonMode] = React.useState(false);
+
     // --- Aggregate data per operator ---
     interface OperatorStats {
         scans: number;
@@ -54,8 +58,11 @@ const GamificationView: React.FC = () => {
                 data.errors++;
                 data.dailyErrors[dateKey] = (data.dailyErrors[dateKey] || 0) + 1;
             } else {
-                data.scans++;
-                data.dailyScans[dateKey] = (data.dailyScans[dateKey] || 0) + 1;
+                const isoCheck = dateKey.split('/').reverse().join('-');
+                if (isoCheck >= startDate && isoCheck <= endDate) {
+                    data.scans++;
+                    data.dailyScans[dateKey] = (data.dailyScans[dateKey] || 0) + 1;
+                }
             }
         });
 
@@ -65,8 +72,11 @@ const GamificationView: React.FC = () => {
             const data = map.get(op)!;
             const dateKey = getDateKey(item.time || (item as any).created_at);
             data.uniqueDays.add(dateKey);
-            data.scans++;
-            data.dailyScans[dateKey] = (data.dailyScans[dateKey] || 0) + 1;
+            const isoCheck = dateKey.split('/').reverse().join('-');
+            if (isoCheck >= startDate && isoCheck <= endDate) {
+                data.scans++;
+                data.dailyScans[dateKey] = (data.dailyScans[dateKey] || 0) + 1;
+            }
 
             // Count unique driver expeditions per day
             data.driversExpedited.add(`${item.driverName}_${dateKey}`);
@@ -87,8 +97,11 @@ const GamificationView: React.FC = () => {
             const dateKey = getDateKey(item.time || (item as any).created_at);
             data.uniqueDays.add(dateKey);
             data.inventoryDays.add(dateKey);
-            data.scans++;
-            data.dailyScans[dateKey] = (data.dailyScans[dateKey] || 0) + 1;
+            const isoCheck = dateKey.split('/').reverse().join('-');
+            if (isoCheck >= startDate && isoCheck <= endDate) {
+                data.scans++;
+                data.dailyScans[dateKey] = (data.dailyScans[dateKey] || 0) + 1;
+            }
 
             if (!data.dailyActivities[dateKey]) data.dailyActivities[dateKey] = new Set();
             data.dailyActivities[dateKey].add('INVENTARIO');
@@ -112,7 +125,7 @@ const GamificationView: React.FC = () => {
         });
 
         return map;
-    }, [inboundItems, outboundItems, inventoryItems, treatmentItems, stockItems]);
+    }, [inboundItems, outboundItems, inventoryItems, treatmentItems, stockItems, startDate, endDate]);
 
     const [ranking, setRanking] = React.useState<GamificationProfile[]>([]);
     const [loadingRanking, setLoadingRanking] = React.useState(true);
@@ -249,6 +262,64 @@ const GamificationView: React.FC = () => {
 
     return (
         <div className="space-y-8">
+            {/* === DATE FILTER === */}
+            <div className="bg-white dark:bg-card-dark p-4 rounded-lg shadow-sm border border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                    <span className="material-icons-round text-primary">emoji_events</span>
+                    <h2 className="font-display font-bold tracking-widest uppercase text-sm">Filtro de Ranking por Período</h2>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-4">
+                    <div className="flex items-center gap-2">
+                        <label className="text-[10px] font-bold uppercase text-slate-500">Início</label>
+                        <input
+                            type="date"
+                            value={startDate}
+                            onChange={(e) => {
+                                setStartDate(e.target.value);
+                                setIsComparisonMode(true);
+                            }}
+                            className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded px-2 py-1 text-xs outline-none focus:border-primary"
+                        />
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <label className="text-[10px] font-bold uppercase text-slate-500">Fim</label>
+                        <input
+                            type="date"
+                            value={endDate}
+                            onChange={(e) => {
+                                setEndDate(e.target.value);
+                                setIsComparisonMode(true);
+                            }}
+                            className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded px-2 py-1 text-xs outline-none focus:border-primary"
+                        />
+                    </div>
+                    <button
+                        onClick={() => {
+                            const today = getDateKey(new Date().toISOString()).split('/').reverse().join('-');
+                            setStartDate(today);
+                            setEndDate(today);
+                            setIsComparisonMode(false);
+                        }}
+                        className="text-[10px] font-bold uppercase bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 px-3 py-1.5 rounded transition-colors"
+                    >
+                        Hoje
+                    </button>
+                    <button
+                        onClick={() => {
+                            const today = new Date();
+                            const weekAgo = new Date(today);
+                            weekAgo.setDate(today.getDate() - 7);
+                            setStartDate(weekAgo.toISOString().split('T')[0]);
+                            setEndDate(today.toISOString().split('T')[0]);
+                            setIsComparisonMode(true);
+                        }}
+                        className="text-[10px] font-bold uppercase bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 px-3 py-1.5 rounded transition-colors"
+                    >
+                        7 Dias
+                    </button>
+                </div>
+            </div>
             {/* === USER HERO HEADER === */}
             <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-8 rounded-2xl shadow-2xl relative overflow-hidden border border-slate-700">
                 <div className="absolute top-0 right-0 w-80 h-80 bg-purple-500 rounded-full filter blur-[120px] opacity-10"></div>
@@ -332,7 +403,7 @@ const GamificationView: React.FC = () => {
             <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm overflow-hidden border border-slate-200 dark:border-slate-700">
                 <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
                     <h3 className="font-display font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest text-sm">
-                        🏆 Ranking Geral — Mensal
+                        🏆 Ranking {isComparisonMode ? ' do Período' : ' Hoje'}
                     </h3>
                     <span className="text-[10px] text-slate-400 font-mono">
                         {new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase()}

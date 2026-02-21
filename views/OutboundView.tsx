@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { useWms } from '../context/WmsContext';
+import { isSameDay } from '../utils/dateUtils';
 
 const OutboundView: React.FC = () => {
   const { outboundItems, addOutboundItem, deleteOutboundItem, playAudio, drivers, stockItems, totalOutboundToday, totalReversaToday, currentUser } = useWms();
@@ -172,44 +173,50 @@ const OutboundView: React.FC = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-            {outboundItems.map((item, i) => (
-              <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                <td className="px-6 py-4 font-mono font-bold text-primary text-sm">{item.id}</td>
-                <td className="px-6 py-4">
-                  <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{item.driverName}</p>
-                  <p className="text-[10px] uppercase font-bold text-slate-400">{item.vehicle}</p>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-500">
-                      {item.operator?.substring(0, 2).toUpperCase() || 'SI'}
-                    </div>
-                    <span className="text-xs font-medium text-slate-600 dark:text-slate-400">{item.operator}</span>
-                  </div>
-                </td>
-                <td className="px-6 py-4 text-[11px] font-mono text-slate-500">{item.time}</td>
-                <td className="px-6 py-4">
-                  <span className={`px-2 py-1 border rounded text-[9px] font-extrabold uppercase tracking-widest ${item.status === 'Reversa - Saiu com Motorista'
-                    ? 'bg-green-500/10 text-green-500 border-green-500/20'
-                    : 'bg-cyan-500/10 text-cyan-500 border-cyan-500/20'
-                    }`}>
-                    {item.status?.replace(' - Saiu com Motorista', '') || 'Sem Status'}
-                  </span>
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <button
-                    onClick={async () => {
-                      if (window.confirm(`Remover saída da TBR ${item.id}? O item voltará para o estoque.`)) {
-                        await deleteOutboundItem(item.id);
-                      }
-                    }}
-                    className="text-slate-400 hover:text-red-500 transition-colors"
-                  >
-                    <span className="material-icons-round text-base">delete_outline</span>
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {outboundItems.filter(item => isSameDay(item.time || (item as any).created_at)).length === 0 ? (
+              <tr><td colSpan={6} className="px-6 py-8 text-center text-xs text-slate-400">Nenhuma saída registrada hoje.</td></tr>
+            ) : (
+              outboundItems
+                .filter(item => isSameDay(item.time || (item as any).created_at))
+                .map((item, i) => (
+                  <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                    <td className="px-6 py-4 font-mono font-bold text-primary text-sm">{item.id}</td>
+                    <td className="px-6 py-4">
+                      <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{item.driverName}</p>
+                      <p className="text-[10px] uppercase font-bold text-slate-400">{item.vehicle}</p>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-500">
+                          {item.operator?.substring(0, 2).toUpperCase() || 'SI'}
+                        </div>
+                        <span className="text-xs font-medium text-slate-600 dark:text-slate-400">{item.operator}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-[11px] font-mono text-slate-500">{item.time}</td>
+                    <td className="px-6 py-4">
+                      <span className={`px-2 py-1 border rounded text-[9px] font-extrabold uppercase tracking-widest ${item.status === 'Reversa - Saiu com Motorista'
+                        ? 'bg-green-500/10 text-green-500 border-green-500/20'
+                        : 'bg-cyan-500/10 text-cyan-500 border-cyan-500/20'
+                        }`}>
+                        {item.status?.replace(' - Saiu com Motorista', '') || 'Sem Status'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <button
+                        onClick={async () => {
+                          if (window.confirm(`Remover saída da TBR ${item.id}? O item voltará para o estoque.`)) {
+                            await deleteOutboundItem(item.id);
+                          }
+                        }}
+                        className="text-slate-400 hover:text-red-500 transition-colors"
+                      >
+                        <span className="material-icons-round text-base">delete_outline</span>
+                      </button>
+                    </td>
+                  </tr>
+                ))
+            )}
           </tbody>
         </table>
       </div>
