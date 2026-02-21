@@ -405,12 +405,24 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         inboundItems.forEach((log: InboundItem) => {
             if (log.error) return;
-            const dateKey = log.time.split(', ')[0];
+            let dateKey = '';
+            if (log.time.includes(',')) {
+                dateKey = log.time.split(',')[0].trim();
+            } else if (log.time.includes('T')) {
+                const [y, m, d] = log.time.split('T')[0].split('-');
+                dateKey = `${d}/${m}/${y}`;
+            }
             if (statsMap[dateKey]) statsMap[dateKey].entradas++;
         });
 
         outboundItems.forEach((log: OutboundItem) => {
-            const dateKey = log.time.split(', ')[0];
+            let dateKey = '';
+            if (log.time.includes(',')) {
+                dateKey = log.time.split(',')[0].trim();
+            } else if (log.time.includes('T')) {
+                const [y, m, d] = log.time.split('T')[0].split('-');
+                dateKey = `${d}/${m}/${y}`;
+            }
             if (statsMap[dateKey]) statsMap[dateKey].saidas++;
         });
 
