@@ -1,7 +1,7 @@
 import React from 'react';
 import { useWms } from '../context/WmsContext';
 import { downloadCSV } from '../utils/download';
-import { getSaoPauloDate, parseToDate } from '../utils/dateUtils';
+import { getSaoPauloDate, parseToDate, getTodayDate } from '../utils/dateUtils';
 
 // Daily scan goal per operator
 const DAILY_GOAL = 350;
@@ -14,8 +14,8 @@ const ProductivityView: React.FC = () => {
     getLocalDateIso
   } = useWms();
 
-  const [startDate, setStartDate] = React.useState<string>(getLocalDateIso());
-  const [endDate, setEndDate] = React.useState<string>(getLocalDateIso());
+  const [startDate, setStartDate] = React.useState<string>(getSaoPauloDate(getTodayDate()));
+  const [endDate, setEndDate] = React.useState<string>(getSaoPauloDate(getTodayDate()));
 
   // Helper to filter items by date range
   const filterByDateRange = (items: any[]) => {

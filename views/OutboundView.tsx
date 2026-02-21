@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useWms } from '../context/WmsContext';
-import { isSameDay } from '../utils/dateUtils';
+import { isSameDay, getTodayDate } from '../utils/dateUtils';
 
 const OutboundView: React.FC = () => {
   const { outboundItems, addOutboundItem, deleteOutboundItem, playAudio, drivers, stockItems, totalOutboundToday, totalReversaToday, currentUser } = useWms();
@@ -53,7 +53,7 @@ const OutboundView: React.FC = () => {
       id: currentId,
       driverName: driver.name,
       vehicle: `${driver.vehicleProfile} (${driver.plate})`,
-      time: new Date().toLocaleString('pt-BR'),
+      time: getTodayDate().toLocaleString('pt-BR'),
       operator: currentUser?.name || 'Sistema',
       status: 'Saiu com Motorista'
     });
