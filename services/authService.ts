@@ -41,7 +41,16 @@ export const AuthService = {
 
     inviteUser: async (email: string, adminUser: User): Promise<{ success: boolean; message: string }> => {
         const tempPassword = 'Senh@Wms123';
-        const { error } = await supabase.auth.signUp({
+
+        // Use a temporary client without session persistence to avoid logging out the current user
+        const { createClient } = await import('@supabase/supabase-js');
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+        const tempSupabase = createClient(supabaseUrl, supabaseAnonKey, {
+            auth: { persistSession: false }
+        });
+
+        const { error } = await tempSupabase.auth.signUp({
             email,
             password: tempPassword,
             options: {
