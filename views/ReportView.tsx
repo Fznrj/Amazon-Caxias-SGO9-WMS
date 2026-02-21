@@ -4,7 +4,7 @@ import { useWms } from '../context/WmsContext';
 import { getTodayDate } from '../utils/dateUtils';
 
 const ReportView: React.FC = () => {
-  const { inventoryItems, inboundItems, outboundItems, possibleLossItems, users } = useWms();
+  const { inventoryItems, inboundItems, outboundItems, possibleLossItems, stockItems, users } = useWms();
   const [startDate, setStartDate] = React.useState<string>(getTodayDate().toISOString().split('T')[0]);
   const [endDate, setEndDate] = React.useState<string>(getTodayDate().toISOString().split('T')[0]);
 
@@ -49,6 +49,11 @@ const ReportView: React.FC = () => {
       data = [
         ['ID', 'Entry Time', 'Operator', 'Status'],
         ...filterByDateRange(possibleLossItems).map(item => [item.id, item.entryTime, item.operator, item.status])
+      ];
+    } else if (reportTitle.includes('Total em Estoque')) {
+      data = [
+        ['ID', 'Entry Time', 'Operator', 'Status'],
+        ...filterByDateRange(stockItems.filter(i => i.status === 'Em Estoque')).map(item => [item.id, item.entryTime, item.operator, item.status])
       ];
     } else if (reportTitle.includes('Motoristas')) {
       data = [
@@ -111,6 +116,7 @@ const ReportView: React.FC = () => {
 
   const reports = [
     { title: 'Inventário Completo', description: 'Relatório detalhado de todos os itens em estoque.', icon: 'inventory_2' },
+    { title: 'Total em Estoque', description: 'Lista de todos os itens atualmente na base (físico).', icon: 'view_in_ar' },
     { title: 'Movimentação de Saídas', description: 'Histórico de todas as saídas e motoristas.', icon: 'local_shipping' },
     { title: 'Relatório de Perdas', description: 'Itens marcados como perda ou não encontrados.', icon: 'warning' },
   ];
