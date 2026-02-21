@@ -185,14 +185,27 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const [currentUser, setCurrentUser] = useState<User | null>(AuthService.getCurrentUser());
     const [users, setUsers] = useState<User[]>([]);
 
-    // Offline mode: Trust AuthService for session
+    // Force profile refresh from DB to ensure correct company_id and role
     useEffect(() => {
-        const user = AuthService.getCurrentUser();
-        if (user) {
-            setCurrentUser(user);
-        } else {
-            _setCurrentView(View.LOGIN);
-        }
+        const refreshProfile = async () => {
+            const stored = AuthService.getCurrentUser();
+            if (stored) {
+                const { data: fresh } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('id', stored.id)
+                    .maybeSingle();
+
+                if (fresh) {
+                    const user = fresh as User;
+                    setCurrentUser(user);
+                    AuthService.saveSession(user);
+                }
+            } else {
+                _setCurrentView(View.LOGIN);
+            }
+        };
+        refreshProfile();
     }, []);
 
     // --- Initial Sync ---
@@ -358,14 +371,14 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         const channels = [
             supabase.channel('stock_realtime')
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_items', filter: `company_id=eq.${companyId}` },
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_items' },
                     () => loadInitialData())
                 .subscribe(),
 
             supabase.channel('logs_realtime')
-                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'inbound_log', filter: `company_id=eq.${companyId}` },
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'inbound_log' },
                     () => loadInitialData())
-                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'outbound_log', filter: `company_id=eq.${companyId}` },
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'outbound_log' },
                     () => loadInitialData())
                 .subscribe()
         ];
@@ -480,8 +493,20 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             // 2. Update Stock in Supabase
             const exists = stockItems.find(s => s.id === item.id);
             const stockData = exists
-                ? { entryTime: now, operator: item.operator, status: 'Em Estoque' as const, loss_detected_time: null, company_id: currentUser?.company_id }
-                : { id: item.id, entryTime: now, operator: item.operator, status: 'Em Estoque' as const, company_id: currentUser?.company_id };
+                ? {
+                    entry_time: now,
+                    operator: item.operator,
+                    status: 'Em Estoque' as const,
+                    loss_detected_time: null,
+                    company_id: currentUser?.company_id
+                }
+                : {
+                    id: item.id,
+                    entry_time: now,
+                    operator: item.operator,
+                    status: 'Em Estoque' as const,
+                    company_id: currentUser?.company_id
+                };
 
             await supabase.from('stock_items').upsert(stockData);
 
@@ -500,7 +525,12 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             await gamificationService.registerScan(currentUser.id, currentUser.name);
 
             await supabase.from('outbound_log').insert({
-                ...enrichedItem,
+                id: enrichedItem.id,
+                driver_name: enrichedItem.driverName,
+                vehicle: enrichedItem.vehicle,
+                time: enrichedItem.time,
+                operator: enrichedItem.operator,
+                status: enrichedItem.status,
                 company_id: currentUser.company_id
             });
 
