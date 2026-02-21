@@ -12,10 +12,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
   const {
     inboundItems,
     outboundItems,
-    totalLossItems,
+    weeklyStats,
+    totalInboundToday,
+    totalOutboundToday,
+    totalReversaToday,
     stockItems,
     staleItemsCount,
-    weeklyStats
+    totalLossItems
   } = useWms();
 
   const [startDate, setStartDate] = React.useState(getSaoPauloDate(getTodayDate()));
@@ -75,17 +78,17 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
     },
     {
       label: isComparisonMode ? 'Entradas Período' : 'Entradas Hoje',
-      value: periodStats.entradas.toString(),
+      value: (isComparisonMode ? periodStats.entradas : totalInboundToday).toString(),
       icon: 'arrow_upward',
       color: 'green-500',
-      trend: isComparisonMode ? 'Histórico' : calculateTrend(periodStats.entradas, yesterdayData?.entradas || 0)
+      trend: isComparisonMode ? 'Histórico' : calculateTrend(totalInboundToday, yesterdayData?.entradas || 0)
     },
     {
       label: isComparisonMode ? 'Saídas Período' : 'Saídas Hoje',
-      value: `${totalDepartures}${displayReversa > 0 ? ` (${displayReversa})` : ''}`,
+      value: (isComparisonMode ? `${periodStats.saidas + periodStats.reversas}${periodStats.reversas > 0 ? ` (${periodStats.reversas})` : ''}` : `${totalOutboundToday + totalReversaToday}${totalReversaToday > 0 ? ` (${totalReversaToday})` : ''}`),
       icon: 'arrow_downward',
       color: 'orange-500',
-      trend: isComparisonMode ? 'Histórico' : calculateTrend(totalDepartures, (yesterdayData?.saidas || 0))
+      trend: isComparisonMode ? 'Histórico' : calculateTrend(isComparisonMode ? (periodStats.saidas + periodStats.reversas) : (totalOutboundToday + totalReversaToday), (yesterdayData?.saidas || 0))
     },
     { label: 'Parados +1 Dia', value: staleItemsCount.toString(), icon: 'schedule', color: 'yellow-600', trend: 'Audit' },
     { label: 'Possíveis Perdas', value: stockItems.filter(i => i.status === 'Possível Perda').length.toString(), icon: 'warning', color: 'red-500', trend: 'Audit' },

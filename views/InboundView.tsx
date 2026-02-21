@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useWms } from '../context/WmsContext';
 import * as XLSX from 'xlsx';
-import { isSameDay, getTodayDate } from '../utils/dateUtils';
+import { isSameDay, getTodayDate, formatToLocalTime } from '../utils/dateUtils';
 
 const InboundView: React.FC = () => {
   const [scanValue, setScanValue] = useState('');
@@ -314,7 +314,7 @@ const InboundView: React.FC = () => {
                             </span>
                           )}
                         </td>
-                        <td className="px-6 py-3 text-right text-[10px] font-mono text-slate-400">{scan.time.split(', ')[1]}</td>
+                        <td className="px-6 py-3 text-right text-[10px] font-mono text-slate-400">{formatToLocalTime(scan.time || (scan as any).created_at)}</td>
                       </tr>
                     );
                   })

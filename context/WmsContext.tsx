@@ -491,6 +491,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const exists = stockItems.find(s => s.id === item.id);
         const stockData = exists
             ? {
+                id: item.id,
                 entry_time: now,
                 operator: item.operator,
                 status: 'Em Estoque' as const,
