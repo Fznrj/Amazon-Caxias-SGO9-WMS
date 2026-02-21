@@ -388,13 +388,13 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const weeklyStats = React.useMemo(() => {
         const statsMap: Record<string, { name: string, entradas: number, saidas: number }> = {};
-        const today = new Date();
-
         for (let i = 6; i >= 0; i--) {
-            const d = new Date(today);
-            d.setDate(today.getDate() - i);
-            const label = d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
-            const dateKey = d.toLocaleDateString('pt-BR');
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            const iso = d.toISOString();
+            const dateKey = getDateKey(iso);
+            const label = new Date(parseToDate(iso)).toLocaleDateString('pt-BR', { weekday: 'short', timeZone: 'America/Sao_Paulo' }).replace('.', '');
+
             statsMap[dateKey] = {
                 name: label.charAt(0).toUpperCase() + label.slice(1),
                 entradas: 0,
