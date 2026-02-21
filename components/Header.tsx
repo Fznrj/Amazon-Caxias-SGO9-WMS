@@ -1,4 +1,4 @@
-
+// Header Component - Deployment Verification Commit
 import React from 'react';
 import { View, User } from '../types';
 import { getTodayDate } from '../utils/dateUtils';
