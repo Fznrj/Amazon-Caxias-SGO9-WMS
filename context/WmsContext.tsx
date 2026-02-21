@@ -22,6 +22,7 @@ interface OutboundItem {
     time: string;
     operator: string;
     status: 'Saiu com Motorista' | 'Reversa - Saiu com Motorista';
+    palletId?: string;
 }
 
 interface InventoryItem {
@@ -322,7 +323,8 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     vehicle: o.vehicle,
                     time: o.time,
                     operator: o.operator,
-                    status: o.status
+                    status: o.status,
+                    palletId: o.pallet_id
                 }));
                 setOutboundItems(mappedOutbound);
             }
@@ -507,6 +509,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             time: enrichedItem.time,
             operator: enrichedItem.operator,
             status: enrichedItem.status,
+            pallet_id: (enrichedItem as any).palletId,
             company_id: currentUser.company_id
         });
 
