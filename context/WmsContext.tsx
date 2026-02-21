@@ -406,12 +406,14 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         inboundItems.forEach((log: InboundItem) => {
             if (log.error) return;
-            const dateKey = getDateKey(log.time);
+            const timestamp = (log as any).created_at || log.time;
+            const dateKey = getDateKey(timestamp);
             if (statsMap[dateKey]) statsMap[dateKey].entradas++;
         });
 
         outboundItems.forEach((log: OutboundItem) => {
-            const dateKey = getDateKey(log.time);
+            const timestamp = (log as any).created_at || log.time;
+            const dateKey = getDateKey(timestamp);
             if (statsMap[dateKey]) statsMap[dateKey].saidas++;
         });
 
@@ -948,15 +950,24 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return isSameDay(timeStr);
     };
 
-    const totalInboundToday = inboundItems.filter(item => !item.error && isToday(item.time)).length;
+    const totalInboundToday = inboundItems.filter(item => {
+        if (item.error) return false;
+        // Favor created_at if it's in the item (Supabase usually returns it)
+        const timestamp = (item as any).created_at || item.time;
+        return isToday(timestamp);
+    }).length;
 
-    const totalOutboundToday = outboundItems.filter(item =>
-        item.status === 'Saiu com Motorista' && isToday(item.time)
-    ).length;
+    const totalOutboundToday = outboundItems.filter(item => {
+        if (item.status !== 'Saiu com Motorista') return false;
+        const timestamp = (item as any).created_at || item.time;
+        return isToday(timestamp);
+    }).length;
 
-    const totalReversaToday = outboundItems.filter(item =>
-        item.status === 'Reversa - Saiu com Motorista' && isToday(item.time)
-    ).length;
+    const totalReversaToday = outboundItems.filter(item => {
+        if (item.status !== 'Reversa - Saiu com Motorista') return false;
+        const timestamp = (item as any).created_at || item.time;
+        return isToday(timestamp);
+    }).length;
 
     const totalInventoryScanned = inventoryItems.length;
     const totalLossItems = stockItems.filter(s => s.status === 'Perda').length;
