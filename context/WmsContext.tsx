@@ -378,6 +378,11 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 _setExpectedInboundList(config.expected_inbound);
             }
 
+            // 8. Gamification
+            await gamificationService.init(companyId);
+            const profiles = await gamificationService.getAllProfiles();
+            console.log(`WmsContext: Gamification initialized with ${profiles.length} profiles`);
+
             // 7. Inventory
             const { data: inventory, error: invE } = await supabase
                 .from('inventory_log')
@@ -404,6 +409,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             supabase.channel('wms_realtime_all')
                 .on('postgres_changes', { event: '*', schema: 'public' }, (payload) => {
                     console.log('WmsContext: Realtime event received:', payload.table, payload.eventType);
+                    // Proactive reload for specific table updates
                     loadInitialData();
                 })
                 .subscribe((status) => {
@@ -492,7 +498,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
 
         if (item.status === 'Sucesso' && currentUser) {
-            await gamificationService.registerScan(currentUser.id, currentUser.name);
+            await gamificationService.registerScan(currentUser.id, currentUser.name, currentUser.company_id);
         }
 
         // Save to Supabase
@@ -744,7 +750,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
 
         if (currentUser) {
-            await gamificationService.registerScan(currentUser.id, currentUser.name);
+            await gamificationService.registerScan(currentUser.id, currentUser.name, currentUser.company_id);
         }
 
         const updated = stockItems.map(s => s.id === id ? { ...s, status: 'Em Estoque' as const, lossDetectedTime: undefined } : s);
@@ -942,21 +948,28 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return { start, end };
     };
 
+    // --- Helper: Robust Date Check ---
+    const getSystemDate = () => {
+        return new Date().toLocaleDateString('pt-BR');
+    };
+
     const isToday = (timeStr: string) => {
         if (!timeStr) return false;
         try {
-            const date = new Date(timeStr.includes(',') ? timeStr.split(',')[0].split('/').reverse().join('-') : timeStr);
-            const today = new Date();
-            return date.getDate() === today.getDate() &&
-                date.getMonth() === today.getMonth() &&
-                date.getFullYear() === today.getFullYear();
-        } catch (e) {
-            // Fallback for pt-BR string "DD/MM/YYYY, HH:MM:SS"
-            if (timeStr.includes('/')) {
-                const todayStr = new Date().toLocaleDateString('pt-BR');
-                const itemDateStr = timeStr.split(',')[0].trim();
-                return todayStr === itemDateStr;
+            // Get today in DD/MM/YYYY format
+            const todayStr = getSystemDate();
+
+            // If it's an ISO string (from DB created_at), convert to local date part
+            if (timeStr.includes('-') && timeStr.includes('T')) {
+                const date = new Date(timeStr);
+                return date.toLocaleDateString('pt-BR') === todayStr;
             }
+
+            // If it's a local string "DD/MM/YYYY, HH:MM:SS"
+            const [itemDate] = timeStr.split(',');
+            return itemDate.trim() === todayStr;
+        } catch (e) {
+            console.error('WmsContext: isToday error', e);
             return false;
         }
     };
