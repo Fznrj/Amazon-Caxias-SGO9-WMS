@@ -942,7 +942,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             totalInboundToday, totalOutboundToday, totalReversaToday, totalInventoryScanned, totalLossItems, staleItemsCount,
             weeklyStats,
             resetTransactions,
-            verifyStock, isSameDay,
+            verifyStock, isSameDay, getLocalDateIso: () => getSaoPauloDate(),
             playAudio
         }}>
             {children}
