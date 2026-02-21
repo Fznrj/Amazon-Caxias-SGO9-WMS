@@ -112,6 +112,7 @@ interface WmsContextData {
     deleteDriver: (id: string) => Promise<void>;
 
     // Stats
+    adminResetPassword: (userId: string, newPassword: string) => Promise<{ success: boolean; message: string }>;
     totalInboundToday: number;
     totalOutboundToday: number;
     totalReversaToday: number;
@@ -956,6 +957,29 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return result;
     };
 
+    const adminResetPassword = async (userId: string, newPassword: string) => {
+        if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'superadmin')) {
+            return { success: false, message: 'Não autorizado' };
+        }
+
+        const { data, error } = await supabase.functions.invoke('admin-reset-password', {
+            body: { userId, newPassword }
+        });
+
+        if (error) {
+            console.error('WmsContext: Error resetting password:', error);
+            playAudio('error');
+            return { success: false, message: error.message };
+        }
+
+        if (data?.success) {
+            playAudio('success');
+            return { success: true, message: data.message };
+        } else {
+            return { success: false, message: data?.error || 'Erro desconhecido' };
+        }
+    };
+
     const resetTransactions = async () => {
         if (!currentUser) return;
         const companyId = currentUser.company_id;
@@ -1000,7 +1024,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return (
         <WmsContext.Provider value={{
             currentUser, logout, login, register,
-            updatePassword, users, inviteUser, refreshUsers, updateUserStatus, updateUser, deleteUser,
+            updatePassword, adminResetPassword, users, inviteUser, refreshUsers, updateUserStatus, updateUser, deleteUser,
             currentView, setCurrentView,
             stockItems, possibleLossItems, staleStockItems,
             inboundItems, addInboundItem, expectedInboundList, setExpectedInboundList, clearInboundManifest,
