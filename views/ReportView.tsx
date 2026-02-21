@@ -22,7 +22,7 @@ const ReportView: React.FC = () => {
         const [day, month, year] = datePart.trim().split('/');
         itemDateStr = `${year}-${month}-${day}`;
       } else if (timeStr.includes('-')) {
-        itemDateStr = timeStr.split(' ')[0];
+        itemDateStr = timeStr.trim().split(' ')[0].split('T')[0];
       }
 
       return itemDateStr >= startDate && itemDateStr <= endDate;
@@ -67,23 +67,51 @@ const ReportView: React.FC = () => {
   };
 
   const handleDownloadAll = () => {
+    const { stockItems } = useWms(); // Get stockItems for full loss report
     const dateLabel = startDate === endDate ? startDate : `${startDate}_to_${endDate}`;
+
     const data = [
-      ['Type', 'ID', 'Detail', 'Operator', 'Time'],
-      ...filterByDateRange(inventoryItems).map(i => ['Inventory', i.id, i.operator, i.operator, i.time]),
-      ...filterByDateRange(inboundItems).map(i => ['Inbound', i.id, i.operator, i.operator, i.time]),
-      ...filterByDateRange(outboundItems).map(i => ['Outbound', i.id, i.driverName, i.operator, i.time]),
-      ...filterByDateRange(possibleLossItems).map(i => ['Loss', i.id, i.operator, i.operator, 'Missing'])
+      ['Data/Hora', 'Tipo', 'ID (TBR)', 'Operador', 'Motorista', 'Veículo', 'Status', 'ID Pallet (Reversa)'],
+
+      // Inbound
+      ...filterByDateRange(inboundItems).map(i => [
+        i.time, 'Entrada', i.id, i.operator, '-', '-', i.status, '-'
+      ]),
+
+      // Outbound & Reversa
+      ...filterByDateRange(outboundItems).map(i => [
+        i.time, i.status.includes('Reversa') ? 'Reversa' : 'Saída', i.id, i.operator, i.driverName, i.vehicle, i.status, (i as any).palletId || '-'
+      ]),
+
+      // Possible Loss
+      ...filterByDateRange(possibleLossItems).map(i => [
+        i.entryTime, 'Possível Perda', i.id, i.operator, '-', '-', i.status, '-'
+      ]),
+
+      // Definite Loss
+      ...filterByDateRange(stockItems.filter(s => s.status === 'Perda')).map(i => [
+        i.entryTime, 'Perda Definitiva', i.id, i.operator, '-', '-', i.status, '-'
+      ]),
+
+      // Inventory
+      ...filterByDateRange(inventoryItems).map(i => [
+        i.time, 'Inventário', i.id, i.operator, '-', '-', 'Conferido', '-'
+      ])
     ];
-    downloadCSV(`Full_Export_${dateLabel}.csv`, data);
+
+    // Sort by Date/Time
+    const header = data[0];
+    const sortedData = data.slice(1).sort((a, b) => {
+      return new Date(a[0]).getTime() - new Date(b[0]).getTime();
+    });
+
+    downloadCSV(`Relatorio_Geral_Movimentos_${dateLabel}.csv`, [header, ...sortedData]);
   };
 
   const reports = [
     { title: 'Inventário Completo', description: 'Relatório detalhado de todos os itens em estoque.', icon: 'inventory_2' },
     { title: 'Movimentação de Saídas', description: 'Histórico de todas as saídas e motoristas.', icon: 'local_shipping' },
     { title: 'Relatório de Perdas', description: 'Itens marcados como perda ou não encontrados.', icon: 'warning' },
-    { title: 'Base de Motoristas', description: 'Cadastro completo de motoristas e veículos.', icon: 'badge' },
-    { title: 'Geral', description: 'Visão unificada de todas as operações.', icon: 'dashboard' },
   ];
 
   return (
