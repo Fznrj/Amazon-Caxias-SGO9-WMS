@@ -7,13 +7,13 @@ import {
     type GamificationProfile,
     type GamificationLevel,
 } from '../services/gamificationService';
-import { getDateKey, isSameDay, getTodayDate } from '../utils/dateUtils';
+import { getDateKey, isSameDay, getTodayDate, getSaoPauloDate, getSaoPauloIso } from '../utils/dateUtils';
 
 const GamificationView: React.FC = () => {
     const { currentUser, inboundItems, outboundItems, inventoryItems } = useWms();
 
-    const [startDate, setStartDate] = React.useState(getDateKey(getTodayDate().toISOString()).split('/').reverse().join('-')); // YYYY-MM-DD
-    const [endDate, setEndDate] = React.useState(getDateKey(getTodayDate().toISOString()).split('/').reverse().join('-'));
+    const [startDate, setStartDate] = React.useState(getSaoPauloDate(getTodayDate())); // YYYY-MM-DD
+    const [endDate, setEndDate] = React.useState(getSaoPauloDate(getTodayDate()));
     const [isComparisonMode, setIsComparisonMode] = React.useState(false);
 
     // --- Aggregate data per operator ---
@@ -55,7 +55,7 @@ const GamificationView: React.FC = () => {
             const data = map.get(op)!;
             const dateKey = getDateKey(item.time || (item as any).created_at);
             const isoCheck = dateKey.split('/').reverse().join('-');
-            const currentMonth = getTodayDate().toISOString().substring(0, 7); // YYYY-MM
+            const currentMonth = getSaoPauloDate(getTodayDate()).substring(0, 7); // YYYY-MM
             const itemMonth = isoCheck.substring(0, 7);
 
             data.uniqueDays.add(dateKey);
