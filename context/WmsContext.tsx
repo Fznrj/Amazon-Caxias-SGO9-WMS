@@ -3,7 +3,7 @@ import { User, Driver, Role, UserStatus, VehicleProfile, View } from '../types';
 import { AuthService } from '../services/authService';
 import { gamificationService } from '../services/gamificationService';
 import { supabase } from '../services/supabase';
-import { isSameDay, parseToDate, getDateKey, getSaoPauloDate, getTodayDate } from '../utils/dateUtils';
+import { isSameDay, parseToDate, getDateKey, getSaoPauloDate, getTodayDate, getSaoPauloIso } from '../utils/dateUtils';
 
 // ... (keep InboundItem, OutboundItem, InventoryItem, StockItem interfaces as is) ...
 
@@ -471,7 +471,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const addInboundItem = async (item: InboundItem) => {
         if (!currentUser) return;
-        const now = getTodayDate().toISOString();
+        const now = getSaoPauloIso();
         const enrichedItem = { ...item, time: now };
 
         if (item.status === 'Sucesso') {
@@ -514,7 +514,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const addOutboundItem = async (item: OutboundItem) => {
         if (!currentUser) return { success: false, message: 'Não logado' };
-        const now = getTodayDate().toISOString();
+        const now = getSaoPauloIso();
         const enrichedItem = { ...item, time: now };
 
         await gamificationService.registerScan(currentUser.id, currentUser.name, currentUser.company_id);

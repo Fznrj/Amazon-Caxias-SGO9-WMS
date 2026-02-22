@@ -5,8 +5,8 @@ import { getTodayDate } from '../utils/dateUtils';
 
 const ReportView: React.FC = () => {
   const { inventoryItems, inboundItems, outboundItems, possibleLossItems, stockItems, users } = useWms();
-  const [startDate, setStartDate] = React.useState<string>(getTodayDate().toISOString().split('T')[0]);
-  const [endDate, setEndDate] = React.useState<string>(getTodayDate().toISOString().split('T')[0]);
+  const [startDate, setStartDate] = React.useState<string>(getSaoPauloDate());
+  const [endDate, setEndDate] = React.useState<string>(getSaoPauloDate());
 
   // Helper to filter items by date range.
   const filterByDateRange = (items: any[]) => {

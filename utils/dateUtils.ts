@@ -116,3 +116,32 @@ export const getDateKey = (dateStr: string): string => {
 
     return `${d}/${m}/${y}`;
 };
+
+/**
+ * Returns a full ISO-like string forced to America/Sao_Paulo (UTC-3)
+ * Example: "2026-02-21T19:30:00-03:00"
+ */
+export const getSaoPauloIso = (date: Date = getTodayDate()): string => {
+    // We use a trick to get the parts in SP timezone
+    const formatter = new Intl.DateTimeFormat('sv-SE', {
+        timeZone: 'America/Sao_Paulo',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+    });
+
+    const parts = formatter.formatToParts(date);
+    const getPart = (type: string) => parts.find(p => p.type === type)?.value;
+
+    const y = getPart('year');
+    const m = getPart('month');
+    const d = getPart('day');
+    const h = getPart('hour');
+    const min = getPart('minute');
+    const s = getPart('second');
+
+    return `${y}-${m}-${d}T${h}:${min}:${s}-03:00`;
+};
