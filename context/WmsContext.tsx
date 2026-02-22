@@ -548,7 +548,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const bulkAddOutboundItems = async (items: OutboundItem[]) => {
         if (!currentUser || items.length === 0) return { success: false, message: 'Nada para expedir' };
-        const now = getTodayDate().toISOString();
+        const now = getSaoPauloIso();
         const companyId = currentUser.company_id;
 
         const enrichedItems = items.map(item => ({

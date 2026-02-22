@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useWms } from '../context/WmsContext';
 import { PrintService } from '../services/PrintService';
-import { getTodayDate } from '../utils/dateUtils';
+import { getTodayDate, getSaoPauloIso } from '../utils/dateUtils';
 
 interface ScannedItem {
     id: string;
@@ -98,7 +98,7 @@ export default function ReversaView() {
                     id: item.id,
                     driverName: driver.name,
                     vehicle: driver.plate,
-                    time: getTodayDate().toISOString(),
+                    time: getSaoPauloIso(),
                     operator: currentUser?.name || 'Sistema',
                     status: 'Reversa - Saiu com Motorista',
                     palletId: palletId.toUpperCase()
