@@ -1,5 +1,5 @@
-// Gamification Engine — SPR, XP, Levels, Achievements, Anti-Fraud
 import { supabase } from './supabase';
+import { getSaoPauloIso } from '../utils/dateUtils';
 
 export interface GamificationLevel {
     name: string;
@@ -141,7 +141,7 @@ export class GamificationService {
             fraud_flag: profile.fraudFlag,
             fraud_alerts: profile.fraudAlerts,
             company_id: companyId,
-            updated_at: new Date().toISOString()
+            updated_at: getSaoPauloIso()
         };
 
         const { error } = await supabase
@@ -271,7 +271,7 @@ export class GamificationService {
             const badge = profile.badges.find(b => b.id === id);
             if (badge && !badge.unlocked) {
                 badge.unlocked = true;
-                badge.unlockedAt = new Date().toISOString();
+                badge.unlockedAt = getSaoPauloIso();
             }
         };
 
@@ -308,7 +308,7 @@ export class GamificationService {
             const last10 = timestamps.slice(-10);
             const span = (last10[last10.length - 1] - last10[0]) / 1000;
             if (span < 2) { // 2 seconds for 10 scans is inhumanly fast
-                profile.fraudAlerts.push(`${new Date().toISOString()} - Velocidade suspeita: ${(10 / span).toFixed(1)} scans/s`);
+                profile.fraudAlerts.push(`${getSaoPauloIso()} - Velocidade suspeita: ${(10 / span).toFixed(1)} scans/s`);
                 profile.fraudFlag = true;
                 await this.save(userId, userName, companyId);
                 return { suspicious: true, reason: 'Velocidade de scan suspeita detectada' };

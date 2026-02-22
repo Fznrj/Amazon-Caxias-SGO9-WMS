@@ -27,7 +27,7 @@ const InventoryView: React.FC = () => {
 
     await addInventoryItem({
       id: tbrId.toUpperCase(),
-      time: new Date().toISOString(),
+      time: getSaoPauloIso(),
       operator: currentUser?.name || 'Sistema'
     });
 
