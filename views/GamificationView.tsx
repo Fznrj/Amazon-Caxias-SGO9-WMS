@@ -504,7 +504,12 @@ const GamificationView: React.FC = () => {
                     icon="flag"
                     color={metaPeriod >= 100 ? 'text-green-400' : metaPeriod >= 70 ? 'text-blue-400' : 'text-red-400'}
                 />
-                <StatCard label="Dias Acima Meta" value={monthlyDaysAbove} icon="calendar_today" color="text-emerald-400" />
+                <StatCard
+                    label={isComparisonMode ? "Dias Acima Meta (Período)" : "Dias Acima Meta (Hoje)"}
+                    value={daysAboveMetaPeriod}
+                    icon="calendar_today"
+                    color="text-emerald-400"
+                />
                 <StatCard
                     label={isComparisonMode ? "Erros (Período)" : "Erros (Hoje)"}
                     value={errorsPeriod}
