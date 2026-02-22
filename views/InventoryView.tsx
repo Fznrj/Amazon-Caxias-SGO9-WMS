@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useWms } from '../context/WmsContext';
-import { formatToLocalTime } from '../utils/dateUtils';
+import { formatToLocalTime, getSaoPauloIso, getTodayDate } from '../utils/dateUtils';
 
 const InventoryView: React.FC = () => {
   const { inventoryItems, addInventoryItem, isInventoryActive, startInventory, stopInventory, stockItems, possibleLossItems, currentUser, localizeItem } = useWms();

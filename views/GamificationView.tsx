@@ -313,7 +313,7 @@ const GamificationView: React.FC = () => {
                     </div>
                     <button
                         onClick={() => {
-                            const today = getDateKey(getTodayDate().toISOString()).split('/').reverse().join('-');
+                            const today = getSaoPauloDate(getTodayDate());
                             setStartDate(today);
                             setEndDate(today);
                             setIsComparisonMode(false);
@@ -324,11 +324,11 @@ const GamificationView: React.FC = () => {
                     </button>
                     <button
                         onClick={() => {
-                            const today = new Date();
+                            const today = getTodayDate();
                             const weekAgo = new Date(today);
                             weekAgo.setDate(today.getDate() - 7);
-                            setStartDate(weekAgo.toISOString().split('T')[0]);
-                            setEndDate(today.toISOString().split('T')[0]);
+                            setStartDate(getSaoPauloDate(weekAgo));
+                            setEndDate(getSaoPauloDate(today));
                             setIsComparisonMode(true);
                         }}
                         className="text-[10px] font-bold uppercase bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 px-3 py-1.5 rounded transition-colors"
@@ -409,7 +409,7 @@ const GamificationView: React.FC = () => {
 
             {/* === INDIVIDUAL CARDS === */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                <StatCard label="Total Scans (Hoje)" value={myData ? (myData.dailyScans[getDateKey(getTodayDate().toISOString())] || 0) : 0} icon="qr_code_scanner" color="text-primary" />
+                <StatCard label="Total Scans (Hoje)" value={myData ? (myData.dailyScans[getDateKey(getSaoPauloIso())] || 0) : 0} icon="qr_code_scanner" color="text-primary" />
                 <StatCard label="Meta %" value={`${myMetaPercent}%`} icon="flag" color={myMetaPercent >= 100 ? 'text-green-400' : myMetaPercent >= 70 ? 'text-blue-400' : 'text-red-400'} />
                 <StatCard label="Dias Acima Meta" value={myDaysAbove} icon="calendar_today" color="text-emerald-400" />
                 <StatCard label="Erros" value={myData?.errors || 0} icon="error" color="text-red-400" />

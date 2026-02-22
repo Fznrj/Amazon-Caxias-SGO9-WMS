@@ -398,7 +398,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         for (let i = 6; i >= 0; i--) {
             const d = new Date(today);
             d.setDate(today.getDate() - i);
-            const iso = d.toISOString();
+            const iso = getSaoPauloIso(d);
             const dateKey = getDateKey(iso);
             const label = new Date(parseToDate(iso)).toLocaleDateString('pt-BR', { weekday: 'short', timeZone: 'America/Sao_Paulo' }).replace('.', '');
 
