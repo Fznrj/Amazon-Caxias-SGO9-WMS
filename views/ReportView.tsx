@@ -1,7 +1,7 @@
 import React from 'react';
 import { downloadCSV } from '../utils/download';
 import { useWms } from '../context/WmsContext';
-import { getTodayDate, getSaoPauloDate } from '../utils/dateUtils';
+import { getTodayDate, getSaoPauloDate, formatToLocalDate, formatToLocalTime } from '../utils/dateUtils';
 
 const ReportView: React.FC = () => {
   const { inventoryItems, inboundItems, outboundItems, possibleLossItems, stockItems, users } = useWms();
@@ -37,27 +37,27 @@ const ReportView: React.FC = () => {
 
     if (reportTitle.includes('Inventário')) {
       data = [
-        ['ID', 'Operator', 'Time'],
-        ...filterByDateRange(inventoryItems).map(item => [item.id, item.operator, item.time])
+        ['ID', 'Operator', 'Data', 'Hora'],
+        ...filterByDateRange(inventoryItems).map(item => [item.id, item.operator, formatToLocalDate(item.time), formatToLocalTime(item.time)])
       ];
     } else if (reportTitle.includes('Saídas')) {
       data = [
-        ['ID', 'Driver', 'Vehicle', 'Time', 'Operator', 'Status'],
-        ...filterByDateRange(outboundItems).map(item => [item.id, item.driverName, item.vehicle, item.time, item.operator, item.status])
+        ['ID', 'Motorista', 'Veículo', 'Data', 'Hora', 'Operador', 'Status'],
+        ...filterByDateRange(outboundItems).map(item => [item.id, item.driverName, item.vehicle, formatToLocalDate(item.time), formatToLocalTime(item.time), item.operator, item.status])
       ];
     } else if (reportTitle.includes('Perdas')) {
       data = [
-        ['ID', 'Entry Time', 'Operator', 'Status'],
-        ...filterByDateRange(possibleLossItems).map(item => [item.id, item.entryTime, item.operator, item.status])
+        ['ID', 'Data', 'Hora', 'Operador', 'Status'],
+        ...filterByDateRange(possibleLossItems).map(item => [item.id, formatToLocalDate(item.entryTime), formatToLocalTime(item.entryTime), item.operator, item.status])
       ];
     } else if (reportTitle.includes('Total em Estoque')) {
       data = [
-        ['ID', 'Entry Time', 'Operator', 'Status'],
-        ...filterByDateRange(stockItems.filter(i => i.status === 'Em Estoque')).map(item => [item.id, item.entryTime, item.operator, item.status])
+        ['ID', 'Data', 'Hora', 'Operador', 'Status'],
+        ...filterByDateRange(stockItems.filter(i => i.status === 'Em Estoque')).map(item => [item.id, formatToLocalDate(item.entryTime), formatToLocalTime(item.entryTime), item.operator, item.status])
       ];
     } else if (reportTitle.includes('Motoristas')) {
       data = [
-        ['Driver Name', 'Vehicle', 'Status']
+        ['Motorista', 'Veículo', 'Status']
       ];
     } else {
       // Geral
@@ -91,27 +91,27 @@ const ReportView: React.FC = () => {
 
       // Inbound
       ...filterByDateRange(inboundItems).map(i => [
-        i.time, 'Entrada', i.id, i.operator, '-', '-', i.status, '-'
+        `${formatToLocalDate(i.time)} ${formatToLocalTime(i.time)}`, 'Entrada', i.id, i.operator, '-', '-', i.status, '-'
       ]),
 
       // Outbound & Reversa
       ...filterByDateRange(outboundItems).map(i => [
-        i.time, i.status?.toLowerCase()?.includes('reversa') ? 'Reversa' : 'Saída', i.id, i.operator, i.driverName, i.vehicle, i.status, (i as any).palletId || '-'
+        `${formatToLocalDate(i.time)} ${formatToLocalTime(i.time)}`, i.status?.toLowerCase()?.includes('reversa') ? 'Reversa' : 'Saída', i.id, i.operator, i.driverName, i.vehicle, i.status, (i as any).palletId || '-'
       ]),
 
       // Possible Loss
       ...filterByDateRange(possibleLossItems).map(i => [
-        i.entryTime, 'Possível Perda', i.id, i.operator, '-', '-', i.status, '-'
+        `${formatToLocalDate(i.entryTime)} ${formatToLocalTime(i.entryTime)}`, 'Possível Perda', i.id, i.operator, '-', '-', i.status, '-'
       ]),
 
       // Definite Loss
       ...filterByDateRange(stockItems.filter(s => s.status?.toLowerCase() === 'perda')).map(i => [
-        i.entryTime, 'Perda Definitiva', i.id, i.operator, '-', '-', i.status, '-'
+        `${formatToLocalDate(i.entryTime)} ${formatToLocalTime(i.entryTime)}`, 'Perda Definitiva', i.id, i.operator, '-', '-', i.status, '-'
       ]),
 
       // Inventory
       ...filterByDateRange(inventoryItems).map(i => [
-        i.time, 'Inventário', i.id, i.operator, '-', '-', 'Conferido', '-'
+        `${formatToLocalDate(i.time)} ${formatToLocalTime(i.time)}`, 'Inventário', i.id, i.operator, '-', '-', 'Conferido', '-'
       ])
     ];
 
