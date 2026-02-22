@@ -224,7 +224,7 @@ export class GamificationService {
     ): Promise<GamificationProfile> {
         const profile = this.ensureProfile(userId, userName);
 
-        const spr = this.calculateSPR(totalScans, metaPercent, diasAcimaMeta, erros);
+        const spr = this.calculateSPR(monthlyTotalScans, metaPercent, diasAcimaMeta, erros);
         const xp = this.calculateXP(spr);
 
         profile.sprMonthly = spr;
