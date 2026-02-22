@@ -47,7 +47,7 @@ const GamificationView: React.FC = () => {
             monthlyErrors: 0
         });
 
-        const todayKey = getDateKey(getTodayDate().toISOString());
+        const todayKey = getDateKey(getSaoPauloIso());
 
         inboundItems.forEach(item => {
             const op = item.operator;
@@ -81,7 +81,7 @@ const GamificationView: React.FC = () => {
             const data = map.get(op)!;
             const dateKey = getDateKey(item.time || (item as any).created_at);
             const isoCheck = dateKey.split('/').reverse().join('-');
-            const currentMonth = getTodayDate().toISOString().substring(0, 7);
+            const currentMonth = getSaoPauloDate(getTodayDate()).substring(0, 7);
             const itemMonth = isoCheck.substring(0, 7);
 
             data.uniqueDays.add(dateKey);
@@ -109,7 +109,7 @@ const GamificationView: React.FC = () => {
             const data = map.get(op)!;
             const dateKey = getDateKey(item.time || (item as any).created_at);
             const isoCheck = dateKey.split('/').reverse().join('-');
-            const currentMonth = getTodayDate().toISOString().substring(0, 7);
+            const currentMonth = getSaoPauloDate(getTodayDate()).substring(0, 7);
             const itemMonth = isoCheck.substring(0, 7);
 
             data.uniqueDays.add(dateKey);
@@ -162,7 +162,7 @@ const GamificationView: React.FC = () => {
                 const totalDays = Math.max(dayKeys.length, 1);
                 const zeroErrorDays = totalDays - errorDayKeys.filter(d => (data.dailyErrors[d] || 0) > 0).length;
 
-                const todayKeyVal = getDateKey(getTodayDate().toISOString());
+                const todayKeyVal = getDateKey(getSaoPauloIso());
                 let consecutive = 0;
                 const sortedDays = [...dayKeys].sort((a, b) => {
                     const [da, ma, ya] = a.split('/').map(Number);
@@ -244,7 +244,7 @@ const GamificationView: React.FC = () => {
                         const badge = p.badges.find(b => b.id === 'top3_weekly');
                         if (badge && !badge.unlocked) {
                             badge.unlocked = true;
-                            badge.unlockedAt = new Date().toISOString();
+                            badge.unlockedAt = getSaoPauloIso();
                         }
                     }
 

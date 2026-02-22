@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { formatToLocalTime } from '../utils/dateUtils';
 import { useWms } from '../context/WmsContext';
 import { getTodayDate } from '../utils/dateUtils';
 
@@ -323,7 +324,7 @@ const TreatmentView: React.FC = () => {
                   return (
                     <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors">
                       <td className="px-6 py-4 font-mono text-sm text-primary font-bold">{p.id}</td>
-                      <td className="px-6 py-4 text-xs text-slate-500">{p.lossDetectedTime ? new Date(p.lossDetectedTime).toLocaleString('pt-BR') : '-'}</td>
+                      <td className="px-6 py-4 text-xs text-slate-500">{p.lossDetectedTime ? formatToLocalTime(p.lossDetectedTime) : '-'}</td>
                       <td className="px-6 py-4 text-xs text-slate-500">{p.operator}</td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2 text-red-500">

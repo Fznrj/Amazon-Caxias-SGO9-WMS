@@ -3,7 +3,7 @@ import { User, Driver, Role, UserStatus, VehicleProfile, View } from '../types';
 import { AuthService } from '../services/authService';
 import { gamificationService } from '../services/gamificationService';
 import { supabase } from '../services/supabase';
-import { isSameDay, parseToDate, getDateKey, getSaoPauloDate, getTodayDate, getSaoPauloIso } from '../utils/dateUtils';
+import { isSameDay, parseToDate, getDateKey, getSaoPauloDate, getTodayDate, getSaoPauloIso, formatToLocalTime } from '../utils/dateUtils';
 
 // ... (keep InboundItem, OutboundItem, InventoryItem, StockItem interfaces as is) ...
 
@@ -618,7 +618,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const addDriver = async (driverData: Omit<Driver, 'id' | 'lastActivity'>) => {
         if (!currentUser) return;
         const newDriverId = 'dr-' + Math.random().toString(36).substr(2, 9);
-        const now = getTodayDate().toISOString();
+        const now = getSaoPauloIso();
 
         await supabase.from('drivers').insert({
             id: newDriverId,
@@ -636,7 +636,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const bulkAddDrivers = async (driversList: Omit<Driver, 'id' | 'lastActivity'>[]) => {
         if (!currentUser) return;
-        const now = getTodayDate().toISOString();
+        const now = getSaoPauloIso();
         const newOnes = driversList.map(d => ({
             id: 'dr-' + Math.random().toString(36).substr(2, 9),
             name: d.name,
@@ -823,8 +823,8 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
 
         const trtId = `TRT-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
-        const now = getTodayDate().toISOString();
-        const displayTime = getTodayDate().toLocaleString('pt-BR');
+        const now = getSaoPauloIso();
+        const displayTime = formatToLocalTime(getSaoPauloIso());
 
         const newItem = {
             id: trtId,

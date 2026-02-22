@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useWms } from '../context/WmsContext';
 import * as XLSX from 'xlsx';
-import { isSameDay, getTodayDate, formatToLocalTime } from '../utils/dateUtils';
+import { isSameDay, getTodayDate, formatToLocalTime, getSaoPauloIso } from '../utils/dateUtils';
 
 const InboundView: React.FC = () => {
   const [scanValue, setScanValue] = useState('');
@@ -59,7 +59,7 @@ const InboundView: React.FC = () => {
         id: currentId,
         status: 'Duplicado',
         operator: currentUser?.name || 'Sistema',
-        time: getTodayDate().toLocaleString('pt-BR'),
+        time: formatToLocalTime(getSaoPauloIso()),
         error: true
       });
       setScanValue('');
@@ -71,7 +71,7 @@ const InboundView: React.FC = () => {
       id: currentId,
       status: (isError ? 'Prefixo Inválido' : 'Sucesso') as any,
       operator: currentUser?.name || 'Sistema',
-      time: getTodayDate().toLocaleString('pt-BR'),
+      time: formatToLocalTime(getSaoPauloIso()),
       error: isError
     });
     setScanValue('');
