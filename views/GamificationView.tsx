@@ -345,11 +345,10 @@ const GamificationView: React.FC = () => {
 
     const myData = currentUser ? operatorData.get(currentUser.name) : undefined;
 
-    // Period-based for daily reset
-    const todayKey = getDateKey(getSaoPauloIso());
-    const scansToday = myData ? (myData.dailyScans[todayKey] || 0) : 0;
-    const metaToday = Math.round((scansToday / DAILY_GOAL) * 100);
-    const errorsToday = myData ? (myData.dailyErrors[todayKey] || 0) : 0;
+    // Period-based stats for performance cards
+    const scansPeriod = myData ? myData.scans : 0;
+    const metaPeriod = Math.round((scansPeriod / DAILY_GOAL) * 100);
+    const errorsPeriod = myData ? myData.errors : 0;
 
     // Monthly cumulative for game progress
     const monthlyDaysAbove = myProfile ? myProfile.consecutiveDaysAboveMeta : 0;
