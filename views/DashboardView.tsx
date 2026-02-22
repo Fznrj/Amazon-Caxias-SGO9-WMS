@@ -157,9 +157,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                     </>
                   ) : kpi.value}
                 </span>
-                <p className={`text-[10px] font-bold ${kpi.trend.startsWith('+') ? 'text-green-500' : kpi.trend.startsWith('-') ? 'text-red-500' : 'text-slate-400'}`}>
-                  {kpi.trend}
-                </p>
               </div>
             </div>
             <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">{kpi.label}</span>
