@@ -4,7 +4,7 @@ import { isSameDay, getTodayDate, formatToLocalTime, getSaoPauloIso } from '../u
 import { isValidTbr } from '../utils/validation';
 
 const OutboundView: React.FC = () => {
-  const { outboundItems, addOutboundItem, deleteOutboundItem, playAudio, drivers, stockItems, totalOutboundToday, totalReversaToday, currentUser } = useWms();
+  const { treatmentItems, outboundItems, addOutboundItem, deleteOutboundItem, playAudio, drivers, stockItems, totalOutboundToday, totalReversaToday, currentUser } = useWms();
   const [tbrInput, setTbrInput] = useState('');
   const [selectedDriverId, setSelectedDriverId] = useState('');
   const [message, setMessage] = useState<{ text: string, type: 'error' | 'success' } | null>(null);
@@ -33,7 +33,19 @@ const OutboundView: React.FC = () => {
       return;
     }
 
-    // 2. Stock check (Main validation)
+    // 2. Incident check
+    const activeIncident = treatmentItems.find(t => t.tbrId === currentId && t.status !== 'Resolvido');
+    if (activeIncident) {
+      setMessage({
+        text: `BLOQUEADO: TBR ${currentId} possui uma tratativa ativa (${activeIncident.id}). Resolva a tratativa antes de expedir.`,
+        type: 'error'
+      });
+      playAudio('error');
+      setTbrInput('');
+      return;
+    }
+
+    // 3. Stock check (Main validation)
     const stockItem = stockItems.find(item => item.id === currentId);
 
     if (!stockItem || stockItem.status?.toLowerCase() !== 'em estoque') {

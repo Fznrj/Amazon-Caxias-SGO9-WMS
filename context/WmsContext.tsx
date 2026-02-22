@@ -352,7 +352,18 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
             // Handle Incidents
             if (incE) console.error('WmsContext: Incidents fetch error:', incE);
-            else if (incidents) setTreatmentItems(incidents);
+            else if (incidents) {
+                const mappedIncidents = incidents.map(inc => ({
+                    id: inc.id,
+                    tbrId: inc.tbr_id,
+                    type: inc.type,
+                    description: inc.description,
+                    operator: inc.operator,
+                    time: inc.time,
+                    status: inc.status
+                }));
+                setTreatmentItems(mappedIncidents);
+            }
 
             // Handle Config
             if (confE) console.error('WmsContext: Config fetch error:', confE);
