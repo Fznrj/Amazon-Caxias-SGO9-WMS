@@ -261,9 +261,9 @@ const GamificationView: React.FC = () => {
                     operatorName,
                     operatorName,
                     currentUser!.company_id,
-                    data.scans, // Period Scans (Still needed if we want period-based SPR in table, but user wants cumulative Level/XP)
-                    metaPercent,
-                    diasAcimaMeta,
+                    data.scans, // Period Scans
+                    avgMeta, // USE MONTHLY AVG META FOR PROFILE CALC
+                    monthlyDiasAcimaMeta, // USE MONTHLY DAYS ABOVE META
                     data.monthlyErrors,
                     data.monthlyScans,
                     false,
@@ -491,10 +491,25 @@ const GamificationView: React.FC = () => {
 
             {/* === INDIVIDUAL CARDS === */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                <StatCard label="Total Scans (Hoje)" value={scansToday} icon="qr_code_scanner" color="text-primary" />
-                <StatCard label="Meta %" value={`${metaToday}%`} icon="flag" color={metaToday >= 100 ? 'text-green-400' : metaToday >= 70 ? 'text-blue-400' : 'text-red-400'} />
+                <StatCard
+                    label={isComparisonMode ? "Total Scans (Período)" : "Total Scans (Hoje)"}
+                    value={scansPeriod}
+                    icon="qr_code_scanner"
+                    color="text-primary"
+                />
+                <StatCard
+                    label={isComparisonMode ? "Meta % (Período)" : "Meta % (Hoje)"}
+                    value={`${metaPeriod}%`}
+                    icon="flag"
+                    color={metaPeriod >= 100 ? 'text-green-400' : metaPeriod >= 70 ? 'text-blue-400' : 'text-red-400'}
+                />
                 <StatCard label="Dias Acima Meta" value={monthlyDaysAbove} icon="calendar_today" color="text-emerald-400" />
-                <StatCard label="Erros" value={errorsToday} icon="error" color="text-red-400" />
+                <StatCard
+                    label={isComparisonMode ? "Erros (Período)" : "Erros (Hoje)"}
+                    value={errorsPeriod}
+                    icon="error"
+                    color="text-red-400"
+                />
                 <StatCard label="XP Mensal" value={myProfile?.xpMonthly?.toLocaleString() || '0'} icon="bolt" color="text-yellow-400" />
             </div>
 
