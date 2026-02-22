@@ -11,23 +11,7 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, onLogout, onToggleDarkMode, currentUser }) => {
-  const { resetTransactions, uploadUserAvatar } = useWms();
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
-
-  const handleAvatarClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const result = await uploadUserAvatar(file);
-      if (!result.success) {
-        alert(result.message);
-      }
-    }
-  };
-
+  const { resetTransactions } = useWms();
   const menuItems = [
     { id: View.DASHBOARD, label: 'Dashboard', icon: 'dashboard' },
     { id: View.INBOUND, label: 'Entrada', icon: 'login' },
@@ -75,25 +59,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, onLogout, 
       <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-black/20">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={onFileChange}
-              className="hidden"
-              accept="image/*"
-            />
-            <div
-              onClick={handleAvatarClick}
-              className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-xs font-bold text-white uppercase cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all overflow-hidden relative group"
-            >
-              {currentUser?.avatar_url ? (
-                <img src={currentUser.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
-              ) : (
-                currentUser?.name?.substring(0, 2).toUpperCase() || 'GU'
-              )}
-              <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <span className="material-icons-round text-[12px]">camera_alt</span>
-              </div>
+            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-xs font-bold text-white uppercase">
+              {currentUser?.name?.substring(0, 2).toUpperCase() || 'GU'}
             </div>
             <div className="overflow-hidden">
               <p className="text-xs font-semibold truncate max-w-[120px]">{currentUser?.name || 'Sistema'}</p>
