@@ -634,6 +634,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             last_activity: now,
             company_id: currentUser.company_id
         });
+        await loadInitialData();
         playAudio('success');
     };
 
@@ -652,23 +653,52 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             company_id: currentUser.company_id
         }));
         await supabase.from('drivers').insert(newOnes);
+        await loadInitialData();
         playAudio('success');
     };
 
     const updateDriver = async (id: string, updates: Partial<Driver>) => {
         if (!currentUser) return;
-        await supabase.from('drivers')
-            .update(updates)
+
+        // Map camelCase to snake_case for the database
+        const dbUpdates: any = { ...updates };
+        if (updates.vehicleProfile) {
+            dbUpdates.vehicle_profile = updates.vehicleProfile;
+            delete dbUpdates.vehicleProfile;
+        }
+        if (updates.lastActivity) {
+            dbUpdates.last_activity = updates.lastActivity;
+            delete dbUpdates.lastActivity;
+        }
+
+        const { error } = await supabase.from('drivers')
+            .update(dbUpdates)
             .eq('id', id)
             .eq('company_id', currentUser.company_id);
+
+        if (error) {
+            console.error('WmsContext: Error updating driver:', error);
+            playAudio('error');
+        } else {
+            await loadInitialData();
+            playAudio('success');
+        }
     };
 
     const deleteDriver = async (id: string) => {
         if (!currentUser) return;
-        await supabase.from('drivers')
+        const { error } = await supabase.from('drivers')
             .delete()
             .eq('id', id)
             .eq('company_id', currentUser.company_id);
+
+        if (error) {
+            console.error('WmsContext: Error deleting driver:', error);
+            playAudio('error');
+        } else {
+            await loadInitialData();
+            playAudio('success');
+        }
     };
 
     const [isInventoryActive, setIsInventoryActive] = useState(false);
@@ -901,6 +931,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 .eq('company_id', currentUser.company_id);
         }
 
+        await loadInitialData();
         playAudio('success');
         return { success: true, message: 'Incidente registrado com sucesso.' };
     };
@@ -911,6 +942,8 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             .update({ status })
             .eq('id', id)
             .eq('company_id', currentUser.company_id);
+        await loadInitialData();
+        playAudio('success');
     };
 
     const updateTreatment = async (id: string, updates: Partial<Pick<TreatmentItem, 'type' | 'description'>>) => {
@@ -919,6 +952,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             .update(updates)
             .eq('id', id)
             .eq('company_id', currentUser.company_id);
+        await loadInitialData();
         playAudio('success');
     };
 
