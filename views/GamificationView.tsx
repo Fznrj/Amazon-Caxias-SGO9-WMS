@@ -18,8 +18,8 @@ const GamificationView: React.FC = () => {
 
     // --- Aggregate data per operator ---
     interface OperatorStats {
-        scans: number;
-        errors: number;
+        scans: number; // Period scans
+        errors: number; // Period errors
         dailyScans: Record<string, number>;
         dailyErrors: Record<string, number>;
         uniqueDays: Set<string>;
@@ -32,6 +32,14 @@ const GamificationView: React.FC = () => {
         dailyActivities: Record<string, Set<string>>;
         monthlyScans: number; // For XP/SPR calculation (full month)
         monthlyErrors: number;
+        monthlyUniqueDays: Set<string>;
+        monthlyInventoryDays: Set<string>;
+        monthlyTreatmentCount: number;
+        monthlyLocalizedCount: number;
+        monthlyIncidentsCount: number;
+        monthlyDriversExpedited: Set<string>;
+        monthlyReversaPallets: Set<string>;
+        monthlyMixedActivityDays: number;
     }
     const { treatmentItems, stockItems } = useWms(); // Add missing deps
     const operatorData: Map<string, OperatorStats> = React.useMemo(() => {
@@ -44,10 +52,18 @@ const GamificationView: React.FC = () => {
             driversExpedited: new Set(), reversaPallets: new Set(),
             dailyActivities: {},
             monthlyScans: 0,
-            monthlyErrors: 0
+            monthlyErrors: 0,
+            monthlyUniqueDays: new Set(),
+            monthlyInventoryDays: new Set(),
+            monthlyTreatmentCount: 0,
+            monthlyLocalizedCount: 0,
+            monthlyIncidentsCount: 0,
+            monthlyDriversExpedited: new Set(),
+            monthlyReversaPallets: new Set(),
+            monthlyMixedActivityDays: 0
         });
 
-        const todayKey = getDateKey(getSaoPauloIso());
+        const currentMonth = getSaoPauloDate(getTodayDate()).substring(0, 7); // YYYY-MM
 
         inboundItems.forEach(item => {
             const op = item.operator;
@@ -55,23 +71,31 @@ const GamificationView: React.FC = () => {
             const data = map.get(op)!;
             const dateKey = getDateKey(item.time || (item as any).created_at);
             const isoCheck = dateKey.split('/').reverse().join('-');
-            const currentMonth = getSaoPauloDate(getTodayDate()).substring(0, 7); // YYYY-MM
             const itemMonth = isoCheck.substring(0, 7);
 
-            data.uniqueDays.add(dateKey);
-            if (!data.dailyActivities[dateKey]) data.dailyActivities[dateKey] = new Set();
-            data.dailyActivities[dateKey].add('ENTRADA');
+            const isThisMonth = itemMonth === currentMonth;
+
+            if (isThisMonth) {
+                data.monthlyUniqueDays.add(dateKey);
+                if (!data.dailyActivities[dateKey]) data.dailyActivities[dateKey] = new Set();
+                data.dailyActivities[dateKey].add('ENTRADA');
+            }
 
             if (item.error) {
-                data.errors++;
-                data.dailyErrors[dateKey] = (data.dailyErrors[dateKey] || 0) + 1;
-                if (itemMonth === currentMonth) data.monthlyErrors++;
+                if (isoCheck >= startDate && isoCheck <= endDate) {
+                    data.errors++;
+                    data.dailyErrors[dateKey] = (data.dailyErrors[dateKey] || 0) + 1;
+                }
+                if (isThisMonth) data.monthlyErrors++;
             } else {
                 if (isoCheck >= startDate && isoCheck <= endDate) {
                     data.scans++;
                     data.dailyScans[dateKey] = (data.dailyScans[dateKey] || 0) + 1;
+                    data.uniqueDays.add(dateKey);
                 }
-                if (itemMonth === currentMonth) data.monthlyScans++;
+                if (isThisMonth) {
+                    data.monthlyScans++;
+                }
             }
         });
 
@@ -81,26 +105,34 @@ const GamificationView: React.FC = () => {
             const data = map.get(op)!;
             const dateKey = getDateKey(item.time || (item as any).created_at);
             const isoCheck = dateKey.split('/').reverse().join('-');
-            const currentMonth = getSaoPauloDate(getTodayDate()).substring(0, 7);
             const itemMonth = isoCheck.substring(0, 7);
+            const isThisMonth = itemMonth === currentMonth;
 
-            data.uniqueDays.add(dateKey);
+            if (isThisMonth) data.monthlyUniqueDays.add(dateKey);
+
             if (isoCheck >= startDate && isoCheck <= endDate) {
                 data.scans++;
                 data.dailyScans[dateKey] = (data.dailyScans[dateKey] || 0) + 1;
+                data.uniqueDays.add(dateKey);
             }
-            if (itemMonth === currentMonth) data.monthlyScans++;
+            if (isThisMonth) data.monthlyScans++;
 
-            // Count unique driver expeditions per day
-            data.driversExpedited.add(`${item.driverName}_${dateKey}`);
+            // Count unique driver expeditions
+            const expeditionKey = `${item.driverName}_${dateKey}`;
+            if (isoCheck >= startDate && isoCheck <= endDate) data.driversExpedited.add(expeditionKey);
+            if (isThisMonth) data.monthlyDriversExpedited.add(expeditionKey);
+
             if (item.status === 'Reversa - Saiu com Motorista') {
-                // Group by operator + driverName + minute to count as 1 Pallet
-                const minuteKey = item.time.substring(0, 16); // Works for ISO
-                data.reversaPallets.add(`${item.driverName}_${minuteKey}`);
+                const minuteKey = (item.time || '').substring(0, 16);
+                const reversaKey = `${item.driverName}_${minuteKey}`;
+                if (isoCheck >= startDate && isoCheck <= endDate) data.reversaPallets.add(reversaKey);
+                if (isThisMonth) data.monthlyReversaPallets.add(reversaKey);
             }
 
-            if (!data.dailyActivities[dateKey]) data.dailyActivities[dateKey] = new Set();
-            data.dailyActivities[dateKey].add('SAIDA');
+            if (isThisMonth) {
+                if (!data.dailyActivities[dateKey]) data.dailyActivities[dateKey] = new Set();
+                data.dailyActivities[dateKey].add('SAIDA');
+            }
         });
 
         inventoryItems.forEach(item => {
@@ -109,27 +141,44 @@ const GamificationView: React.FC = () => {
             const data = map.get(op)!;
             const dateKey = getDateKey(item.time || (item as any).created_at);
             const isoCheck = dateKey.split('/').reverse().join('-');
-            const currentMonth = getSaoPauloDate(getTodayDate()).substring(0, 7);
             const itemMonth = isoCheck.substring(0, 7);
+            const isThisMonth = itemMonth === currentMonth;
 
-            data.uniqueDays.add(dateKey);
-            data.inventoryDays.add(dateKey);
+            if (isThisMonth) {
+                data.monthlyUniqueDays.add(dateKey);
+                data.monthlyInventoryDays.add(dateKey);
+            }
+
             if (isoCheck >= startDate && isoCheck <= endDate) {
                 data.scans++;
                 data.dailyScans[dateKey] = (data.dailyScans[dateKey] || 0) + 1;
+                data.inventoryDays.add(dateKey);
+                data.uniqueDays.add(dateKey);
             }
-            if (itemMonth === currentMonth) data.monthlyScans++;
+            if (isThisMonth) data.monthlyScans++;
 
-            if (!data.dailyActivities[dateKey]) data.dailyActivities[dateKey] = new Set();
-            data.dailyActivities[dateKey].add('INVENTARIO');
+            if (isThisMonth) {
+                if (!data.dailyActivities[dateKey]) data.dailyActivities[dateKey] = new Set();
+                data.dailyActivities[dateKey].add('INVENTARIO');
+            }
         });
 
         treatmentItems.forEach(item => {
             const op = item.operator;
             if (!map.has(op)) map.set(op, getEmptyStats());
             const data = map.get(op)!;
-            data.treatmentCount++;
-            data.incidentsCount++;
+            const dateKey = getDateKey(item.time || (item as any).created_at);
+            const isoCheck = dateKey.split('/').reverse().join('-');
+            const isThisMonth = isoCheck.substring(0, 7) === currentMonth;
+
+            if (isoCheck >= startDate && isoCheck <= endDate) {
+                data.treatmentCount++;
+                data.incidentsCount++;
+            }
+            if (isThisMonth) {
+                data.monthlyTreatmentCount++;
+                data.monthlyIncidentsCount++;
+            }
         });
 
         stockItems.forEach(item => {
@@ -137,8 +186,20 @@ const GamificationView: React.FC = () => {
                 const op = item.localizedBy;
                 if (!map.has(op)) map.set(op, getEmptyStats());
                 const data = map.get(op)!;
+
+                // Assuming entry_time or loss_detected_time could be used, but since we don't have item-specific time easily here
+                // let's just count all for now as localized items are usually a per-user life-time or monthly stat.
+                // For simplicity, we count all currently marked as localized.
                 data.localizedCount++;
+                data.monthlyLocalizedCount++;
             }
+        });
+
+        // Calculate monthly mixed activity days
+        map.forEach(data => {
+            data.monthlyMixedActivityDays = Object.values(data.dailyActivities).filter(acts =>
+                acts.has('ENTRADA') && acts.has('SAIDA') && acts.has('INVENTARIO')
+            ).length;
         });
 
         return map;
@@ -155,57 +216,70 @@ const GamificationView: React.FC = () => {
 
             for (const [operatorName, data] of Array.from(operatorData.entries())) {
                 processedOperators.add(operatorName);
+
+                // --- PERIOD STATS (Display Only) ---
                 const metaPercent = Math.round((data.scans / DAILY_GOAL) * 100);
                 const dayKeys = Object.keys(data.dailyScans);
                 const diasAcimaMeta = dayKeys.filter(d => (data.dailyScans[d] || 0) >= DAILY_GOAL).length;
-                const errorDayKeys = Object.keys(data.dailyErrors);
-                const totalDays = Math.max(dayKeys.length, 1);
-                const zeroErrorDays = totalDays - errorDayKeys.filter(d => (data.dailyErrors[d] || 0) > 0).length;
 
-                const todayKeyVal = getDateKey(getSaoPauloIso());
+                // --- MONTHLY STATS (Gamification Calculation) ---
+                const monthlyDayKeys = Array.from(data.monthlyUniqueDays);
+                const monthlyDiasAcimaMeta = monthlyDayKeys.filter(d =>
+                    (inboundItems.filter(i => i.operator === operatorName && getDateKey(i.time) === d && !i.error).length +
+                        outboundItems.filter(i => i.operator === operatorName && getDateKey(i.time) === d).length +
+                        inventoryItems.filter(i => i.operator === operatorName && getDateKey(i.time) === d).length) >= DAILY_GOAL
+                ).length;
+
+                const monthlyErrorDayKeys = Object.keys(data.dailyErrors).filter(k => k.split('/').reverse().join('-').substring(0, 7) === getSaoPauloDate(getTodayDate()).substring(0, 7));
+                const monthlyZeroErrorDays = data.monthlyUniqueDays.size - monthlyErrorDayKeys.length;
+
                 let consecutive = 0;
-                const sortedDays = [...dayKeys].sort((a, b) => {
+                const sortedMonthlyDays = [...monthlyDayKeys].sort((a, b) => {
                     const [da, ma, ya] = a.split('/').map(Number);
                     const [db, mb, yb] = b.split('/').map(Number);
                     return new Date(ya, ma - 1, da).getTime() - new Date(yb, mb - 1, db).getTime();
                 });
-                for (let i = sortedDays.length - 1; i >= 0; i--) {
-                    if ((data.dailyScans[sortedDays[i]] || 0) >= DAILY_GOAL) {
+                for (let i = sortedMonthlyDays.length - 1; i >= 0; i--) {
+                    const dayScanCount = (inboundItems.filter(inv => inv.operator === operatorName && getDateKey(inv.time) === sortedMonthlyDays[i] && !inv.error).length +
+                        outboundItems.filter(out => out.operator === operatorName && getDateKey(out.time) === sortedMonthlyDays[i]).length +
+                        inventoryItems.filter(inv => inv.operator === operatorName && getDateKey(inv.time) === sortedMonthlyDays[i]).length);
+                    if (dayScanCount >= DAILY_GOAL) {
                         consecutive++;
                     } else break;
                 }
 
-                const avgMeta = dayKeys.length > 0
-                    ? Math.round(dayKeys.reduce((sum, d) => sum + ((data.dailyScans[d] || 0) / DAILY_GOAL) * 100, 0) / dayKeys.length)
+                const avgMeta = monthlyDayKeys.length > 0
+                    ? Math.round(monthlyDayKeys.reduce((sum, d) => {
+                        const dayScanCount = (inboundItems.filter(inv => inv.operator === operatorName && getDateKey(inv.time) === d && !inv.error).length +
+                            outboundItems.filter(out => out.operator === operatorName && getDateKey(out.time) === d).length +
+                            inventoryItems.filter(inv => inv.operator === operatorName && getDateKey(inv.time) === d).length);
+                        return sum + (dayScanCount / DAILY_GOAL) * 100;
+                    }, 0) / monthlyDayKeys.length)
                     : 0;
 
-                const mixedDays = Object.values(data.dailyActivities).filter(acts =>
-                    acts.has('ENTRADA') && acts.has('SAIDA') && acts.has('INVENTARIO')
-                ).length;
-
                 const profile = await gamificationService.recalculate(
-                    operatorName, // userId
-                    operatorName, // userName
-                    currentUser!.company_id, // companyId
-                    data.scans, // periodScans (for Ranking display)
+                    operatorName,
+                    operatorName,
+                    currentUser!.company_id,
+                    data.scans, // Period Scans (Still needed if we want period-based SPR in table, but user wants cumulative Level/XP)
                     metaPercent,
                     diasAcimaMeta,
-                    data.monthlyErrors, // monthlyErrors
-                    data.monthlyScans, // monthlyScans (for XP/SPR)
-                    false, // isTop3
-                    false, // isChallenger
+                    data.monthlyErrors,
+                    data.monthlyScans,
+                    false,
+                    false,
                     consecutive,
-                    zeroErrorDays,
+                    monthlyZeroErrorDays,
                     avgMeta,
                     {
-                        inventoryParticipations: data.inventoryDays.size,
-                        activeDays: data.uniqueDays.size,
-                        treatmentsDone: data.treatmentCount,
-                        localizedItems: data.localizedCount,
-                        driverExpeditions: data.driversExpedited.size,
-                        mixedActivityDays: mixedDays,
-                        incidentsLogged: data.incidentsCount,
-                        reversaPallets: data.reversaPallets.size
+                        inventoryParticipations: data.monthlyInventoryDays.size,
+                        activeDays: data.monthlyUniqueDays.size,
+                        treatmentsDone: data.monthlyTreatmentCount,
+                        localizedItems: data.monthlyLocalizedCount,
+                        driverExpeditions: data.monthlyDriversExpedited.size,
+                        mixedActivityDays: data.monthlyMixedActivityDays,
+                        incidentsLogged: data.monthlyIncidentsCount,
+                        reversaPallets: data.monthlyReversaPallets.size
                     },
                     true // skipSave
                 );
@@ -270,8 +344,15 @@ const GamificationView: React.FC = () => {
         : myProfile ? 100 : 0;
 
     const myData = currentUser ? operatorData.get(currentUser.name) : undefined;
-    const myMetaPercent = myData ? Math.round((myData.scans / DAILY_GOAL) * 100) : 0;
-    const myDaysAbove = myData ? Object.keys(myData.dailyScans).filter(d => (myData.dailyScans[d] || 0) >= DAILY_GOAL).length : 0;
+
+    // Period-based for daily reset
+    const todayKey = getDateKey(getSaoPauloIso());
+    const scansToday = myData ? (myData.dailyScans[todayKey] || 0) : 0;
+    const metaToday = Math.round((scansToday / DAILY_GOAL) * 100);
+    const errorsToday = myData ? (myData.dailyErrors[todayKey] || 0) : 0;
+
+    // Monthly cumulative for game progress
+    const monthlyDaysAbove = myProfile ? myProfile.consecutiveDaysAboveMeta : 0;
 
     const getLevelInfo = (levelName: string): GamificationLevel => {
         return LEVELS.find(l => l.name === levelName) || LEVELS[0];
@@ -280,6 +361,7 @@ const GamificationView: React.FC = () => {
     return (
         <div className="space-y-8">
             {/* === DATE FILTER === */}
+            {/* ... (keep existing filter UI) ... */}
             <div className="bg-white dark:bg-card-dark p-4 rounded-lg shadow-sm border border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                     <span className="material-icons-round text-primary">emoji_events</span>
@@ -409,10 +491,10 @@ const GamificationView: React.FC = () => {
 
             {/* === INDIVIDUAL CARDS === */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                <StatCard label="Total Scans (Hoje)" value={myData ? (myData.dailyScans[getDateKey(getSaoPauloIso())] || 0) : 0} icon="qr_code_scanner" color="text-primary" />
-                <StatCard label="Meta %" value={`${myMetaPercent}%`} icon="flag" color={myMetaPercent >= 100 ? 'text-green-400' : myMetaPercent >= 70 ? 'text-blue-400' : 'text-red-400'} />
-                <StatCard label="Dias Acima Meta" value={myDaysAbove} icon="calendar_today" color="text-emerald-400" />
-                <StatCard label="Erros" value={myData?.errors || 0} icon="error" color="text-red-400" />
+                <StatCard label="Total Scans (Hoje)" value={scansToday} icon="qr_code_scanner" color="text-primary" />
+                <StatCard label="Meta %" value={`${metaToday}%`} icon="flag" color={metaToday >= 100 ? 'text-green-400' : metaToday >= 70 ? 'text-blue-400' : 'text-red-400'} />
+                <StatCard label="Dias Acima Meta" value={monthlyDaysAbove} icon="calendar_today" color="text-emerald-400" />
+                <StatCard label="Erros" value={errorsToday} icon="error" color="text-red-400" />
                 <StatCard label="XP Mensal" value={myProfile?.xpMonthly?.toLocaleString() || '0'} icon="bolt" color="text-yellow-400" />
             </div>
 
