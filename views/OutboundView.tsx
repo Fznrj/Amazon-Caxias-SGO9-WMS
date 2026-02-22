@@ -1,7 +1,4 @@
-
-import React, { useState } from 'react';
-import { useWms } from '../context/WmsContext';
-import { isSameDay, getTodayDate, formatToLocalTime, getSaoPauloIso } from '../utils/dateUtils';
+import { isValidTbr } from '../utils/validation';
 
 const OutboundView: React.FC = () => {
   const { outboundItems, addOutboundItem, deleteOutboundItem, playAudio, drivers, stockItems, totalOutboundToday, totalReversaToday, currentUser } = useWms();
@@ -16,7 +13,7 @@ const OutboundView: React.FC = () => {
       return;
     }
 
-    const currentId = tbrInput.toUpperCase();
+    const currentId = tbrInput.trim().toUpperCase();
     const driver = drivers.find(d => d.id === selectedDriverId);
 
     if (!driver) {
@@ -24,9 +21,10 @@ const OutboundView: React.FC = () => {
       return;
     }
 
-    // 1. Prefix check
-    if (!currentId.startsWith('TBR')) {
-      setMessage({ text: 'ERRO: Prefixo inválido. Deve começar com TBR.', type: 'error' });
+    // 1. Validation Rule Check
+    const validation = isValidTbr(currentId);
+    if (!validation.isValid) {
+      setMessage({ text: validation.message || 'ERRO: TBR Inválida.', type: 'error' });
       playAudio('error');
       setTbrInput('');
       return;

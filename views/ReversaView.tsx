@@ -10,6 +10,8 @@ interface ScannedItem {
     rack: number;
 }
 
+import { isValidTbr } from '../utils/validation';
+
 export default function ReversaView() {
     const { drivers, addOutboundItem, bulkAddOutboundItems, currentUser, verifyStock, playAudio } = useWms();
     const [scannedItems, setScannedItems] = useState<ScannedItem[]>([]);
@@ -41,10 +43,19 @@ export default function ReversaView() {
         if (e.key === 'Enter' && tbrInput.trim()) {
             const input = tbrInput.trim().toUpperCase();
 
-            // Validate Stock
-            const validation = await verifyStock(input);
-            if (!validation.success) {
+            // Rule Validation
+            const validation = isValidTbr(input);
+            if (!validation.isValid) {
                 alert(validation.message);
+                playAudio('error');
+                setTbrInput('');
+                return;
+            }
+
+            // Validate Stock
+            const validationStock = await verifyStock(input);
+            if (!validationStock.success) {
+                alert(validationStock.message);
                 playAudio('error');
                 setTbrInput('');
                 return;

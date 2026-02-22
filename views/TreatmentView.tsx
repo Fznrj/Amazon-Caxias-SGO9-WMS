@@ -1,8 +1,4 @@
-
-import React, { useState } from 'react';
-import { formatToLocalTime } from '../utils/dateUtils';
-import { useWms } from '../context/WmsContext';
-import { getTodayDate } from '../utils/dateUtils';
+import { isValidTbr } from '../utils/validation';
 
 const TreatmentView: React.FC = () => {
   const {
@@ -16,7 +12,8 @@ const TreatmentView: React.FC = () => {
     currentUser,
     localizeItem,
     staleStockItems,
-    staleItemsCount
+    staleItemsCount,
+    playAudio
   } = useWms();
   const [showLogForm, setShowLogForm] = useState(false);
   const [newIncident, setNewIncident] = useState({ tbrId: '', type: 'Avaria' as any, description: '' });
@@ -44,8 +41,16 @@ const TreatmentView: React.FC = () => {
     e.preventDefault();
     if (!newIncident.tbrId || !newIncident.description) return;
 
+    const currentId = newIncident.tbrId.trim().toUpperCase();
+    const validation = isValidTbr(currentId);
+    if (!validation.isValid) {
+      alert(validation.message);
+      playAudio('error');
+      return;
+    }
+
     const result = await addTreatment({
-      tbrId: newIncident.tbrId.toUpperCase(),
+      tbrId: currentId,
       type: newIncident.type,
       description: newIncident.description,
       operator: currentUser?.name || 'Sistema'

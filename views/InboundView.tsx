@@ -3,6 +3,8 @@ import { useWms } from '../context/WmsContext';
 import * as XLSX from 'xlsx';
 import { isSameDay, getTodayDate, formatToLocalTime, getSaoPauloIso } from '../utils/dateUtils';
 
+import { isValidTbr } from '../utils/validation';
+
 const InboundView: React.FC = () => {
   const [scanValue, setScanValue] = useState('');
   const [showReconciliation, setShowReconciliation] = useState(false);
@@ -27,7 +29,7 @@ const InboundView: React.FC = () => {
         const tbrs = Array.from(new Set(
           data.flat()
             .map(val => String(val).trim().toUpperCase())
-            .filter(val => val.startsWith('TBR'))
+            .filter(val => isValidTbr(val).isValid)
         ));
 
         if (tbrs.length > 0) {
@@ -35,7 +37,7 @@ const InboundView: React.FC = () => {
           setReconciliationSnapshot(null); // Clear previous snapshot
           playAudio('success');
         } else {
-          alert('Nenhuma TBR encontrada no arquivo!');
+          alert('Nenhuma TBR válida encontrada no arquivo! (Deve começar com TBR e ter 12-15 caracteres)');
         }
       } catch (err) {
         console.error('Error parsing file:', err);
@@ -49,6 +51,14 @@ const InboundView: React.FC = () => {
     e.preventDefault();
     if (!scanValue.trim()) return;
     const currentId = scanValue.trim().toUpperCase();
+
+    const validation = isValidTbr(currentId);
+    if (!validation.isValid) {
+      alert(validation.message);
+      playAudio('error');
+      setScanValue('');
+      return;
+    }
 
     const alreadyInStock = stockItems.some(item =>
       item.id.toUpperCase() === currentId && item.status === 'Em Estoque'
@@ -66,13 +76,12 @@ const InboundView: React.FC = () => {
       return;
     }
 
-    const isError = !currentId.startsWith('TBR');
     await addInboundItem({
       id: currentId,
-      status: (isError ? 'Prefixo Inválido' : 'Sucesso') as any,
+      status: 'Sucesso',
       operator: currentUser?.name || 'Sistema',
       time: formatToLocalTime(getSaoPauloIso()),
-      error: isError
+      error: false
     });
     setScanValue('');
   };

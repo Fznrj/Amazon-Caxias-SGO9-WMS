@@ -1,10 +1,7 @@
-
-import React, { useState } from 'react';
-import { useWms } from '../context/WmsContext';
-import { formatToLocalTime, getSaoPauloIso, getTodayDate } from '../utils/dateUtils';
+import { isValidTbr } from '../utils/validation';
 
 const InventoryView: React.FC = () => {
-  const { inventoryItems, addInventoryItem, isInventoryActive, startInventory, stopInventory, stockItems, possibleLossItems, currentUser, localizeItem } = useWms();
+  const { inventoryItems, addInventoryItem, isInventoryActive, startInventory, stopInventory, stockItems, possibleLossItems, currentUser, localizeItem, playAudio } = useWms();
   const [tbrId, setTbrId] = useState('');
   const [message, setMessage] = useState<{ text: string, type: 'error' | 'success' } | null>(null);
 
@@ -24,9 +21,18 @@ const InventoryView: React.FC = () => {
 
   const handleScan = async () => {
     if (!tbrId.trim()) return;
+    const currentId = tbrId.trim().toUpperCase();
+
+    const validation = isValidTbr(currentId);
+    if (!validation.isValid) {
+      setMessage({ text: validation.message || 'ERRO: TBR Inválida.', type: 'error' });
+      playAudio('error');
+      setTbrId('');
+      return;
+    }
 
     await addInventoryItem({
-      id: tbrId.toUpperCase(),
+      id: currentId,
       time: getSaoPauloIso(),
       operator: currentUser?.name || 'Sistema'
     });

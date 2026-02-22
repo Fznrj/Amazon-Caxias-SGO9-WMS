@@ -1,9 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User, Driver, Role, UserStatus, VehicleProfile, View } from '../types';
-import { AuthService } from '../services/authService';
-import { gamificationService } from '../services/gamificationService';
-import { supabase } from '../services/supabase';
-import { isSameDay, parseToDate, getDateKey, getSaoPauloDate, getTodayDate, getSaoPauloIso, formatToLocalTime } from '../utils/dateUtils';
+import { isValidTbr } from '../utils/validation';
 
 // ... (keep InboundItem, OutboundItem, InventoryItem, StockItem interfaces as is) ...
 
@@ -124,6 +119,7 @@ interface WmsContextData {
 
     // Helpers
     verifyStock: (id: string) => Promise<{ success: boolean; message: string }>;
+    isValidTbr: (id: string) => { isValid: boolean; message?: string };
     isSameDay: (dateStr: string) => boolean;
     getLocalDateIso: () => string;
 
@@ -846,6 +842,9 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
 
     const verifyStock = async (id: string) => {
+        const validation = isValidTbr(id);
+        if (!validation.isValid) return { success: false, message: validation.message };
+
         const item = stockItems.find(s => s.id === id.toUpperCase());
         if (!item) {
             return { success: false, message: `TBR ${id} não encontrada no estoque.` };
@@ -1069,7 +1068,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             totalInboundToday, totalOutboundToday, totalReversaToday, totalInventoryScanned, totalLossItems, staleItemsCount,
             weeklyStats,
             resetTransactions,
-            verifyStock, isSameDay, getLocalDateIso: () => getSaoPauloDate(),
+            verifyStock, isValidTbr, isSameDay, getLocalDateIso: () => getSaoPauloDate(),
             playAudio, refreshProfile, uploadUserAvatar
         }}>
             {children}
