@@ -73,8 +73,18 @@ const ReportView: React.FC = () => {
   };
 
   const handleDownloadAll = () => {
-    const { stockItems } = useWms(); // Get stockItems for full loss report
     const dateLabel = startDate === endDate ? startDate : `${startDate}_to_${endDate}`;
+
+    // Helper to parse "DD/MM/YYYY, HH:MM:SS" or "YYYY-MM-DD" into a Comparable Date object
+    const parseFlexibleDate = (dateStr: string) => {
+      if (!dateStr) return new Date(0);
+      if (dateStr.includes(',')) {
+        const [datePart, timePart] = dateStr.split(',');
+        const [day, month, year] = datePart.trim().split('/');
+        return new Date(`${year}-${month}-${day}T${timePart?.trim() || '00:00:00'}`);
+      }
+      return new Date(dateStr);
+    };
 
     const data = [
       ['Data/Hora', 'Tipo', 'ID (TBR)', 'Operador', 'Motorista', 'Veículo', 'Status', 'ID Pallet (Reversa)'],
@@ -108,7 +118,9 @@ const ReportView: React.FC = () => {
     // Sort by Date/Time
     const header = data[0];
     const sortedData = data.slice(1).sort((a, b) => {
-      return new Date(a[0]).getTime() - new Date(b[0]).getTime();
+      const dateA = parseFlexibleDate(a[0]);
+      const dateB = parseFlexibleDate(b[0]);
+      return dateA.getTime() - dateB.getTime();
     });
 
     downloadCSV(`Relatorio_Geral_Movimentos_${dateLabel}.csv`, [header, ...sortedData]);
