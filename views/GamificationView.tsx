@@ -360,7 +360,8 @@ const GamificationView: React.FC = () => {
     const metaMonthly = Math.round((scansMonthly / DAILY_GOAL) * 100);
 
     // Monthly cumulative for game progress
-    const monthlyDaysAbove = myProfile ? myProfile.consecutiveDaysAboveMeta : 0;
+    const monthlyDaysAbove = myProfile ? (myProfile as any).totalDaysAboveMeta : 0;
+    const streakDays = myProfile ? myProfile.consecutiveDaysAboveMeta : 0;
 
     const getLevelInfo = (levelName: string): GamificationLevel => {
         return LEVELS.find(l => l.name === levelName) || LEVELS[0];
@@ -513,7 +514,7 @@ const GamificationView: React.FC = () => {
                 />
                 <StatCard
                     label={isComparisonMode ? "Dias Acima Meta (Período)" : "Dias Meta Batida (Total)"}
-                    value={daysAboveMetaPeriod}
+                    value={isComparisonMode ? daysAboveMetaPeriod : monthlyDaysAbove}
                     icon="calendar_today"
                     color="text-emerald-400"
                 />
