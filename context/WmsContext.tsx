@@ -672,6 +672,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const addInventoryItem = async (item: InventoryItem) => {
         if (!currentUser) return;
+        const now = getSaoPauloIso();
         if (inventoryItems.some(i => i.id === item.id)) {
             playAudio('error');
             return;
