@@ -682,6 +682,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         const { error } = await supabase.from('inventory_log').insert({
             ...item,
+            time: now,
             company_id: currentUser.company_id
         });
 
@@ -778,7 +779,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (stockItem.status?.toLowerCase() === 'possível perda') {
             const updates = {
                 status: 'Em Estoque' as const,
-                entry_time: getTodayDate().toISOString(), // Update entry time as it's "re-entered"
+                entry_time: getSaoPauloIso(), // Update entry time as it's "re-entered"
                 operator: currentUser?.name || 'Sistema',
                 loss_detected_time: null,
                 localized_by: currentUser?.name || 'Sistema',
@@ -830,7 +831,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             type: itemData.type,
             description: itemData.description,
             operator: itemData.operator,
-            time: displayTime,
+            time: now,
             status: 'Pendente' as const,
             company_id: currentUser.company_id
         };
