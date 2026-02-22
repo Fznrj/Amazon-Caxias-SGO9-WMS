@@ -12,6 +12,7 @@ interface InboundItem {
     operator: string;
     time: string;
     error: boolean;
+    createdAt?: string;
 }
 
 interface OutboundItem {
@@ -22,12 +23,14 @@ interface OutboundItem {
     operator: string;
     status: 'Saiu com Motorista' | 'Reversa - Saiu com Motorista';
     palletId?: string;
+    createdAt?: string;
 }
 
 interface InventoryItem {
     id: string;
     time: string;
     operator: string;
+    createdAt?: string;
 }
 
 interface StockItem {
@@ -322,8 +325,9 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     id: i.id,
                     status: i.status,
                     operator: i.operator,
-                    time: i.time || i.created_at,
-                    error: i.error
+                    time: i.time,
+                    error: i.error,
+                    createdAt: i.created_at
                 }));
                 setInboundItems(mappedInbound);
             }
@@ -338,7 +342,8 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     time: o.time,
                     operator: o.operator,
                     status: o.status,
-                    palletId: o.pallet_id
+                    palletId: o.pallet_id,
+                    createdAt: o.created_at
                 }));
                 setOutboundItems(mappedOutbound);
             }
@@ -379,8 +384,9 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             else if (inventory) {
                 const mappedInventory = inventory.map(i => ({
                     id: i.id,
-                    time: i.time || i.created_at,
-                    operator: i.operator
+                    time: i.time,
+                    operator: i.operator,
+                    createdAt: i.created_at
                 }));
                 setInventoryItems(mappedInventory);
             }
