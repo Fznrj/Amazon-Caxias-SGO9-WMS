@@ -46,6 +46,7 @@ export interface GamificationProfile {
     dailyScans: Record<string, number>; // date -> scan count
     dailyErrors: Record<string, number>; // date -> error count
     consecutiveDaysAboveMeta: number;
+    totalDaysAboveMeta: number;
     lastScanTimestamps: number[]; // timestamps for anti-fraud
 }
 
@@ -116,6 +117,7 @@ export class GamificationService {
                         dailyScans: {},
                         dailyErrors: {},
                         consecutiveDaysAboveMeta: 0,
+                        totalDaysAboveMeta: 0,
                         lastScanTimestamps: [],
                     });
                 });
@@ -175,6 +177,7 @@ export class GamificationService {
                 dailyScans: {},
                 dailyErrors: {},
                 consecutiveDaysAboveMeta: 0,
+                totalDaysAboveMeta: 0,
                 lastScanTimestamps: [],
             });
         }
@@ -231,6 +234,7 @@ export class GamificationService {
         profile.xpMonthly = xp;
         profile.xpTotal = Math.max(profile.xpTotal, xp);
         profile.consecutiveDaysAboveMeta = consecutiveDays;
+        profile.totalDaysAboveMeta = diasAcimaMeta;
 
         let level = this.getLevel(xp);
         if (level.name === 'Desafiante' && !isTop1) {

@@ -225,9 +225,9 @@ const GamificationView: React.FC = () => {
                 // --- MONTHLY STATS (Gamification Calculation) ---
                 const monthlyDayKeys = Array.from(data.monthlyUniqueDays);
                 const monthlyDiasAcimaMeta = monthlyDayKeys.filter(d =>
-                    (inboundItems.filter(i => i.operator === operatorName && getDateKey(i.time) === d && !i.error).length +
-                        outboundItems.filter(i => i.operator === operatorName && getDateKey(i.time) === d).length +
-                        inventoryItems.filter(i => i.operator === operatorName && getDateKey(i.time) === d).length) >= DAILY_GOAL
+                    (inboundItems.filter(i => i.operator === operatorName && getDateKey(i.time || (i as any).created_at) === d && !i.error).length +
+                        outboundItems.filter(i => i.operator === operatorName && getDateKey(i.time || (i as any).created_at) === d).length +
+                        inventoryItems.filter(i => i.operator === operatorName && getDateKey(i.time || (i as any).created_at) === d).length) >= DAILY_GOAL
                 ).length;
 
                 const monthlyErrorDayKeys = Object.keys(data.dailyErrors).filter(k => k.split('/').reverse().join('-').substring(0, 7) === getSaoPauloDate(getTodayDate()).substring(0, 7));
@@ -240,19 +240,20 @@ const GamificationView: React.FC = () => {
                     return new Date(ya, ma - 1, da).getTime() - new Date(yb, mb - 1, db).getTime();
                 });
                 for (let i = sortedMonthlyDays.length - 1; i >= 0; i--) {
-                    const dayScanCount = (inboundItems.filter(inv => inv.operator === operatorName && getDateKey(inv.time) === sortedMonthlyDays[i] && !inv.error).length +
-                        outboundItems.filter(out => out.operator === operatorName && getDateKey(out.time) === sortedMonthlyDays[i]).length +
-                        inventoryItems.filter(inv => inv.operator === operatorName && getDateKey(inv.time) === sortedMonthlyDays[i]).length);
+                    const dayScanCount = (inboundItems.filter(inv => inv.operator === operatorName && getDateKey(inv.time || (inv as any).created_at) === sortedMonthlyDays[i] && !inv.error).length +
+                        outboundItems.filter(out => out.operator === operatorName && getDateKey(out.time || (out as any).created_at) === sortedMonthlyDays[i]).length +
+                        inventoryItems.filter(inv => inv.operator === operatorName && getDateKey(inv.time || (inv as any).created_at) === sortedMonthlyDays[i]).length);
                     if (dayScanCount >= DAILY_GOAL) {
                         consecutive++;
                     } else break;
                 }
 
+                const cumulativeMeta = Math.round((data.monthlyScans / DAILY_GOAL) * 100);
                 const avgMeta = monthlyDayKeys.length > 0
                     ? Math.round(monthlyDayKeys.reduce((sum, d) => {
-                        const dayScanCount = (inboundItems.filter(inv => inv.operator === operatorName && getDateKey(inv.time) === d && !inv.error).length +
-                            outboundItems.filter(out => out.operator === operatorName && getDateKey(out.time) === d).length +
-                            inventoryItems.filter(inv => inv.operator === operatorName && getDateKey(inv.time) === d).length);
+                        const dayScanCount = (inboundItems.filter(inv => inv.operator === operatorName && getDateKey(inv.time || (inv as any).created_at) === d && !inv.error).length +
+                            outboundItems.filter(out => out.operator === operatorName && getDateKey(out.time || (out as any).created_at) === d).length +
+                            inventoryItems.filter(inv => inv.operator === operatorName && getDateKey(inv.time || (inv as any).created_at) === d).length);
                         return sum + (dayScanCount / DAILY_GOAL) * 100;
                     }, 0) / monthlyDayKeys.length)
                     : 0;
@@ -262,7 +263,7 @@ const GamificationView: React.FC = () => {
                     operatorName,
                     currentUser!.company_id,
                     data.scans, // Period Scans
-                    avgMeta, // USE MONTHLY AVG META FOR PROFILE CALC
+                    cumulativeMeta, // USE CUMULATIVE META FOR PROFILE CALC TO AVOID DROPS
                     monthlyDiasAcimaMeta, // USE MONTHLY DAYS ABOVE META
                     data.monthlyErrors,
                     data.monthlyScans,

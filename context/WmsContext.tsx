@@ -317,7 +317,16 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
             // Handle Inbound
             if (ie) console.error('WmsContext: Inbound fetch error:', ie);
-            else if (inbound) setInboundItems(inbound);
+            else if (inbound) {
+                const mappedInbound = inbound.map(i => ({
+                    id: i.id,
+                    status: i.status,
+                    operator: i.operator,
+                    time: i.time || i.created_at,
+                    error: i.error
+                }));
+                setInboundItems(mappedInbound);
+            }
 
             // Handle Outbound
             if (oe) console.error('WmsContext: Outbound fetch error:', oe);
@@ -363,6 +372,17 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     status: inc.status
                 }));
                 setTreatmentItems(mappedIncidents);
+            }
+
+            // Handle Inventory
+            if (invE) console.error('WmsContext: Inventory fetch error:', invE);
+            else if (inventory) {
+                const mappedInventory = inventory.map(i => ({
+                    id: i.id,
+                    time: i.time || i.created_at,
+                    operator: i.operator
+                }));
+                setInventoryItems(mappedInventory);
             }
 
             // Handle Config
