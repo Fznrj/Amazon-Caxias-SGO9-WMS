@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useWms } from '../context/WmsContext';
 import { PrintService } from '../services/PrintService';
 import { getTodayDate, getSaoPauloIso } from '../utils/dateUtils';
+import { isValidTbr } from '../utils/validation';
 
 interface ScannedItem {
     id: string;
@@ -9,12 +10,6 @@ interface ScannedItem {
     status: 'success' | 'error';
     rack: number;
 }
-
-import React, { useState } from 'react';
-import { useWms } from '../context/WmsContext';
-import { getTodayDate } from '../utils/dateUtils';
-import { PrintService } from '../services/printService';
-import { isValidTbr } from '../utils/validation';
 
 export default function ReversaView() {
     const { drivers, addOutboundItem, bulkAddOutboundItems, currentUser, verifyStock, playAudio } = useWms();
