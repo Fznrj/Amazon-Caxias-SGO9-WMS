@@ -350,6 +350,7 @@ const GamificationView: React.FC = () => {
     const scansPeriod = myData ? myData.scans : 0;
     const metaPeriod = Math.round((scansPeriod / DAILY_GOAL) * 100);
     const errorsPeriod = myData ? myData.errors : 0;
+    const daysAboveMetaPeriod = myData ? Object.keys(myData.dailyScans).filter(d => (myData.dailyScans[d] || 0) >= DAILY_GOAL).length : 0;
 
     // Monthly cumulative for game progress
     const monthlyDaysAbove = myProfile ? myProfile.consecutiveDaysAboveMeta : 0;
