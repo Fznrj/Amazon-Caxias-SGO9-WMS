@@ -1,6 +1,10 @@
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { User, Driver, Role, UserStatus, VehicleProfile, View } from '../types';
+import { AuthService } from '../services/authService';
+import { gamificationService } from '../services/gamificationService';
+import { supabase } from '../services/supabase';
+import { isSameDay, parseToDate, getDateKey, getSaoPauloDate, getTodayDate, getSaoPauloIso, formatToLocalTime } from '../utils/dateUtils';
 import { isValidTbr } from '../utils/validation';
-
-// ... (keep InboundItem, OutboundItem, InventoryItem, StockItem interfaces as is) ...
 
 interface InboundItem {
     id: string;
