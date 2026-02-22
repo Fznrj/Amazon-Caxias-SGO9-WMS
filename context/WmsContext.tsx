@@ -896,12 +896,23 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const validation = isValidTbr(id);
         if (!validation.isValid) return { success: false, message: validation.message };
 
-        const item = stockItems.find(s => s.id === id.toUpperCase());
+        const currentId = id.trim().toUpperCase();
+
+        // Check for active incidents
+        const activeIncident = treatmentItems.find(t => t.tbrId === currentId && t.status !== 'Resolvido');
+        if (activeIncident) {
+            return {
+                success: false,
+                message: `BLOQUEADO: TBR ${currentId} possui uma tratativa ativa (${activeIncident.id}). Resolva antes de prosseguir.`
+            };
+        }
+
+        const item = stockItems.find(s => s.id === currentId);
         if (!item) {
-            return { success: false, message: `TBR ${id} não encontrada no estoque.` };
+            return { success: false, message: `TBR ${currentId} não encontrada no estoque.` };
         }
         if (item.status?.toLowerCase() !== 'em estoque') {
-            return { success: false, message: `TBR ${id} está com status: ${item.status}.` };
+            return { success: false, message: `TBR ${currentId} está com status: ${item.status}.` };
         }
         return { success: true, message: 'Item validado.' };
     };
