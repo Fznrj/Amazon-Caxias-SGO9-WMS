@@ -129,6 +129,8 @@ interface WmsContextData {
 
     // Audio
     playAudio: (type: 'success' | 'error') => void;
+    refreshProfile: () => Promise<void>;
+    uploadUserAvatar: (file: File) => Promise<{ success: boolean; message: string }>;
 }
 
 const WmsContext = createContext<WmsContextData>({} as WmsContextData);
@@ -192,26 +194,27 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const [currentUser, setCurrentUser] = useState<User | null>(AuthService.getCurrentUser());
     const [users, setUsers] = useState<User[]>([]);
 
+    const refreshProfile = async () => {
+        const stored = AuthService.getCurrentUser();
+        if (stored) {
+            const { data: fresh, error } = await supabase
+                .from('users')
+                .select('*')
+                .eq('id', stored.id)
+                .maybeSingle();
+
+            if (fresh) {
+                const user = fresh as User;
+                setCurrentUser(user);
+                AuthService.saveSession(user);
+            }
+        } else {
+            _setCurrentView(View.LOGIN);
+        }
+    };
+
     // Force profile refresh from DB to ensure correct company_id and role
     useEffect(() => {
-        const refreshProfile = async () => {
-            const stored = AuthService.getCurrentUser();
-            if (stored) {
-                const { data: fresh } = await supabase
-                    .from('users')
-                    .select('*')
-                    .eq('id', stored.id)
-                    .maybeSingle();
-
-                if (fresh) {
-                    const user = fresh as User;
-                    setCurrentUser(user);
-                    AuthService.saveSession(user);
-                }
-            } else {
-                _setCurrentView(View.LOGIN);
-            }
-        };
         refreshProfile();
     }, []);
 
@@ -802,6 +805,46 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return { success: true, message: `TBR ${id} confirmada no estoque.` };
     };
 
+    const uploadUserAvatar = async (file: File) => {
+        if (!currentUser) return { success: false, message: 'Não logado' };
+
+        try {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${currentUser.id}/${Math.random()}.${fileExt}`;
+            const filePath = `${fileName}`;
+
+            // 1. Upload to Supabase Storage
+            const { error: uploadError } = await supabase.storage
+                .from('avatars')
+                .upload(filePath, file);
+
+            if (uploadError) throw uploadError;
+
+            // 2. Get Public URL
+            const { data: { publicUrl } } = supabase.storage
+                .from('avatars')
+                .getPublicUrl(filePath);
+
+            // 3. Update User Profile in DB
+            const { error: updateError } = await supabase
+                .from('users')
+                .update({ avatar_url: publicUrl })
+                .eq('id', currentUser.id);
+
+            if (updateError) throw updateError;
+
+            // 4. Refresh Local State
+            await refreshProfile();
+            playAudio('success');
+
+            return { success: true, message: 'Avatar atualizado com sucesso!' };
+        } catch (error: any) {
+            console.error('Error uploading avatar:', error);
+            playAudio('error');
+            return { success: false, message: error.message || 'Erro ao fazer upload' };
+        }
+    };
+
     const verifyStock = async (id: string) => {
         const item = stockItems.find(s => s.id === id.toUpperCase());
         if (!item) {
@@ -1027,7 +1070,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             weeklyStats,
             resetTransactions,
             verifyStock, isSameDay, getLocalDateIso: () => getSaoPauloDate(),
-            playAudio
+            playAudio, refreshProfile, uploadUserAvatar
         }}>
             {children}
         </WmsContext.Provider>
