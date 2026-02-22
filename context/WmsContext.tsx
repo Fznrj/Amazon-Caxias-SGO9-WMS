@@ -731,6 +731,12 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const localizeItem = async (id: string, scannerInput: string) => {
         if (!currentUser) return { success: false, message: 'Não logado' };
 
+        const validation = isValidTbr(scannerInput);
+        if (!validation.isValid) {
+            playAudio('error');
+            return { success: false, message: validation.message };
+        }
+
         const stockItem = stockItems.find(s => s.id === id);
 
         if (!stockItem) {
