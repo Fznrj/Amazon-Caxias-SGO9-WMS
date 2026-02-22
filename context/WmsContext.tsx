@@ -709,7 +709,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             .filter(s => s.status?.toLowerCase() === 'em estoque' && !inventoryItems.some(inv => inv.id === s.id))
             .map(s => s.id);
 
-        const now = getTodayDate().toISOString();
+        const now = getSaoPauloIso();
 
         // Update each missing item in Supabase
         for (const id of missingIds) {
