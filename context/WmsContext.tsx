@@ -1003,25 +1003,13 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // Total Expected is the items currently marked as 'Em Estoque'
     const totalExpected = stockItems.filter(item => item.status?.toLowerCase() === 'em estoque').length;
 
-    const staleItemsCount = stockItems.filter(item => {
-        if (item.status?.toLowerCase() !== 'em estoque') return false;
-        try {
-            const now = getTodayDate().getTime();
-            const entryTS = item.entryTime ? new Date(item.entryTime).getTime() : 0;
-            if (!entryTS) return false;
-            return (now - entryTS) / (1000 * 60 * 60) > 24;
-        } catch { return false; }
-    }).length;
-
     const staleStockItems = React.useMemo(() => stockItems.filter(item => {
-        if (item.status !== 'Em Estoque') return false;
-        try {
-            const now = getTodayDate().getTime();
-            const entryTS = item.entryTime ? new Date(item.entryTime).getTime() : 0;
-            if (!entryTS) return false;
-            return (now - entryTS) / (1000 * 60 * 60) > 24;
-        } catch { return false; }
+        if (item.status?.toLowerCase() !== 'em estoque' || !item.entryTime) return false;
+        // Item "stays overnight" if it was NOT received today (America/Sao_Paulo)
+        return !isSameDay(item.entryTime);
     }), [stockItems]);
+
+    const staleItemsCount = staleStockItems.length;
 
     return (
         <WmsContext.Provider value={{
