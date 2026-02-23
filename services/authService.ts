@@ -1,3 +1,4 @@
+import { createClient } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import { User, Role, UserStatus } from '../types';
 
@@ -43,7 +44,6 @@ export const AuthService = {
         const tempPassword = 'Senh@Wms123';
 
         // Use a temporary client without session persistence to avoid logging out the current user
-        const { createClient } = await import('@supabase/supabase-js');
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
         const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
         const tempSupabase = createClient(supabaseUrl, supabaseAnonKey, {
