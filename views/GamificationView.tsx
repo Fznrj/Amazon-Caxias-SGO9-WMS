@@ -379,7 +379,7 @@ const GamificationView: React.FC = () => {
 
                 <div className="flex flex-wrap items-center gap-4">
                     <div className="flex items-center gap-2">
-                        <label className="text-[10px] font-bold uppercase text-slate-500">Início</label>
+                        <label className="text-[10px] font-bold uppercase text-slate-500">In\u00edcio</label>
                         <input
                             type="date"
                             value={startDate}
@@ -469,7 +469,7 @@ const GamificationView: React.FC = () => {
                                 <div
                                     className={`h-full rounded-full transition-all duration-1000 ease-out ${myLevel.name === 'Desafiante'
                                         ? 'bg-gradient-to-r from-yellow-400 to-yellow-600'
-                                        : myLevel.name === 'Grão-Mestre'
+                                        : myLevel.name === 'Gr\u00e3o-Mestre'
                                             ? 'bg-gradient-to-r from-red-400 to-red-600'
                                             : myLevel.name === 'Mestre'
                                                 ? 'bg-gradient-to-r from-purple-400 to-purple-600'
@@ -501,25 +501,25 @@ const GamificationView: React.FC = () => {
             {/* === INDIVIDUAL CARDS === */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 <StatCard
-                    label={isComparisonMode ? "Total Scans (Período)" : "Total Scans (Hoje)"}
+                    label={isComparisonMode ? "Total Scans (Per\u00edodo)" : "Total Scans (Hoje)"}
                     value={scansPeriod}
                     icon="qr_code_scanner"
                     color="text-primary"
                 />
                 <StatCard
-                    label={isComparisonMode ? "Meta % (Período)" : "Meta % (Hoje)"}
+                    label={isComparisonMode ? "Meta % (Per\u00edodo)" : "Meta % (Hoje)"}
                     value={`${metaPeriod}%`}
                     icon="flag"
                     color={metaPeriod >= 100 ? 'text-green-400' : metaPeriod >= 70 ? 'text-blue-400' : 'text-red-400'}
                 />
                 <StatCard
-                    label={isComparisonMode ? "Dias Acima Meta (Período)" : "Dias Meta Batida (Total)"}
+                    label={isComparisonMode ? "Dias Acima Meta (Per\u00edodo)" : "Dias Meta Batida (Total)"}
                     value={isComparisonMode ? daysAboveMetaPeriod : monthlyDaysAbove}
                     icon="calendar_today"
                     color="text-emerald-400"
                 />
                 <StatCard
-                    label={isComparisonMode ? "Erros (Período)" : "Erros (Hoje)"}
+                    label={isComparisonMode ? "Erros (Per\u00edodo)" : "Erros (Hoje)"}
                     value={errorsPeriod}
                     icon="error"
                     color="text-red-400"
@@ -703,7 +703,7 @@ const GamificationView: React.FC = () => {
                                                 <span className="material-icons-round text-red-500">warning</span>
                                                 <div>
                                                     <p className="font-bold text-sm text-red-600 dark:text-red-400">{p.userName}</p>
-                                                    <p className="text-[10px] text-red-400">XP reduzido em 20% • Em observação</p>
+                                                    <p className="text-[10px] text-red-400">XP reduzido em 20% • Em observa\u00e7\u00e3o</p>
                                                 </div>
                                             </div>
                                             <button
@@ -746,3 +746,4 @@ const StatCard: React.FC<{ label: string; value: string | number; icon: string; 
 
 
 export default GamificationView;
+
