@@ -327,7 +327,7 @@ const GamificationView: React.FC = () => {
                     }
 
                     if (idx > 0 && p.currentLevel === 'Desafiante') {
-                        p.currentLevel = 'GrÃ£o-Mestre';
+                        p.currentLevel = 'Grão-Mestre';
                     }
                 });
             }
@@ -374,7 +374,7 @@ const GamificationView: React.FC = () => {
             <div className="bg-white dark:bg-card-dark p-4 rounded-lg shadow-sm border border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                     <span className="material-icons-round text-primary">emoji_events</span>
-                    <h2 className="font-display font-bold tracking-widest uppercase text-sm">Filtro de Ranking por PerÃ­odo</h2>
+                    <h2 className="font-display font-bold tracking-widest uppercase text-sm">Filtro de Ranking por Período</h2>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-4">
@@ -452,7 +452,7 @@ const GamificationView: React.FC = () => {
                             </span>
                             {myProfile?.fraudFlag && (
                                 <span className="px-2 py-1 bg-red-500/20 text-red-400 border border-red-500 rounded-full text-[10px] font-bold uppercase">
-                                    âš ï¸ ObservaÃ§Ã£o
+                                    ⚠️ Observação
                                 </span>
                             )}
                         </div>
@@ -462,14 +462,14 @@ const GamificationView: React.FC = () => {
                             <div className="flex justify-between text-[10px] mb-1">
                                 <span className="text-slate-400 font-bold uppercase tracking-wider">XP Mensal</span>
                                 <span className={`font-bold ${myLevel.color}`}>
-                                    {myProfile?.xpMonthly?.toLocaleString() || 0} / {nextLevel?.minXP?.toLocaleString() || 'âˆž'} XP
+                                    {myProfile?.xpMonthly?.toLocaleString() || 0} / {nextLevel?.minXP?.toLocaleString() || '∞'} XP
                                 </span>
                             </div>
                             <div className="h-3 w-full bg-slate-700 rounded-full overflow-hidden relative">
                                 <div
                                     className={`h-full rounded-full transition-all duration-1000 ease-out ${myLevel.name === 'Desafiante'
                                         ? 'bg-gradient-to-r from-yellow-400 to-yellow-600'
-                                        : myLevel.name === 'GrÃ£o-Mestre'
+                                        : myLevel.name === 'Grão-Mestre'
                                             ? 'bg-gradient-to-r from-red-400 to-red-600'
                                             : myLevel.name === 'Mestre'
                                                 ? 'bg-gradient-to-r from-purple-400 to-purple-600'
@@ -482,7 +482,7 @@ const GamificationView: React.FC = () => {
                                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-pulse" />
                             </div>
                             <p className="text-[10px] text-slate-500 mt-1">
-                                {nextLevel ? `${xpProgress}% para ${nextLevel.name}` : 'NÃ­vel mÃ¡ximo atingido!'}
+                                {nextLevel ? `${xpProgress}% para ${nextLevel.name}` : 'Nível máximo atingido!'}
                             </p>
                         </div>
                     </div>
@@ -531,7 +531,7 @@ const GamificationView: React.FC = () => {
             <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm overflow-hidden border border-slate-200 dark:border-slate-700">
                 <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
                     <h3 className="font-display font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest text-sm">
-                        ðŸ† Ranking {isComparisonMode ? ' do Período' : ' Hoje'}
+                        🏆 Ranking {isComparisonMode ? ' do Período' : ' Hoje'}
                     </h3>
                     <span className="text-[10px] text-slate-400 font-mono">
                         {new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase()}
@@ -572,7 +572,7 @@ const GamificationView: React.FC = () => {
                                                     </div>
                                                     <div>
                                                         <p className="font-semibold text-sm text-slate-700 dark:text-slate-200">{profile.userName}</p>
-                                                        {profile.fraudFlag && <span className="text-[9px] text-red-400 font-bold">âš ï¸ ObservaÃ§Ã£o</span>}
+                                                        {profile.fraudFlag && <span className="text-[9px] text-red-400 font-bold">⚠️ Observação</span>}
                                                     </div>
                                                 </div>
                                             </td>
@@ -600,7 +600,7 @@ const GamificationView: React.FC = () => {
             {/* === ACHIEVEMENTS === */}
             <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
                 <h3 className="font-display font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest text-sm mb-6">
-                    ðŸ… Conquistas
+                    🎖️ Conquistas
                 </h3>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                     {(myProfile?.badges || []).map(badge => {
@@ -682,7 +682,7 @@ const GamificationView: React.FC = () => {
             {(currentUser?.role === 'admin' || currentUser?.role === 'superadmin' || currentUser?.role === 'supervisor' || currentUser?.role === 'coordinator') && (
                 <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
                     <h3 className="font-display font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest text-sm mb-4">
-                        ðŸ›¡ï¸ Anti-Fraude â€” Alertas
+                        🛡️ Anti-Fraude — Alertas
                     </h3>
                     {(() => {
                         const flagged = ranking.filter(p => p.fraudFlag);
