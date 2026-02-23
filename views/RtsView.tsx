@@ -12,6 +12,7 @@ const RtsView: React.FC = () => {
     const [filter, setFilter] = useState('');
     const [scannerInput, setScannerInput] = useState('');
     const [selectedExpedition, setSelectedExpedition] = useState<string | null>(null);
+    const [scannedTbrs, setScannedTbrs] = useState<string[]>([]);
 
     const filteredExpeditions = useMemo(() => {
         return expeditions.filter(e =>
@@ -49,11 +50,19 @@ const RtsView: React.FC = () => {
 
         if (result.success) {
             playAudio('success');
+            const cleanTbr = scannerInput.trim().toUpperCase();
+            if (!scannedTbrs.includes(cleanTbr)) {
+                setScannedTbrs(prev => [cleanTbr, ...prev]);
+            }
             setScannerInput('');
         } else {
             playAudio('error');
             alert(result.message);
         }
+    };
+
+    const handlePrint = () => {
+        window.print();
     };
 
     const handleExport = () => {
@@ -168,7 +177,113 @@ const RtsView: React.FC = () => {
                         >
                             OK
                         </button>
+                        <button
+                            type="button"
+                            onClick={handlePrint}
+                            disabled={!selectedExpedition}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-all ${selectedExpedition ? 'bg-slate-700 hover:bg-slate-800 text-white cursor-pointer' : 'bg-slate-200 text-slate-400 cursor-not-allowed dark:bg-slate-800 dark:text-slate-600'}`}
+                        >
+                            <span className="material-icons-round text-sm">print</span>
+                            COMPROVANTE
+                        </button>
                     </form>
+                </div>
+            </div>
+
+            {/* Print Section (Hidden by default) */}
+            <div id="receipt-print-section" className="hidden print:block bg-white p-8 text-black font-sans min-h-screen">
+                <style dangerouslySetInnerHTML={{
+                    __html: `
+                    @media print {
+                        body * { visibility: hidden; }
+                        #receipt-print-section, #receipt-print-section * { visibility: visible; }
+                        #receipt-print-section { position: absolute; left: 0; top: 0; width: 100%; border: none !important; }
+                        @page { margin: 1cm; }
+                    }
+                `}} />
+
+                {/* Header */}
+                <div className="flex justify-between items-start border-b-2 border-slate-900 pb-4 mb-6">
+                    <div>
+                        <h1 className="text-2xl font-bold uppercase tracking-tighter">Amazon Caxias <span className="text-slate-500 font-light">SGO9</span></h1>
+                        <p className="text-sm font-bold mt-1 uppercase text-slate-700">Comprovante de Devolução (RTS)</p>
+                    </div>
+                    <div className="text-right">
+                        <p className="text-[10px] font-bold uppercase text-slate-500">Data e Hora</p>
+                        <p className="text-xs font-bold">{new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Sao_Paulo' })}</p>
+                        <p className="text-xs font-bold">{new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })}</p>
+                    </div>
+                </div>
+
+                {/* Driver Info */}
+                <div className="grid grid-cols-2 gap-8 mb-8">
+                    <div className="bg-slate-50 p-4 rounded border border-slate-200">
+                        <p className="text-[10px] font-bold uppercase text-slate-400 mb-1">Motorista</p>
+                        <p className="text-lg font-bold uppercase">{expeditions.find(e => e.id === selectedExpedition)?.driver_name || 'NÃO SELECIONADO'}</p>
+                    </div>
+                    <div className="bg-slate-50 p-4 rounded border border-slate-200">
+                        <p className="text-[10px] font-bold uppercase text-slate-400 mb-1">Placa / Veículo</p>
+                        <p className="text-lg font-bold uppercase font-mono">{expeditions.find(e => e.id === selectedExpedition)?.plate || '---'}</p>
+                    </div>
+                </div>
+
+                {/* Metrics */}
+                <div className="grid grid-cols-4 gap-4 mb-8">
+                    <div className="text-center border py-3 rounded">
+                        <p className="text-[9px] font-bold uppercase text-slate-500">Expedidos</p>
+                        <p className="text-xl font-bold">{expeditions.find(e => e.id === selectedExpedition)?.total_packages || 0}</p>
+                    </div>
+                    <div className="text-center border py-3 rounded">
+                        <p className="text-[9px] font-bold uppercase text-slate-500">Entregues</p>
+                        <p className="text-xl font-bold text-emerald-600">{expeditions.find(e => e.id === selectedExpedition)?.delivered_count || 0}</p>
+                    </div>
+                    <div className="text-center border py-3 rounded">
+                        <p className="text-[9px] font-bold uppercase text-slate-500">Devolvidos</p>
+                        <p className="text-xl font-bold text-orange-600">{expeditions.find(e => e.id === selectedExpedition)?.returned_count || 0}</p>
+                    </div>
+                    <div className="text-center border py-3 rounded">
+                        <p className="text-[9px] font-bold uppercase text-slate-500">Pendentes</p>
+                        <p className="text-xl font-bold text-blue-600">
+                            {(expeditions.find(e => e.id === selectedExpedition)?.total_packages || 0) -
+                                ((expeditions.find(e => e.id === selectedExpedition)?.delivered_count || 0) +
+                                    (expeditions.find(e => e.id === selectedExpedition)?.returned_count || 0))}
+                        </p>
+                    </div>
+                </div>
+
+                {/* Scanned Items */}
+                <div className="mb-12">
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-slate-700 bg-slate-100 p-2 mb-4">Lista de Pacotes Devolvidos (Escaneados agora)</h3>
+                    {scannedTbrs.length === 0 ? (
+                        <p className="text-xs italic text-slate-400">Nenhum pacote escaneado nesta sessão.</p>
+                    ) : (
+                        <div className="grid grid-cols-4 gap-2">
+                            {scannedTbrs.map((tbr, idx) => (
+                                <div key={idx} className="font-mono text-[10px] border p-1 text-center bg-slate-50">{tbr}</div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Footer / Signatures */}
+                <div className="mt-20 grid grid-cols-2 gap-16">
+                    <div className="text-center">
+                        <div className="border-t border-slate-900 pt-2">
+                            <p className="text-xs font-bold uppercase">Assinatura do Conferente</p>
+                            <p className="text-[10px] text-slate-500 mt-1">{currentUser?.name || 'Sistema'}</p>
+                        </div>
+                    </div>
+                    <div className="text-center">
+                        <div className="border-t border-slate-900 pt-2">
+                            <p className="text-xs font-bold uppercase">Assinatura do Motorista</p>
+                            <p className="text-[10px] text-slate-500 mt-1">Declaro que os itens acima foram conferidos</p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Footer Notes */}
+                <div className="mt-12 text-center text-[8px] text-slate-400 uppercase tracking-widest">
+                    <p>Este documento é gerado automaticamente pelo Sistema WMS SGO9 - © Amazon Caxias</p>
                 </div>
             </div>
 

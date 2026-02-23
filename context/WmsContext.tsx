@@ -310,7 +310,8 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 { data: driversData, error: de },
                 { data: incidents, error: incE },
                 { data: config, error: confE },
-                { data: inventory, error: invE }
+                { data: inventory, error: invE },
+                { data: expData, error: expE }
             ] = await Promise.all([
                 supabase.from('stock_items').select('*').eq('company_id', companyId),
                 supabase.from('inbound_log').select('*').eq('company_id', companyId).order('created_at', { ascending: false }),
@@ -420,7 +421,6 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             else if (inventory) setInventoryItems(inventory);
 
             // Handle Expeditions (RTS)
-            const { data: expData, error: expE } = (await supabase.from('expeditions').select('*').eq('company_id', currentUser.company_id).order('dispatch_date', { ascending: false }));
             if (expE) console.error('WmsContext: Expeditions fetch error:', expE);
             else if (expData) {
                 setExpeditions(expData.map(e => ({
@@ -769,25 +769,30 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // --- RTS Helper & Methods ---
     const syncExpedition = async (driverName: string, plate: string, count: number) => {
         if (!currentUser) return;
-        const today = new Date().toISOString().split('T')[0];
+        const today = getSaoPauloIso().split('T')[0];
 
         // Try to find existing expedition for today
-        const { data: existing } = await supabase.from('expeditions')
+        const { data: existing, error: fe } = await supabase.from('expeditions')
             .select('*')
             .eq('company_id', currentUser.company_id)
             .eq('driver_name', driverName)
             .eq('dispatch_date', today)
             .maybeSingle();
 
+        if (fe) {
+            console.error('WmsContext: Error fetching existing expedition:', fe);
+        }
+
         if (existing) {
-            await supabase.from('expeditions')
+            const { error: ue } = await supabase.from('expeditions')
                 .update({
                     total_packages: existing.total_packages + count,
                     updated_at: getSaoPauloIso()
                 })
                 .eq('id', existing.id);
+            if (ue) console.error('WmsContext: Error updating expedition:', ue);
         } else {
-            await supabase.from('expeditions').insert({
+            const { error: ie } = await supabase.from('expeditions').insert({
                 company_id: currentUser.company_id,
                 driver_name: driverName,
                 plate: plate,
@@ -797,6 +802,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 returned_count: 0,
                 status: 'EM_ROTA'
             });
+            if (ie) console.error('WmsContext: Error inserting expedition:', ie);
         }
         loadInitialData();
     };
@@ -831,7 +837,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
 
         // 2. Increment returned_count in expedition
-        const today = new Date().toISOString().split('T')[0];
+        const today = getSaoPauloIso().split('T')[0];
         const { data: exp } = await supabase.from('expeditions')
             .select('*')
             .eq('driver_name', driverName)
