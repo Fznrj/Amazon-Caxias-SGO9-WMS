@@ -180,6 +180,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                 />
                 <Bar dataKey="entradas" name="Entradas" fill="#087f8c" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="saidas" name="Saídas" fill="#f3a847" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="entregues" name="Entregues" fill="#10b981" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="rts" name="RTS" fill="#ef4444" radius={[4, 4, 0, 0]} />
               </BarChart>
             ) : (
               <div className="h-full flex items-center justify-center text-slate-400 text-xs italic">

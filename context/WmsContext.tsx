@@ -137,7 +137,7 @@ interface WmsContextData {
     totalInventoryScanned: number;
     totalLossItems: number;
     staleItemsCount: number; // +24h items
-    weeklyStats: { name: string; entradas: number; saidas: number }[];
+    weeklyStats: { name: string; entradas: number; saidas: number; entregues: number; rts: number }[];
     resetTransactions: () => Promise<void>;
 
     // Helpers
@@ -463,7 +463,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }, [currentUser]);
 
     const statsSummary = React.useMemo(() => {
-        const days: { dateKey: string; name: string; entradas: number; saidas: number; reversas: number }[] = [];
+        const days: { dateKey: string; name: string; entradas: number; saidas: number; reversas: number; entregues: number; rts: number }[] = [];
         const today = getTodayDate();
 
         // 1. Initialize stable 7-day array (UTC-3)
@@ -479,7 +479,9 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 name: label.charAt(0).toUpperCase() + label.slice(1),
                 entradas: 0,
                 saidas: 0,
-                reversas: 0
+                reversas: 0,
+                entregues: 0,
+                rts: 0
             });
         }
 
@@ -502,12 +504,29 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             }
         });
 
-        // 4. Extract Today's values (Last item in our 7-day window)
+        // 4. Aggregate Expeditions (Delivered & RTS)
+        expeditions.forEach(e => {
+            if (!e.dispatch_date) return;
+            const key = e.dispatch_date; // Assuming dispatch_date is YYYY-MM-DD
+            const day = days.find(d => d.dateKey === key);
+            if (day) {
+                day.entregues += (e.delivered_count || 0);
+                day.rts += (e.returned_count || 0);
+            }
+        });
+
+        // 5. Extract Today's values (Last item in our 7-day window)
         const todayIdx = days.length - 1;
         const currentDay = days[todayIdx] || { entradas: 0, saidas: 0, reversas: 0 };
 
         return {
-            weeklyStats: days.map(d => ({ name: d.name, entradas: d.entradas, saidas: d.saidas + d.reversas })),
+            weeklyStats: days.map(d => ({
+                name: d.name,
+                entradas: d.entradas,
+                saidas: d.saidas + d.reversas,
+                entregues: d.entregues,
+                rts: d.rts
+            })),
             totalInboundToday: currentDay.entradas,
             totalOutboundToday: currentDay.saidas,
             totalReversaToday: currentDay.reversas

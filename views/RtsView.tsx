@@ -4,6 +4,8 @@ import { useWms } from '../context/WmsContext';
 const RtsView: React.FC = () => {
     const {
         expeditions,
+        stockItems,
+        outboundItems,
         updateExpeditionDelivered,
         verifyReturn,
         playAudio,
@@ -12,18 +14,35 @@ const RtsView: React.FC = () => {
 
     const [filter, setFilter] = useState('');
     const [scannerInput, setScannerInput] = useState('');
+    const [scannerInputPending, setScannerInputPending] = useState('');
     const [selectedExpedition, setSelectedExpedition] = useState<string | null>(null);
     const [scannedTbrs, setScannedTbrs] = useState<string[]>([]);
+    const [scannedTbrsPending, setScannedTbrsPending] = useState<string[]>([]);
+
+    const groupedExpeditions = useMemo(() => {
+        const groups: Record<string, any> = {};
+        expeditions.forEach(e => {
+            const key = `${e.driver_name}-${e.plate}-${e.dispatch_date}`;
+            if (!groups[key]) {
+                groups[key] = { ...e };
+            } else {
+                groups[key].total_packages += (e.total_packages || 0);
+                groups[key].delivered_count += (e.delivered_count || 0);
+                groups[key].returned_count += (e.returned_count || 0);
+            }
+        });
+        return Object.values(groups);
+    }, [expeditions]);
 
     const filteredExpeditions = useMemo(() => {
-        return expeditions.filter(e => {
+        return groupedExpeditions.filter(e => {
             const search = filter.toLowerCase();
             const nameMatch = (e.driver_name || '').toLowerCase().includes(search);
             const plateMatch = (e.plate || '').toLowerCase().includes(search);
             const dateMatch = (e.dispatch_date || '').includes(search);
             return nameMatch || plateMatch || dateMatch;
         });
-    }, [expeditions, filter]);
+    }, [groupedExpeditions, filter]);
 
     const stats = useMemo(() => {
         const totalSaida = filteredExpeditions.reduce((acc, e) => acc + e.total_packages, 0);
@@ -62,6 +81,22 @@ const RtsView: React.FC = () => {
             playAudio('error');
             alert(result.message);
         }
+    };
+
+    const handlePendingScan = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!scannerInputPending || !selectedExpedition) {
+            playAudio('error');
+            return;
+        }
+        const cleanTbr = scannerInputPending.trim().toUpperCase();
+        if (!scannedTbrsPending.includes(cleanTbr)) {
+            setScannedTbrsPending(prev => [cleanTbr, ...prev]);
+            playAudio('success');
+        } else {
+            playAudio('error');
+        }
+        setScannerInputPending('');
     };
 
     const handlePrint = () => {
@@ -134,62 +169,75 @@ const RtsView: React.FC = () => {
             </div>
 
             {/* Controls */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-white dark:bg-card-dark p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800">
+            <div className="flex flex-col xl:flex-row gap-4">
+                <div className="xl:w-1/4 bg-white dark:bg-card-dark p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800">
                     <div className="flex items-center gap-2 mb-3 text-primary">
-                        <span className="material-icons-round">filter_list</span>
-                        <h2 className="font-bold">Filtrar Expedições</h2>
+                        <span className="material-icons-round text-sm">filter_list</span>
+                        <h2 className="font-bold text-sm">Filtro</h2>
                     </div>
                     <input
                         type="text"
-                        placeholder="Buscar por motorista, placa ou data..."
+                        placeholder="Nome, placa..."
                         value={filter}
                         onChange={(e) => setFilter(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none transition-all dark:text-white"
+                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-primary outline-none transition-all dark:text-white"
                     />
                 </div>
 
-                <div className="bg-white dark:bg-card-dark p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800">
-                    <div className="flex items-center gap-2 mb-3 text-orange-500">
-                        <span className="material-icons-round">qr_code_scanner</span>
-                        <h2 className="font-bold">Verificar Devolução</h2>
+                <div className="flex-1 bg-white dark:bg-card-dark p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800">
+                    <div className="flex flex-wrap items-center justify-between gap-4 mb-3">
+                        <div className="flex items-center gap-2 text-orange-500">
+                            <span className="material-icons-round text-sm">qr_code_scanner</span>
+                            <h2 className="font-bold text-sm">Verificar & Pendentes</h2>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <select
+                                value={selectedExpedition || ''}
+                                onChange={(e) => setSelectedExpedition(e.target.value)}
+                                className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm outline-none dark:text-white"
+                            >
+                                <option value="">Selecione o Motorista</option>
+                                {groupedExpeditions.filter(e => e.status !== 'FINALIZADO').map(e => (
+                                    <option key={e.id} value={e.id}>
+                                        {e.driver_name} ({e.plate})
+                                    </option>
+                                ))}
+                            </select>
+                            <button
+                                type="button"
+                                onClick={handlePrint}
+                                disabled={!selectedExpedition}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${selectedExpedition ? 'bg-slate-700 hover:bg-slate-800 text-white cursor-pointer' : 'bg-slate-200 text-slate-400 cursor-not-allowed dark:bg-slate-800 dark:text-slate-600'}`}
+                            >
+                                <span className="material-icons-round text-xs">print</span>
+                                COMPROVANTE
+                            </button>
+                        </div>
                     </div>
-                    <form onSubmit={handleVerifyScan} className="flex gap-2">
-                        <select
-                            value={selectedExpedition || ''}
-                            onChange={(e) => setSelectedExpedition(e.target.value)}
-                            className="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2 outline-none dark:text-white"
-                        >
-                            <option value="">Selecione o Motorista</option>
-                            {expeditions.filter(e => e.status !== 'FINALIZADO').map(e => (
-                                <option key={e.id} value={e.id}>
-                                    {e.driver_name} ({e.plate})
-                                </option>
-                            ))}
-                        </select>
-                        <input
-                            type="text"
-                            placeholder="Scan TBR..."
-                            value={scannerInput}
-                            onChange={(e) => setScannerInput(e.target.value)}
-                            className="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-orange-500 outline-none transition-all dark:text-white"
-                        />
-                        <button
-                            type="submit"
-                            className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg font-bold"
-                        >
-                            OK
-                        </button>
-                        <button
-                            type="button"
-                            onClick={handlePrint}
-                            disabled={!selectedExpedition}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-all ${selectedExpedition ? 'bg-slate-700 hover:bg-slate-800 text-white cursor-pointer' : 'bg-slate-200 text-slate-400 cursor-not-allowed dark:bg-slate-800 dark:text-slate-600'}`}
-                        >
-                            <span className="material-icons-round text-sm">print</span>
-                            COMPROVANTE
-                        </button>
-                    </form>
+
+                    <div className="flex flex-col sm:flex-row gap-4">
+                        <form onSubmit={handleVerifyScan} className="flex-1 flex gap-2">
+                            <input
+                                type="text"
+                                placeholder="Scan Devolução..."
+                                value={scannerInput}
+                                onChange={(e) => setScannerInput(e.target.value)}
+                                className="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-orange-500 outline-none transition-all dark:text-white"
+                            />
+                            <button type="submit" className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg font-bold text-sm">DEV</button>
+                        </form>
+
+                        <form onSubmit={handlePendingScan} className="flex-1 flex gap-2">
+                            <input
+                                type="text"
+                                placeholder="Scan Pendente..."
+                                value={scannerInputPending}
+                                onChange={(e) => setScannerInputPending(e.target.value)}
+                                className="flex-1 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-700/50 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white"
+                            />
+                            <button type="submit" className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-bold text-sm">PEN</button>
+                        </form>
+                    </div>
                 </div>
             </div>
 
@@ -222,11 +270,11 @@ const RtsView: React.FC = () => {
                 <div className="grid grid-cols-2 gap-8 mb-8">
                     <div className="bg-slate-50 p-4 rounded border border-slate-200">
                         <p className="text-[10px] font-bold uppercase text-slate-400 mb-1">Motorista</p>
-                        <p className="text-lg font-bold uppercase">{expeditions.find(e => e.id === selectedExpedition)?.driver_name || 'NÃO SELECIONADO'}</p>
+                        <p className="text-lg font-bold uppercase">{groupedExpeditions.find(e => e.id === selectedExpedition)?.driver_name || 'NÃO SELECIONADO'}</p>
                     </div>
                     <div className="bg-slate-50 p-4 rounded border border-slate-200">
                         <p className="text-[10px] font-bold uppercase text-slate-400 mb-1">Placa / Veículo</p>
-                        <p className="text-lg font-bold uppercase font-mono">{expeditions.find(e => e.id === selectedExpedition)?.plate || '---'}</p>
+                        <p className="text-lg font-bold uppercase font-mono">{groupedExpeditions.find(e => e.id === selectedExpedition)?.plate || '---'}</p>
                     </div>
                 </div>
 
@@ -234,35 +282,67 @@ const RtsView: React.FC = () => {
                 <div className="grid grid-cols-4 gap-4 mb-8">
                     <div className="text-center border py-3 rounded">
                         <p className="text-[9px] font-bold uppercase text-slate-500">Expedidos</p>
-                        <p className="text-xl font-bold">{expeditions.find(e => e.id === selectedExpedition)?.total_packages || 0}</p>
+                        <p className="text-xl font-bold">{groupedExpeditions.find(e => e.id === selectedExpedition)?.total_packages || 0}</p>
                     </div>
                     <div className="text-center border py-3 rounded">
                         <p className="text-[9px] font-bold uppercase text-slate-500">Entregues</p>
-                        <p className="text-xl font-bold text-emerald-600">{expeditions.find(e => e.id === selectedExpedition)?.delivered_count || 0}</p>
+                        <p className="text-xl font-bold text-emerald-600">{groupedExpeditions.find(e => e.id === selectedExpedition)?.delivered_count || 0}</p>
                     </div>
                     <div className="text-center border py-3 rounded">
                         <p className="text-[9px] font-bold uppercase text-slate-500">Devolvidos</p>
-                        <p className="text-xl font-bold text-orange-600">{expeditions.find(e => e.id === selectedExpedition)?.returned_count || 0}</p>
+                        <p className="text-xl font-bold text-orange-600">{groupedExpeditions.find(e => e.id === selectedExpedition)?.returned_count || 0}</p>
                     </div>
                     <div className="text-center border py-3 rounded">
                         <p className="text-[9px] font-bold uppercase text-slate-500">Pendentes</p>
                         <p className="text-xl font-bold text-blue-600">
-                            {(expeditions.find(e => e.id === selectedExpedition)?.total_packages || 0) -
-                                ((expeditions.find(e => e.id === selectedExpedition)?.delivered_count || 0) +
-                                    (expeditions.find(e => e.id === selectedExpedition)?.returned_count || 0))}
+                            {(groupedExpeditions.find(e => e.id === selectedExpedition)?.total_packages || 0) -
+                                ((groupedExpeditions.find(e => e.id === selectedExpedition)?.delivered_count || 0) +
+                                    (groupedExpeditions.find(e => e.id === selectedExpedition)?.returned_count || 0))}
                         </p>
                     </div>
                 </div>
 
-                {/* Scanned Items */}
+                {/* Scanned Items: Returns */}
+                <div className="mb-8">
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-slate-700 bg-slate-100 p-2 mb-4">Lista de Pacotes Devolvidos (Total do Dia)</h3>
+                    {(() => {
+                        const driver = groupedExpeditions.find(e => e.id === selectedExpedition)?.driver_name;
+                        const today = new Date().toISOString().split('T')[0];
+
+                        // Find all items dispatched to this driver today
+                        const driverTbrs = outboundItems
+                            .filter(o => o.driverName === driver && o.createdAt?.startsWith(today))
+                            .map(o => o.id);
+
+                        // From those, find which ones are now back in stock
+                        const returnedItems = stockItems.filter(item =>
+                            driverTbrs.includes(item.id) &&
+                            item.status === 'Em Estoque'
+                        );
+
+                        if (returnedItems.length === 0) {
+                            return <p className="text-xs italic text-slate-400">Nenhum pacote devolvido encontrado para este motorista hoje.</p>;
+                        }
+
+                        return (
+                            <div className="grid grid-cols-4 gap-2">
+                                {returnedItems.map((item, idx) => (
+                                    <div key={idx} className="font-mono text-[10px] border p-1 text-center bg-slate-50">{item.id}</div>
+                                ))}
+                            </div>
+                        );
+                    })()}
+                </div>
+
+                {/* Scanned Items: Pending */}
                 <div className="mb-12">
-                    <h3 className="text-xs font-bold uppercase tracking-widest text-slate-700 bg-slate-100 p-2 mb-4">Lista de Pacotes Devolvidos (Escaneados agora)</h3>
-                    {scannedTbrs.length === 0 ? (
-                        <p className="text-xs italic text-slate-400">Nenhum pacote escaneado nesta sessão.</p>
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-blue-700 bg-blue-50 p-2 mb-4 border-l-4 border-blue-500">Lista de Pacotes Pendentes (Acompanhamento)</h3>
+                    {scannedTbrsPending.length === 0 ? (
+                        <p className="text-xs italic text-slate-400">Nenhum pacote pendente escaneado.</p>
                     ) : (
                         <div className="grid grid-cols-4 gap-2">
-                            {scannedTbrs.map((tbr, idx) => (
-                                <div key={idx} className="font-mono text-[10px] border p-1 text-center bg-slate-50">{tbr}</div>
+                            {scannedTbrsPending.map((tbr, idx) => (
+                                <div key={idx} className="font-mono text-[10px] border p-1 text-center bg-blue-50/50 text-blue-900 border-blue-100">{tbr}</div>
                             ))}
                         </div>
                     )}
@@ -314,32 +394,39 @@ const RtsView: React.FC = () => {
                                 </tr>
                             ) : (
                                 filteredExpeditions.map((e) => {
-                                    const pending = e.total_packages - (e.delivered_count + e.returned_count);
+                                    const pending = (e.total_packages || 0) - ((e.delivered_count || 0) + (e.returned_count || 0));
                                     return (
                                         <tr key={e.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/30 transition-colors">
-                                            <td className="px-6 py-4 font-bold text-slate-800 dark:text-white">{e.driver_name}</td>
-                                            <td className="px-6 py-4 text-slate-600 dark:text-slate-400">{e.plate}</td>
-                                            <td className="px-6 py-4 text-slate-600 dark:text-slate-400">{e.dispatch_date}</td>
+                                            <td className="px-6 py-4 font-bold text-slate-800 dark:text-white group">
+                                                <div className="flex flex-col">
+                                                    <span>{e.driver_name}</span>
+                                                    <span className="text-[10px] font-normal text-slate-400 uppercase tracking-tighter">Motorista Agr.</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 text-slate-600 dark:text-slate-400 font-mono text-xs">{e.plate}</td>
+                                            <td className="px-6 py-4 text-slate-600 dark:text-slate-400 text-xs">{e.dispatch_date}</td>
                                             <td className="px-6 py-4 text-center">
-                                                <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-2 py-1 rounded-md font-bold">
+                                                <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-2 py-1 rounded-md font-bold text-sm">
                                                     {e.total_packages}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 text-center">
-                                                <input
-                                                    type="number"
-                                                    value={e.delivered_count}
-                                                    onChange={(ev) => updateExpeditionDelivered(e.id, parseInt(ev.target.value) || 0)}
-                                                    className="w-20 text-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded p-1 dark:text-white focus:ring-1 focus:ring-primary outline-none"
-                                                />
+                                                <div className="flex flex-col items-center gap-1">
+                                                    <input
+                                                        type="number"
+                                                        value={e.delivered_count}
+                                                        onChange={(ev) => updateExpeditionDelivered(e.id, parseInt(ev.target.value) || 0)}
+                                                        className="w-16 text-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded p-1 text-xs dark:text-white focus:ring-1 focus:ring-primary outline-none"
+                                                    />
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4 text-center">
-                                                <span className="bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 px-2 py-1 rounded-md font-bold">
+                                                <span className="bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 px-2 py-1 rounded-md font-bold text-sm">
                                                     {e.returned_count}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 text-center">
-                                                <span className={`px-2 py-1 rounded-md font-bold ${pending === 0 ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600' : 'bg-red-100 dark:bg-red-900/30 text-red-600'}`}>
+                                                <span className={`px-2 py-1 rounded-md font-bold text-sm ${pending === 0 ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600' : 'bg-red-100 dark:bg-red-900/30 text-red-600'}`}>
                                                     {pending}
                                                 </span>
                                             </td>
