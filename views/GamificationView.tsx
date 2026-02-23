@@ -374,12 +374,12 @@ const GamificationView: React.FC = () => {
             <div className="bg-white dark:bg-card-dark p-4 rounded-lg shadow-sm border border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                     <span className="material-icons-round text-primary">emoji_events</span>
-                    <h2 className="font-display font-bold tracking-widest uppercase text-sm">Filtro de Ranking por Per\u00edodo</h2>
+                    <h2 className="font-display font-bold tracking-widest uppercase text-sm">{"Filtro de Ranking por Per\u00edodo"}</h2>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-4">
                     <div className="flex items-center gap-2">
-                        <label className="text-[10px] font-bold uppercase text-slate-500">In\u00edcio</label>
+                        <label className="text-[10px] font-bold uppercase text-slate-500">{"In\u00edcio"}</label>
                         <input
                             type="date"
                             value={startDate}
@@ -543,10 +543,10 @@ const GamificationView: React.FC = () => {
                             <tr className="bg-slate-50 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider">
                                 <th className="px-6 py-4 font-semibold text-center w-16">Rank</th>
                                 <th className="px-6 py-4 font-semibold">Colaborador</th>
-                                <th className="px-6 py-4 font-semibold text-center">N\u00edvel</th>
+                                <th className="px-6 py-4 font-semibold text-center">{"N\u00edvel"}</th>
                                 <th className="px-6 py-4 font-semibold text-right">SPR</th>
                                 <th className="px-6 py-4 font-semibold text-right">XP</th>
-                                <th className="px-6 py-4 font-semibold text-right">Efici\u00eancia</th>
+                                <th className="px-6 py-4 font-semibold text-right">{"Efici\u00eancia"}</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
@@ -648,7 +648,7 @@ const GamificationView: React.FC = () => {
             {/* === LEVEL PROGRESSION === */}
             <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
                 <h3 className="font-display font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest text-sm mb-6">
-                    {"\uD83D\uDCCA"} Progress\u00e3o de N\u00edveis
+                    {"\uD83D\uDCCA"} {"Progress\u00e3o de N\u00edveis"}
                 </h3>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                     {LEVELS.map(level => {
@@ -682,7 +682,7 @@ const GamificationView: React.FC = () => {
             {(currentUser?.role === 'admin' || currentUser?.role === 'superadmin' || currentUser?.role === 'supervisor' || currentUser?.role === 'coordinator') && (
                 <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
                     <h3 className="font-display font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest text-sm mb-4">
-                        {"\uD83D\uDEE1\uFE0F"} Anti-Fraude \u2014 Alertas
+                        {"\uD83D\uDEE1\uFE0F"} {"Anti-Fraude \u2014 Alertas"}
                     </h3>
                     {(() => {
                         const flagged = ranking.filter(p => p.fraudFlag);
