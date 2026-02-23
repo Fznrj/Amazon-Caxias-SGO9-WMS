@@ -15,11 +15,13 @@ const RtsView: React.FC = () => {
     const [scannedTbrs, setScannedTbrs] = useState<string[]>([]);
 
     const filteredExpeditions = useMemo(() => {
-        return expeditions.filter(e =>
-            e.driver_name.toLowerCase().includes(filter.toLowerCase()) ||
-            e.plate.toLowerCase().includes(filter.toLowerCase()) ||
-            e.dispatch_date.includes(filter)
-        );
+        return expeditions.filter(e => {
+            const search = filter.toLowerCase();
+            const nameMatch = (e.driver_name || '').toLowerCase().includes(search);
+            const plateMatch = (e.plate || '').toLowerCase().includes(search);
+            const dateMatch = (e.dispatch_date || '').includes(search);
+            return nameMatch || plateMatch || dateMatch;
+        });
     }, [expeditions, filter]);
 
     const stats = useMemo(() => {
