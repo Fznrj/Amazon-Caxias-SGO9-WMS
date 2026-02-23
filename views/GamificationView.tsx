@@ -703,7 +703,7 @@ const GamificationView: React.FC = () => {
                                                 <span className="material-icons-round text-red-500">warning</span>
                                                 <div>
                                                     <p className="font-bold text-sm text-red-600 dark:text-red-400">{p.userName}</p>
-                                                    <p className="text-[10px] text-red-400">XP reduzido em 20% • Em observa\u00e7\u00e3o</p>
+                                                    <p className="text-[10px] text-red-400">{"XP reduzido em 20% \u2022 Em observa\u00e7\u00e3o"}</p>
                                                 </div>
                                             </div>
                                             <button
