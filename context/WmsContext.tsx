@@ -507,7 +507,14 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         // 4. Aggregate Expeditions (Delivered & RTS)
         expeditions.forEach(e => {
             if (!e.dispatch_date) return;
-            const key = e.dispatch_date; // Assuming dispatch_date is YYYY-MM-DD
+            // dispatch_date is YYYY-MM-DD, convert to DD/MM/YYYY to match days.dateKey if needed or vice versa
+            // Let's standardize to DD/MM/YYYY for matching
+            let key = e.dispatch_date;
+            if (key.includes('-')) {
+                const [y, m, d] = key.split('-');
+                key = `${d}/${m}/${y}`;
+            }
+
             const day = days.find(d => d.dateKey === key);
             if (day) {
                 day.entregues += (e.delivered_count || 0);
