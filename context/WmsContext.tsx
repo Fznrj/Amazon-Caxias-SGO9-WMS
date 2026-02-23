@@ -257,6 +257,9 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // --- Treatments State ---
     const [treatmentItems, setTreatmentItems] = useState<TreatmentItem[]>([]);
 
+    // --- RTS State ---
+    const [expeditions, setExpeditions] = useState<ExpeditionItem[]>([]);
+
     // --- Weekly Stats State ---
 
     // --- Local Storage Keys ---
@@ -315,7 +318,8 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 supabase.from('drivers').select('*').eq('company_id', companyId),
                 supabase.from('incidents').select('*').eq('company_id', companyId).order('created_at', { ascending: false }),
                 supabase.from('system_configs').select('expected_inbound').eq('company_id', companyId).maybeSingle(),
-                supabase.from('inventory_log').select('*').eq('company_id', companyId)
+                supabase.from('inventory_log').select('*').eq('company_id', companyId),
+                supabase.from('expeditions').select('*').eq('company_id', companyId).order('dispatch_date', { ascending: false })
             ]);
 
             // Handle Stock
@@ -414,6 +418,22 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             // Handle Inventory
             if (invE) console.error('WmsContext: Inventory fetch error:', invE);
             else if (inventory) setInventoryItems(inventory);
+
+            // Handle Expeditions (RTS)
+            const { data: expData, error: expE } = (await supabase.from('expeditions').select('*').eq('company_id', currentUser.company_id).order('dispatch_date', { ascending: false }));
+            if (expE) console.error('WmsContext: Expeditions fetch error:', expE);
+            else if (expData) {
+                setExpeditions(expData.map(e => ({
+                    id: e.id,
+                    driver_name: e.driver_name,
+                    plate: e.plate,
+                    dispatch_date: e.dispatch_date,
+                    total_packages: e.total_packages,
+                    delivered_count: e.delivered_count,
+                    returned_count: e.returned_count,
+                    status: e.status
+                })));
+            }
 
             // Initialize Gamification
             await gamificationService.init(companyId);
