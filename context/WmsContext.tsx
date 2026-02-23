@@ -466,17 +466,17 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const days: { dateKey: string; name: string; entradas: number; saidas: number; reversas: number; entregues: number; rts: number }[] = [];
         const today = getTodayDate();
 
-        // 1. Initialize stable 7-day array (UTC-3)
+        const dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
         for (let i = 6; i >= 0; i--) {
             const d = new Date(today);
             d.setDate(today.getDate() - i);
             const iso = getSaoPauloIso(d);
             const dateKey = getDateKey(iso);
-            const label = new Date(parseToDate(iso)).toLocaleDateString('pt-BR', { weekday: 'short', timeZone: 'America/Sao_Paulo' }).replace('.', '');
+            const dayLabel = dayNames[d.getDay()];
 
             days.push({
                 dateKey,
-                name: label.charAt(0).toUpperCase() + label.slice(1),
+                name: dayLabel,
                 entradas: 0,
                 saidas: 0,
                 reversas: 0,
