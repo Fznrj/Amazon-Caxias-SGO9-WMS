@@ -22,9 +22,12 @@ const RtsView: React.FC = () => {
     const groupedExpeditions = useMemo(() => {
         const groups: Record<string, any> = {};
         expeditions.forEach(e => {
-            const key = `${e.driver_name}-${e.plate}-${e.dispatch_date}`;
+            // Sanitize plate: remove extra closing parentheses or spaces
+            const cleanPlate = (e.plate || '').replace(/\)+$/, '').trim();
+            const key = `${e.driver_name}-${cleanPlate}-${e.dispatch_date}`;
+
             if (!groups[key]) {
-                groups[key] = { ...e };
+                groups[key] = { ...e, plate: cleanPlate };
             } else {
                 groups[key].total_packages += (e.total_packages || 0);
                 groups[key].delivered_count += (e.delivered_count || 0);
@@ -36,6 +39,10 @@ const RtsView: React.FC = () => {
 
     const filteredExpeditions = useMemo(() => {
         return groupedExpeditions.filter(e => {
+            // NEW: Hide drivers with 0 pending items
+            const pending = (e.total_packages || 0) - ((e.delivered_count || 0) + (e.returned_count || 0));
+            if (pending <= 0) return false;
+
             const search = filter.toLowerCase();
             const nameMatch = (e.driver_name || '').toLowerCase().includes(search);
             const plateMatch = (e.plate || '').toLowerCase().includes(search);
@@ -48,12 +55,14 @@ const RtsView: React.FC = () => {
         const totalSaida = filteredExpeditions.reduce((acc, e) => acc + e.total_packages, 0);
         const totalEntregue = filteredExpeditions.reduce((acc, e) => acc + e.delivered_count, 0);
         const totalRts = filteredExpeditions.reduce((acc, e) => acc + e.returned_count, 0);
+        const totalPendente = totalSaida - (totalEntregue + totalRts);
         const rtsDrivers = new Set(filteredExpeditions.filter(e => e.returned_count > 0).map(e => e.driver_name));
 
         return {
             totalSaida,
             totalEntregue,
             totalRts,
+            totalPendente,
             totalMotoristasRts: rtsDrivers.size
         };
     }, [filteredExpeditions]);
@@ -90,6 +99,21 @@ const RtsView: React.FC = () => {
             return;
         }
         const cleanTbr = scannerInputPending.trim().toUpperCase();
+
+        // Validation: Block if already returned (in session or in DB today)
+        const driver = groupedExpeditions.find(exp => exp.id === selectedExpedition)?.driver_name;
+        const today = new Date().toISOString().split('T')[0];
+        const isReturnedInDb = stockItems.some(item =>
+            item.id === cleanTbr && item.status === 'Em Estoque'
+        );
+
+        if (scannedTbrs.includes(cleanTbr) || isReturnedInDb) {
+            playAudio('error');
+            alert(`ATENÇÃO: Este pacote (${cleanTbr}) já foi bipado como DEVOLUÇÃO e está no estoque.`);
+            setScannerInputPending('');
+            return;
+        }
+
         if (!scannedTbrsPending.includes(cleanTbr)) {
             setScannedTbrsPending(prev => [cleanTbr, ...prev]);
             playAudio('success');
@@ -143,9 +167,9 @@ const RtsView: React.FC = () => {
                     <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Total RTS</p>
                     <p className="text-2xl font-display font-bold text-orange-500 mt-1">{stats.totalRts}</p>
                 </div>
-                <div className="bg-white dark:bg-card-dark p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 border-l-4 border-purple-500">
-                    <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Total Motorista RTS</p>
-                    <p className="text-2xl font-display font-bold text-purple-500 mt-1">{stats.totalMotoristasRts}</p>
+                <div className="bg-white dark:bg-card-dark p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 border-l-4 border-red-500">
+                    <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Total Pendente</p>
+                    <p className="text-2xl font-display font-bold text-red-500 mt-1">{stats.totalPendente}</p>
                 </div>
             </div>
 
@@ -197,7 +221,10 @@ const RtsView: React.FC = () => {
                                 className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm outline-none dark:text-white"
                             >
                                 <option value="">Selecione o Motorista</option>
-                                {groupedExpeditions.filter(e => e.status !== 'FINALIZADO').map(e => (
+                                {groupedExpeditions.filter(e => {
+                                    const pending = (e.total_packages || 0) - ((e.delivered_count || 0) + (e.returned_count || 0));
+                                    return e.status !== 'FINALIZADO' && pending > 0;
+                                }).map(e => (
                                     <option key={e.id} value={e.id}>
                                         {e.driver_name} ({e.plate})
                                     </option>
