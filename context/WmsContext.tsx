@@ -619,6 +619,10 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         loadInitialData();
         playAudio('success');
+
+        // Sync with RTS Expeditions
+        await syncExpedition(enrichedItem.driverName, enrichedItem.vehicle, 1);
+
         return { success: true };
     };
 
@@ -648,7 +652,6 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         // 2. Bulk Update stock_items status and pallet_id
         const ids = items.map(i => i.id);
-        // Note: For Reversa, all items in the batch usually share the same palletId
         const batchPalletId = (items[0] as any).palletId;
 
         const { error: updE } = await supabase.from('stock_items')
@@ -661,7 +664,6 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         if (updE) {
             console.error('WmsContext: Error bulk updating stock status:', updE);
-            // We don't return here because the logs were already inserted
         }
 
         // 3. Register scans in gamification
@@ -671,6 +673,12 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         loadInitialData();
         playAudio('success');
+
+        // Sync with RTS Expeditions
+        if (items.length > 0) {
+            await syncExpedition(items[0].driverName, items[0].vehicle, items.length);
+        }
+
         return { success: true };
     };
 
