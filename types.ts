@@ -11,6 +11,7 @@ export enum View {
   USERS = 'USERS',
   DRIVERS = 'DRIVERS',
   REVERSA = 'REVERSA', // Added Reversa view
+  RTS = 'RTS', // New Return to Station view
   GAMIFICATION = 'GAMIFICATION',
   SETTINGS = 'SETTINGS'
 }
