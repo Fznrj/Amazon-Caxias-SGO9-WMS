@@ -847,7 +847,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             .eq('company_id', currentUser.company_id);
 
         loadInitialData();
-        return { success: true };
+        return { success: true, message: 'Retorno verificado com sucesso.' };
     };
 
     const deleteDriver = async (id: string) => {
@@ -1285,6 +1285,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             startInventory, stopInventory, localizeItem,
             drivers, addDriver, bulkAddDrivers, updateDriver, deleteDriver,
             treatmentItems, addTreatment, updateTreatmentStatus, updateTreatment,
+            expeditions, updateExpeditionDelivered, verifyReturn,
             totalInboundToday, totalOutboundToday, totalReversaToday, totalInventoryScanned, totalLossItems, staleItemsCount,
             weeklyStats,
             resetTransactions,
