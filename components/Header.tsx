@@ -23,7 +23,8 @@ const Header: React.FC<HeaderProps> = ({ viewTitle, isOffline, onToggleOffline }
     [View.DRIVERS]: 'Gestão de Motoristas',
     [View.SETTINGS]: 'Configurações',
     [View.REVERSA]: 'Módulo de Logística Reversa',
-    [View.GAMIFICATION]: 'Painel de Gamificação e Performance'
+    [View.GAMIFICATION]: 'Painel de Gamificação e Performance',
+    [View.RTS]: 'RTS (Return to Station)'
   };
 
   return (
