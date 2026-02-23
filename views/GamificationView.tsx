@@ -327,7 +327,7 @@ const GamificationView: React.FC = () => {
                     }
 
                     if (idx > 0 && p.currentLevel === 'Desafiante') {
-                        p.currentLevel = 'Grão-Mestre';
+                        p.currentLevel = 'Gr\u00e3o-Mestre';
                     }
                 });
             }
@@ -374,7 +374,7 @@ const GamificationView: React.FC = () => {
             <div className="bg-white dark:bg-card-dark p-4 rounded-lg shadow-sm border border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                     <span className="material-icons-round text-primary">emoji_events</span>
-                    <h2 className="font-display font-bold tracking-widest uppercase text-sm">Filtro de Ranking por Período</h2>
+                    <h2 className="font-display font-bold tracking-widest uppercase text-sm">Filtro de Ranking por Per\u00edodo</h2>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-4">
@@ -452,7 +452,7 @@ const GamificationView: React.FC = () => {
                             </span>
                             {myProfile?.fraudFlag && (
                                 <span className="px-2 py-1 bg-red-500/20 text-red-400 border border-red-500 rounded-full text-[10px] font-bold uppercase">
-                                    ⚠️ Observação
+                                    {"\u26A0\uFE0F"} Observa\u00e7\u00e3o
                                 </span>
                             )}
                         </div>
@@ -482,7 +482,7 @@ const GamificationView: React.FC = () => {
                                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-pulse" />
                             </div>
                             <p className="text-[10px] text-slate-500 mt-1">
-                                {nextLevel ? `${xpProgress}% para ${nextLevel.name}` : 'Nível máximo atingido!'}
+                                {nextLevel ? `${xpProgress}% para ${nextLevel.name}` : 'N\u00edvel m\u00e1ximo atingido!'}
                             </p>
                         </div>
                     </div>
@@ -531,7 +531,7 @@ const GamificationView: React.FC = () => {
             <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm overflow-hidden border border-slate-200 dark:border-slate-700">
                 <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
                     <h3 className="font-display font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest text-sm">
-                        🏆 Ranking {isComparisonMode ? ' do Período' : ' Hoje'}
+                        {"\uD83C\uDFC6"} Ranking {isComparisonMode ? ' do Per\u00edodo' : ' Hoje'}
                     </h3>
                     <span className="text-[10px] text-slate-400 font-mono">
                         {new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase()}
@@ -543,10 +543,10 @@ const GamificationView: React.FC = () => {
                             <tr className="bg-slate-50 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider">
                                 <th className="px-6 py-4 font-semibold text-center w-16">Rank</th>
                                 <th className="px-6 py-4 font-semibold">Colaborador</th>
-                                <th className="px-6 py-4 font-semibold text-center">Nível</th>
+                                <th className="px-6 py-4 font-semibold text-center">N\u00edvel</th>
                                 <th className="px-6 py-4 font-semibold text-right">SPR</th>
                                 <th className="px-6 py-4 font-semibold text-right">XP</th>
-                                <th className="px-6 py-4 font-semibold text-right">Eficiência</th>
+                                <th className="px-6 py-4 font-semibold text-right">Efici\u00eancia</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
@@ -560,9 +560,9 @@ const GamificationView: React.FC = () => {
                                     return (
                                         <tr key={profile.userId} className={`hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors ${profile.userName === currentUser?.name ? 'bg-primary/5 dark:bg-primary/10' : ''}`}>
                                             <td className="px-6 py-4 text-center">
-                                                {idx === 0 ? <span className="text-2xl">🥇</span>
-                                                    : idx === 1 ? <span className="text-2xl">🥈</span>
-                                                        : idx === 2 ? <span className="text-2xl">🥉</span>
+                                                {idx === 0 ? <span className="text-2xl">{"\uD83E\uDD47"}</span>
+                                                    : idx === 1 ? <span className="text-2xl">{"\uD83E\uDD48"}</span>
+                                                        : idx === 2 ? <span className="text-2xl">{"\uD83E\uDD49"}</span>
                                                             : <span className="text-sm font-bold text-slate-400">#{idx + 1}</span>}
                                             </td>
                                             <td className="px-6 py-4">
@@ -572,7 +572,7 @@ const GamificationView: React.FC = () => {
                                                     </div>
                                                     <div>
                                                         <p className="font-semibold text-sm text-slate-700 dark:text-slate-200">{profile.userName}</p>
-                                                        {profile.fraudFlag && <span className="text-[9px] text-red-400 font-bold">⚠️ Observação</span>}
+                                                        {profile.fraudFlag && <span className="text-[9px] text-red-400 font-bold">{"\u26A0\uFE0F"} Observa\u00e7\u00e3o</span>}
                                                     </div>
                                                 </div>
                                             </td>
@@ -600,7 +600,7 @@ const GamificationView: React.FC = () => {
             {/* === ACHIEVEMENTS === */}
             <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
                 <h3 className="font-display font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest text-sm mb-6">
-                    🎖️ Conquistas
+                    {"\uD83C\uDF96\uFE0F"} Conquistas
                 </h3>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                     {(myProfile?.badges || []).map(badge => {
@@ -648,7 +648,7 @@ const GamificationView: React.FC = () => {
             {/* === LEVEL PROGRESSION === */}
             <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
                 <h3 className="font-display font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest text-sm mb-6">
-                    📊 Progressão de Níveis
+                    {"\uD83D\uDCCA"} Progress\u00e3o de N\u00edveis
                 </h3>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                     {LEVELS.map(level => {
@@ -682,7 +682,7 @@ const GamificationView: React.FC = () => {
             {(currentUser?.role === 'admin' || currentUser?.role === 'superadmin' || currentUser?.role === 'supervisor' || currentUser?.role === 'coordinator') && (
                 <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
                     <h3 className="font-display font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest text-sm mb-4">
-                        🛡️ Anti-Fraude — Alertas
+                        {"\uD83D\uDEE1\uFE0F"} Anti-Fraude \u2014 Alertas
                     </h3>
                     {(() => {
                         const flagged = ranking.filter(p => p.fraudFlag);
