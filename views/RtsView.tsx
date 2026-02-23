@@ -6,7 +6,8 @@ const RtsView: React.FC = () => {
         expeditions,
         updateExpeditionDelivered,
         verifyReturn,
-        playAudio
+        playAudio,
+        currentUser
     } = useWms();
 
     const [filter, setFilter] = useState('');

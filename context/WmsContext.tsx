@@ -416,10 +416,6 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             if (confE) console.error('WmsContext: Config fetch error:', confE);
             else if (config?.expected_inbound) _setExpectedInboundList(config.expected_inbound);
 
-            // Handle Inventory
-            if (invE) console.error('WmsContext: Inventory fetch error:', invE);
-            else if (inventory) setInventoryItems(inventory);
-
             // Handle Expeditions (RTS)
             if (expE) console.error('WmsContext: Expeditions fetch error:', expE);
             else if (expData) {
