@@ -531,7 +531,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             totalOutboundToday: currentDay.saidas,
             totalReversaToday: currentDay.reversas
         };
-    }, [inboundItems, outboundItems]);
+    }, [inboundItems, outboundItems, expeditions]);
 
     // Use derived values for backward compatibility
     const weeklyStats = statsSummary.weeklyStats;

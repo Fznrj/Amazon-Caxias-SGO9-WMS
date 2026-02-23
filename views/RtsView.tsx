@@ -22,20 +22,43 @@ const RtsView: React.FC = () => {
     const groupedExpeditions = useMemo(() => {
         const groups: Record<string, any> = {};
         expeditions.forEach(e => {
-            // Sanitize plate: remove extra closing parentheses or spaces
-            const cleanPlate = (e.plate || '').replace(/\)+$/, '').trim();
-            const key = `${e.driver_name}-${cleanPlate}-${e.dispatch_date}`;
+            // Group by Driver and Date only (ignoring plate) to handle typos/duplicates
+            const key = `${(e.driver_name || '').trim()}-${e.dispatch_date}`;
 
             if (!groups[key]) {
-                groups[key] = { ...e, plate: cleanPlate };
+                const cleanPlate = (e.plate || '').replace(/\)+$/, '').trim();
+                groups[key] = {
+                    ...e,
+                    plate: cleanPlate,
+                    total_packages: Number(e.total_packages || 0),
+                    delivered_count: Number(e.delivered_count || 0),
+                    returned_count: Number(e.returned_count || 0)
+                };
             } else {
-                groups[key].total_packages += (e.total_packages || 0);
-                groups[key].delivered_count += (e.delivered_count || 0);
-                groups[key].returned_count += (e.returned_count || 0);
+                groups[key].total_packages += Number(e.total_packages || 0);
+                groups[key].delivered_count += Number(e.delivered_count || 0);
+                groups[key].returned_count += Number(e.returned_count || 0);
             }
         });
         return Object.values(groups);
     }, [expeditions]);
+
+    const stats = useMemo(() => {
+        // Stats show GLOBAL totals for the day (all grouped expeditions)
+        const totalSaida = groupedExpeditions.reduce((acc, e) => acc + (e.total_packages || 0), 0);
+        const totalEntregue = groupedExpeditions.reduce((acc, e) => acc + (e.delivered_count || 0), 0);
+        const totalRts = groupedExpeditions.reduce((acc, e) => acc + (e.returned_count || 0), 0);
+        const totalPendente = totalSaida - (totalEntregue + totalRts);
+        const rtsDrivers = new Set(groupedExpeditions.filter(e => (e.returned_count || 0) > 0).map(e => e.driver_name));
+
+        return {
+            totalSaida,
+            totalEntregue,
+            totalRts,
+            totalPendente,
+            totalMotoristasRts: rtsDrivers.size
+        };
+    }, [groupedExpeditions]);
 
     const filteredExpeditions = useMemo(() => {
         return groupedExpeditions.filter(e => {
@@ -50,22 +73,6 @@ const RtsView: React.FC = () => {
             return nameMatch || plateMatch || dateMatch;
         });
     }, [groupedExpeditions, filter]);
-
-    const stats = useMemo(() => {
-        const totalSaida = filteredExpeditions.reduce((acc, e) => acc + e.total_packages, 0);
-        const totalEntregue = filteredExpeditions.reduce((acc, e) => acc + e.delivered_count, 0);
-        const totalRts = filteredExpeditions.reduce((acc, e) => acc + e.returned_count, 0);
-        const totalPendente = totalSaida - (totalEntregue + totalRts);
-        const rtsDrivers = new Set(filteredExpeditions.filter(e => e.returned_count > 0).map(e => e.driver_name));
-
-        return {
-            totalSaida,
-            totalEntregue,
-            totalRts,
-            totalPendente,
-            totalMotoristasRts: rtsDrivers.size
-        };
-    }, [filteredExpeditions]);
 
     const handleVerifyScan = async (e: React.FormEvent) => {
         e.preventDefault();
