@@ -14,6 +14,7 @@ import TreatmentView from './views/TreatmentView';
 import ReportsView from './views/ReportView';
 import RegisterView from './views/RegisterView';
 import DriversView from './views/DriversView';
+import RtsView from './views/RtsView';
 import GamificationView from './views/GamificationView';
 import PasswordResetModal from './components/PasswordResetModal';
 import { WmsProvider, useWms } from './context/WmsContext';
@@ -55,6 +56,7 @@ const AppContent: React.FC = () => {
       case View.TREATMENTS: return <TreatmentView />;
       case View.REPORTS: return <ReportsView />;
       case View.DRIVERS: return <DriversView />;
+      case View.RTS: return <RtsView />;
       case View.GAMIFICATION: return <GamificationView />;
       default: return <DashboardView onNavigate={setCurrentView} />;
     }

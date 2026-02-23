@@ -52,6 +52,17 @@ interface TreatmentItem {
     time: string;
 }
 
+interface ExpeditionItem {
+    id: string;
+    driver_name: string;
+    plate: string;
+    dispatch_date: string;
+    total_packages: number;
+    delivered_count: number;
+    returned_count: number;
+    status: 'EM_ROTA' | 'AGUARDANDO_RETORNO' | 'FINALIZADO';
+}
+
 // UserItem is now just User from types.ts
 // Removed legacy UserItem interface
 
@@ -112,6 +123,11 @@ interface WmsContextData {
     bulkAddDrivers: (drivers: Omit<Driver, 'id' | 'lastActivity'>[]) => Promise<void>;
     updateDriver: (id: string, updates: Partial<Driver>) => Promise<void>;
     deleteDriver: (id: string) => Promise<void>;
+
+    // RTS Management
+    expeditions: ExpeditionItem[];
+    updateExpeditionDelivered: (id: string, delivered: number) => Promise<void>;
+    verifyReturn: (tbrId: string, driverName: string) => Promise<{ success: boolean; message: string }>;
 
     // Stats
     adminResetPassword: (userId: string, newPassword: string) => Promise<{ success: boolean; message: string }>;
