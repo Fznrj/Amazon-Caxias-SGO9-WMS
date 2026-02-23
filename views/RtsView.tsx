@@ -21,6 +21,20 @@ const RtsView: React.FC = () => {
         );
     }, [expeditions, filter]);
 
+    const stats = useMemo(() => {
+        const totalSaida = filteredExpeditions.reduce((acc, e) => acc + e.total_packages, 0);
+        const totalEntregue = filteredExpeditions.reduce((acc, e) => acc + e.delivered_count, 0);
+        const totalRts = filteredExpeditions.reduce((acc, e) => acc + e.returned_count, 0);
+        const rtsDrivers = new Set(filteredExpeditions.filter(e => e.returned_count > 0).map(e => e.driver_name));
+
+        return {
+            totalSaida,
+            totalEntregue,
+            totalRts,
+            totalMotoristasRts: rtsDrivers.size
+        };
+    }, [filteredExpeditions]);
+
     const handleVerifyScan = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!scannerInput || !selectedExpedition) {
@@ -68,6 +82,26 @@ const RtsView: React.FC = () => {
 
     return (
         <div className="p-6 space-y-6 animate-in fade-in duration-500">
+            {/* KPI Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-white dark:bg-card-dark p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 border-l-4 border-blue-500">
+                    <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Total Saída</p>
+                    <p className="text-2xl font-display font-bold text-blue-500 mt-1">{stats.totalSaida}</p>
+                </div>
+                <div className="bg-white dark:bg-card-dark p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 border-l-4 border-emerald-500">
+                    <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Total Entregue</p>
+                    <p className="text-2xl font-display font-bold text-emerald-500 mt-1">{stats.totalEntregue}</p>
+                </div>
+                <div className="bg-white dark:bg-card-dark p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 border-l-4 border-orange-500">
+                    <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Total RTS</p>
+                    <p className="text-2xl font-display font-bold text-orange-500 mt-1">{stats.totalRts}</p>
+                </div>
+                <div className="bg-white dark:bg-card-dark p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 border-l-4 border-purple-500">
+                    <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Total Motorista RTS</p>
+                    <p className="text-2xl font-display font-bold text-purple-500 mt-1">{stats.totalMotoristasRts}</p>
+                </div>
+            </div>
+
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
