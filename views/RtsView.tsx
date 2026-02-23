@@ -449,8 +449,18 @@ const RtsView: React.FC = () => {
                                                     <input
                                                         type="number"
                                                         value={e.delivered_count}
-                                                        onChange={(ev) => updateExpeditionDelivered(e.id, parseInt(ev.target.value) || 0)}
-                                                        className="w-16 text-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded p-1 text-xs dark:text-white focus:ring-1 focus:ring-primary outline-none"
+                                                        onChange={(ev) => {
+                                                            const newValue = parseInt(ev.target.value) || 0;
+                                                            const maxPossible = (e.total_packages || 0) - (e.returned_count || 0);
+
+                                                            if (newValue > maxPossible) {
+                                                                playAudio('error');
+                                                                alert(`BLOQUEIO DE SEGURANÇA: A quantidade entregue (${newValue}) não pode exceder o saldo disponível (${maxPossible}).\n\n- O motorista saiu com: ${e.total_packages}\n- Já possui devoluções: ${e.returned_count}`);
+                                                                return;
+                                                            }
+                                                            updateExpeditionDelivered(e.id, newValue);
+                                                        }}
+                                                        className="w-16 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded p-1 text-xs dark:text-white focus:ring-1 focus:ring-primary outline-none font-bold"
                                                     />
                                                 </div>
                                             </td>
