@@ -732,14 +732,14 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const localInboundToday = inboundItems.filter(item => isSameDay(item.time || (item as any).created_at)).length;
 
         // OTIMIZADO: Usamos os estados de contagem explícitos em vez de filtrar arrays
-        const localOutboundToday = totalOutboundToday;
-        const localReversaToday = totalReversaToday;
+        const localOutboundToday = todayOutboundCount;
+        const localReversaToday = todayReversaCount;
 
         const localEntreguesToday = (expeditions || [])
             .filter(e => isSameDay(e.dispatch_date))
             .reduce((sum, e) => sum + (e.delivered_count || 0), 0);
 
-        // Patch the current day in weekly stats with local counts if they are higher
+        // Atualizar o dia atual nas estatísticas semanais com contagens locais se forem maiores
         const todayLabel = dayNames[getTodayDate().getDay()];
         const todayKey = getSaoPauloDate();
 
@@ -758,7 +758,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             return d;
         });
 
-        // If today is not in the list (e.g. empty DB), add it
+        // Se hoje não estiver na lista (ex: banco vazio), adiciona-o
         if (!foundToday && (localInboundToday > 0 || localOutboundToday > 0 || localEntreguesToday > 0)) {
             weeklyStats.push({
                 name: todayLabel,
@@ -768,7 +768,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 rts: localReversaToday,
                 rawDate: todayKey
             });
-            // Keep only last 7 days
+            // Mantém apenas os últimos 7 dias
             if (weeklyStats.length > 7) weeklyStats.shift();
         }
 
@@ -781,7 +781,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             staleItemsCount: staleStockItems.length || dashboardStats?.parados_24h || 0,
             totalPossibleLosses: possibleLossItems.length || dashboardStats?.possiveis_perdas || 0
         };
-    }, [dashboardStats, weeklyStatsFromView, inboundItems, outboundItems, expeditions, stockItems, staleStockItems, possibleLossItems]);
+    }, [dashboardStats, weeklyStatsFromView, inboundItems, expeditions, stockItems, staleStockItems, possibleLossItems, todayOutboundCount, todayReversaCount]);
 
     // --- Optimized Centralized Data (Zero-Loading) ---
     const todayInboundList = React.useMemo(() =>
