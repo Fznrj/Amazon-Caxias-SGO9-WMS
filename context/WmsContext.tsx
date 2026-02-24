@@ -609,7 +609,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         // Map weekly stats from view
         let weeklyStats = (weeklyStatsFromView || []).map(d => {
             const date = parseToDate(d.day_date);
-            const dayLabel = dayNames[new Date(date).getDay()];
+            const dayLabel = dayNames[date.getDay()];
             return {
                 name: dayLabel,
                 entradas: d.entradas,

@@ -58,6 +58,10 @@ export const parseToDate = (dateStr: string): Date => {
 
             return new Date(`${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}T00:00:00-03:00`);
         }
+        // Case 3: YYYY-MM-DD format (often from DB views) - Force to SP timezone
+        if (dateStr.length === 10 && dateStr.charAt(4) === '-' && dateStr.charAt(7) === '-') {
+            return new Date(`${dateStr}T12:00:00-03:00`);
+        }
     } catch (e) {
         console.error('dateUtils: Error parsing date', dateStr, e);
     }
