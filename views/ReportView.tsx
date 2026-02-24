@@ -8,122 +8,122 @@ const ReportView: React.FC = () => {
   const [startDate, setStartDate] = React.useState<string>(getSaoPauloDate());
   const [endDate, setEndDate] = React.useState<string>(getSaoPauloDate());
 
-  // Helper to filter items by date range.
-  const filterByDateRange = (items: any[]) => {
-    if (!startDate || !endDate) return items;
+  const [isExporting, setIsExporting] = React.useState(false);
 
-    return items.filter(item => {
-      const timeStr = item.time || item.entryTime || '';
-      if (!timeStr) return false;
+  // Helper para buscar dados do Supabase baseados no intervalo de datas
+  const fetchReportData = async (table: string, dateField: string = 'created_at') => {
+    if (!startDate || !endDate) return [];
 
-      // Extract date from "DD/MM/YYYY, HH:MM:SS" or "YYYY-MM-DD"
-      let itemDateStr = '';
-      if (timeStr.includes(',')) {
-        const [datePart] = timeStr.split(',');
-        const [day, month, year] = datePart.trim().split('/');
-        itemDateStr = `${year}-${month}-${day}`;
-      } else if (timeStr.includes('-')) {
-        itemDateStr = timeStr.trim().split(' ')[0].split('T')[0];
-      }
+    const { data, error } = await supabase
+      .from(table)
+      .select('*')
+      .eq('company_id', users[0]?.company_id) // Usando o company_id do primeiro usuário como fallback
+      .gte(dateField, `${startDate}T00:00:00`)
+      .lte(dateField, `${endDate}T23:59:59`)
+      .order(dateField, { ascending: true });
 
-      return itemDateStr >= startDate && itemDateStr <= endDate;
-    });
+    if (error) {
+      console.error(`Erro ao buscar dados para relatório (${table}):`, error);
+      return [];
+    }
+    return data || [];
   };
 
-  const handleDownloadReport = (reportTitle: string) => {
+  const handleDownloadReport = async (reportTitle: string) => {
+    setIsExporting(true);
     let data: string[][] = [];
     const dateLabel = startDate === endDate ? startDate : `${startDate}_to_${endDate}`;
     let filename = `${reportTitle.replace(/ /g, '_')}_${dateLabel}.csv`;
 
-    if (reportTitle.includes('Inventário')) {
-      data = [
-        ['ID', 'Operator', 'Data', 'Hora'],
-        ...filterByDateRange(inventoryItems).map(item => [item.id, item.operator, formatToLocalDate(item.time), formatToLocalTime(item.time)])
-      ];
-    } else if (reportTitle.includes('Saídas')) {
-      data = [
-        ['ID', 'Motorista', 'Veículo', 'Data', 'Hora', 'Operador', 'Status'],
-        ...filterByDateRange(outboundItems).map(item => [item.id, item.driverName, item.vehicle, formatToLocalDate(item.time), formatToLocalTime(item.time), item.operator, item.status])
-      ];
-    } else if (reportTitle.includes('Perdas')) {
-      data = [
-        ['ID', 'Data', 'Hora', 'Operador', 'Status'],
-        ...filterByDateRange(possibleLossItems).map(item => [item.id, formatToLocalDate(item.entryTime), formatToLocalTime(item.entryTime), item.operator, item.status])
-      ];
-    } else if (reportTitle.includes('Total em Estoque')) {
-      data = [
-        ['ID', 'Data', 'Hora', 'Operador', 'Status'],
-        ...filterByDateRange(stockItems.filter(i => i.status === 'Em Estoque')).map(item => [item.id, formatToLocalDate(item.entryTime), formatToLocalTime(item.entryTime), item.operator, item.status])
-      ];
-    } else if (reportTitle.includes('Motoristas')) {
-      data = [
-        ['Motorista', 'Veículo', 'Status']
-      ];
-    } else {
-      // Geral
-      data = [
-        ['Type', 'ID', 'Detail', 'Operator', 'Time'],
-        ...filterByDateRange(inventoryItems).map(i => ['Inventory', i.id, i.operator, i.operator, i.time]),
-        ...filterByDateRange(inboundItems).map(i => ['Inbound', i.id, i.operator, i.operator, i.time]),
-        ...filterByDateRange(outboundItems).map(i => ['Outbound', i.id, i.driverName, i.operator, i.time]),
-      ];
-    }
+    try {
+      if (reportTitle.includes('Inventário')) {
+        const items = await fetchReportData('inventory_log');
+        data = [
+          ['ID', 'Operator', 'Data', 'Hora'],
+          ...items.map(item => [item.id, item.operator, formatToLocalDate(item.time), formatToLocalTime(item.time)])
+        ];
+      } else if (reportTitle.includes('Saídas')) {
+        const items = await fetchReportData('outbound_log');
+        data = [
+          ['ID', 'Motorista', 'Veículo', 'Data', 'Hora', 'Operador', 'Status'],
+          ...items.map(item => [item.id, item.driver_name, item.vehicle, formatToLocalDate(item.time), formatToLocalTime(item.time), item.operator, item.status])
+        ];
+      } else if (reportTitle.includes('Perdas')) {
+        const items = await fetchReportData('stock_items', 'entry_time');
+        const lossItems = items.filter((i: any) => i.status?.toLowerCase() === 'perda' || i.status?.toLowerCase() === 'possível perda');
+        data = [
+          ['ID', 'Data', 'Hora', 'Operador', 'Status'],
+          ...lossItems.map((item: any) => [item.id, formatToLocalDate(item.entry_time), formatToLocalTime(item.entry_time), item.operator, item.status])
+        ];
+      } else if (reportTitle.includes('Total em Estoque')) {
+        const items = await fetchReportData('stock_items', 'entry_time');
+        const stockItemsOnly = items.filter((i: any) => i.status === 'Em Estoque');
+        data = [
+          ['ID', 'Data', 'Hora', 'Operador', 'Status'],
+          ...stockItemsOnly.map((item: any) => [item.id, formatToLocalDate(item.entry_time), formatToLocalTime(item.entry_time), item.operator, item.status])
+        ];
+      }
 
-    downloadCSV(filename, data);
+      if (data.length > 0) {
+        downloadCSV(filename, data);
+      }
+    } catch (err) {
+      console.error('Erro ao gerar relatório:', err);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
-  const handleDownloadAll = () => {
+  const handleDownloadAll = async () => {
+    setIsExporting(true);
     const dateLabel = startDate === endDate ? startDate : `${startDate}_to_${endDate}`;
 
-    // Helper to parse "DD/MM/YYYY, HH:MM:SS" or "YYYY-MM-DD" into a Comparable Date object
-    const parseFlexibleDate = (dateStr: string) => {
-      if (!dateStr) return new Date(0);
-      if (dateStr.includes(',')) {
-        const [datePart, timePart] = dateStr.split(',');
-        const [day, month, year] = datePart.trim().split('/');
-        return new Date(`${year}-${month}-${day}T${timePart?.trim() || '00:00:00'}`);
-      }
-      return new Date(dateStr);
-    };
+    try {
+      const [inbound, outbound, stock, inventory] = await Promise.all([
+        fetchReportData('inbound_log'),
+        fetchReportData('outbound_log'),
+        fetchReportData('stock_items', 'entry_time'),
+        fetchReportData('inventory_log')
+      ]);
 
-    const data = [
-      ['Data/Hora', 'Tipo', 'ID (TBR)', 'Operador', 'Motorista', 'Veículo', 'Status', 'ID Pallet (Reversa)'],
+      const data = [
+        ['Data/Hora', 'Tipo', 'ID (TBR)', 'Operador', 'Motorista', 'Veículo', 'Status', 'ID Pallet (Reversa)'],
 
-      // Inbound
-      ...filterByDateRange(inboundItems).map(i => [
-        `${formatToLocalDate(i.time)} ${formatToLocalTime(i.time)}`, 'Entrada', i.id, i.operator, '-', '-', i.status, '-'
-      ]),
+        // Inbound
+        ...inbound.map(i => [
+          `${formatToLocalDate(i.time)} ${formatToLocalTime(i.time)}`, 'Entrada', i.id, i.operator, '-', '-', i.status, '-'
+        ]),
 
-      // Outbound & Reversa
-      ...filterByDateRange(outboundItems).map(i => [
-        `${formatToLocalDate(i.time)} ${formatToLocalTime(i.time)}`, i.status?.toLowerCase()?.includes('reversa') ? 'Reversa' : 'Saída', i.id, i.operator, i.driverName, i.vehicle, i.status, (i as any).palletId || '-'
-      ]),
+        // Outbound & Reversa
+        ...outbound.map(i => [
+          `${formatToLocalDate(i.time)} ${formatToLocalTime(i.time)}`, i.status?.toLowerCase()?.includes('reversa') ? 'Reversa' : 'Saída', i.id, i.operator, i.driver_name, i.vehicle, i.status, i.pallet_id || '-'
+        ]),
 
-      // Possible Loss
-      ...filterByDateRange(possibleLossItems).map(i => [
-        `${formatToLocalDate(i.entryTime)} ${formatToLocalTime(i.entryTime)}`, 'Possível Perda', i.id, i.operator, '-', '-', i.status, '-'
-      ]),
+        // Stock (Losses and current)
+        ...stock.map(i => {
+          let type = 'Estoque';
+          if (i.status?.toLowerCase() === 'perda') type = 'Perda Definitiva';
+          else if (i.status?.toLowerCase() === 'possível perda') type = 'Possível Perda';
 
-      // Definite Loss
-      ...filterByDateRange(stockItems.filter(s => s.status?.toLowerCase() === 'perda')).map(i => [
-        `${formatToLocalDate(i.entryTime)} ${formatToLocalTime(i.entryTime)}`, 'Perda Definitiva', i.id, i.operator, '-', '-', i.status, '-'
-      ]),
+          return [`${formatToLocalDate(i.entry_time)} ${formatToLocalTime(i.entry_time)}`, type, i.id, i.operator, '-', '-', i.status, '-'];
+        }),
 
-      // Inventory
-      ...filterByDateRange(inventoryItems).map(i => [
-        `${formatToLocalDate(i.time)} ${formatToLocalTime(i.time)}`, 'Inventário', i.id, i.operator, '-', '-', 'Conferido', '-'
-      ])
-    ];
+        // Inventory
+        ...inventory.map(i => [
+          `${formatToLocalDate(i.time)} ${formatToLocalTime(i.time)}`, 'Inventário', i.id, i.operator, '-', '-', 'Conferido', '-'
+        ])
+      ];
 
-    // Sort by Date/Time
-    const header = data[0];
-    const sortedData = data.slice(1).sort((a, b) => {
-      const dateA = parseFlexibleDate(a[0]);
-      const dateB = parseFlexibleDate(b[0]);
-      return dateA.getTime() - dateB.getTime();
-    });
+      // Ordenar por Data/Hora (primeira coluna) - simplificado para string já que vêm ordenados do banco
+      const header = data[0];
+      const sortedBody = data.slice(1).sort((a, b) => a[0].localeCompare(b[0]));
 
-    downloadCSV(`Relatorio_Geral_Movimentos_${dateLabel}.csv`, [header, ...sortedData]);
+      downloadCSV(`Relatorio_Geral_Movimentos_${dateLabel}.csv`, [header, ...sortedBody]);
+    } catch (err) {
+      console.error('Erro ao baixar todos os dados:', err);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const reports = [
