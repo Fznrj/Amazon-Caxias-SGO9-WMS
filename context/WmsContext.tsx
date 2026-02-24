@@ -513,10 +513,22 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         const channels = [
             supabase.channel('wms_realtime_all')
-                .on('postgres_changes', { event: '*', schema: 'public' }, (payload) => {
+                .on('postgres_changes', { event: '*', schema: 'public' }, async (payload) => {
                     console.log('WmsContext: Realtime event received:', payload.table, payload.eventType);
-                    // Proactive reload for specific table updates
+
+                    // Always refresh KPIs
                     loadInitialData();
+
+                    // Sync detailed logs if the specific table changed
+                    if (payload.table === 'inbound_log') {
+                        syncDetailedLogs('inbound');
+                    } else if (payload.table === 'outbound_log') {
+                        syncDetailedLogs('outbound');
+                    } else if (payload.table === 'stock_items') {
+                        syncDetailedLogs('stock');
+                    } else if (payload.table === 'incidents') {
+                        syncDetailedLogs('treatments');
+                    }
                 })
                 .subscribe((status) => {
                     console.log('WmsContext: Realtime subscription status:', status);
