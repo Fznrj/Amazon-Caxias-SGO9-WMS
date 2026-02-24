@@ -316,19 +316,29 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         try {
             const companyId = currentUser.company_id;
-            console.log(`WmsContext: Fetching users for company: "${companyId}". Admin? ${currentUser.role === 'superadmin'}`);
+            const userRole = (currentUser.role || '').toLowerCase();
+            const isAdmin = userRole === 'superadmin' || userRole === 'admin';
 
-            // Fetch users separately to ensure any failures in other views don't block the user list
-            const { data: userData, error: userError } = await (
-                currentUser.role === 'superadmin'
+            console.log(`WmsContext: Fetching users. Role: ${userRole}, Company: "${companyId}"`);
+
+            // Fetch users with resilience
+            let { data: userData, error: userError } = await (
+                userRole === 'superadmin'
                     ? supabase.from('users').select('*').order('name', { ascending: true })
                     : supabase.from('users').select('*').eq('company_id', companyId).order('name', { ascending: true })
             );
 
+            // Resilience check: Fallback fetch if empty for admins
+            if (!userError && (!userData || userData.length === 0) && isAdmin) {
+                console.log('WmsContext: Users empty, trying fallback fetch...');
+                const { data: fallback } = await supabase.from('users').select('*').limit(100);
+                if (fallback && fallback.length > 0) userData = fallback;
+            }
+
             if (userError) {
                 console.error('WmsContext: User fetch error:', userError);
             } else if (userData) {
-                console.log(`WmsContext: Users fetched from DB: ${userData.length}`);
+                console.log(`WmsContext: Loaded ${userData.length} users.`);
                 setUsers(userData as User[]);
             }
 
