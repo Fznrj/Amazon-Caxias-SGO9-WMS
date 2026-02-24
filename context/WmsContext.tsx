@@ -485,7 +485,6 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (!currentUser) return;
 
         switch (currentView) {
-            case View.STOCK:
             case View.INVENTORY:
                 syncDetailedLogs('stock');
                 break;
@@ -1310,6 +1309,9 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         // Reset local stats states immediately to show zeroed dashboard
         setDashboardStats(null);
         setWeeklyStatsFromView([]);
+
+        // Refresh the materialized view in the database
+        await supabase.rpc('refresh_weekly_movement');
 
         loadInitialData();
         playAudio('success');
