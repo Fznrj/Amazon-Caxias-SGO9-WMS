@@ -5,13 +5,33 @@ import { isValidTbr } from '../utils/validation';
 
 const OutboundView: React.FC = () => {
   const {
-    treatmentItems, outboundItems, addOutboundItem, deleteOutboundItem,
+    treatmentItems, addOutboundItem,
     playAudio, drivers, stockItems, totalOutboundToday, totalReversaToday,
-    currentUser, activeDriversCount, availableStockCount, todayOutboundList
+    currentUser, activeDriversCount, availableStockCount, fetchDriverTodayCount
   } = useWms();
+
   const [tbrInput, setTbrInput] = useState('');
   const [selectedDriverId, setSelectedDriverId] = useState('');
   const [message, setMessage] = useState<{ text: string, type: 'error' | 'success' } | null>(null);
+
+  // ESTADO DE ALTO VOLUME: Contador local para feedback instantâneo (Zero Lag)
+  const [sessionDriverCount, setSessionDriverCount] = useState(0);
+  const [isLoadingDriverCount, setIsLoadingDriverCount] = useState(false);
+
+  // Busca a contagem real do motorista ao selecioná-lo
+  React.useEffect(() => {
+    const loadDriverCount = async () => {
+      if (selectedDriverId) {
+        setIsLoadingDriverCount(true);
+        const count = await fetchDriverTodayCount(selectedDriverId);
+        setSessionDriverCount(count);
+        setIsLoadingDriverCount(false);
+      } else {
+        setSessionDriverCount(0);
+      }
+    };
+    loadDriverCount();
+  }, [selectedDriverId, fetchDriverTodayCount]);
 
   const processOutbound = async () => {
     if (!tbrInput.trim()) return;
@@ -28,20 +48,20 @@ const OutboundView: React.FC = () => {
       return;
     }
 
-    // 1. Validation Rule Check
-    const validation = isValidTbr(currentId);
-    if (!validation.isValid) {
-      setMessage({ text: validation.message || 'ERRO: TBR Inválida.', type: 'error' });
+    // 1. Validação de Regra de Negócio
+    const { isValid, message: vMsg } = isValidTbr(currentId);
+    if (!isValid) {
+      setMessage({ text: vMsg || 'ERRO: TBR Inválida.', type: 'error' });
       playAudio('error');
       setTbrInput('');
       return;
     }
 
-    // 2. Incident check
+    // 2. Verificação de Tratativas (Incidents)
     const activeIncident = treatmentItems.find(t => t.tbrId === currentId && t.status !== 'Resolvido');
     if (activeIncident) {
       setMessage({
-        text: `BLOQUEADO: TBR ${currentId} possui uma tratativa ativa (${activeIncident.id}). Resolva a tratativa antes de expedir.`,
+        text: `BLOQUEADO: TBR ${currentId} possui uma tratativa ativa (${activeIncident.id}). Resolva antes de expedir.`,
         type: 'error'
       });
       playAudio('error');
@@ -49,13 +69,13 @@ const OutboundView: React.FC = () => {
       return;
     }
 
-    // 3. Stock check (Main validation)
+    // 3. Verificação de Estoque (Validação Principal)
     const stockItem = stockItems.find(item => item.id === currentId);
 
     if (!stockItem || stockItem.status?.toLowerCase() !== 'em estoque') {
       const status = stockItem?.status?.toLowerCase();
       const statusMsg = status === 'saiu'
-        ? `ERRO: TBR ${currentId} já foi expedida anteriormente. Se ela retornou, faça o recebimento na Entrada.`
+        ? `ERRO: TBR ${currentId} já foi expedida anteriormente.`
         : status === 'possível perda'
           ? `ERRO: TBR ${currentId} está como Possível Perda. Re-receba na Entrada.`
           : `ERRO: TBR ${currentId} não encontrada no estoque.`;
@@ -66,6 +86,13 @@ const OutboundView: React.FC = () => {
       return;
     }
 
+    // FEEDBACK INSTANTÂNEO (Alto Volume): Incrementa o contador local antes mesmo da resposta do banco
+    setSessionDriverCount(prev => prev + 1);
+    setMessage({ text: `Bipado com sucesso: ${currentId}`, type: 'success' });
+    playAudio('success'); // Feedback sonoro imediato
+    setTbrInput('');
+
+    // Gravação em Background
     const result = await addOutboundItem({
       id: currentId,
       driverName: driver.name,
@@ -75,13 +102,13 @@ const OutboundView: React.FC = () => {
       status: 'Saiu com Motorista'
     });
 
-    if (result.success) {
-      setMessage({ text: `Saída registrada: ${currentId}`, type: 'success' });
-      setTimeout(() => setMessage(null), 2000);
-      setTbrInput('');
-    } else {
-      setMessage({ text: `ERRO: ${result.message}`, type: 'error' });
+    if (!result.success) {
+      // Reverte o contador local se a gravação falhar
+      setSessionDriverCount(prev => Math.max(0, prev - 1));
+      setMessage({ text: `ERRO DE GRAVAÇÃO: ${result.message}`, type: 'error' });
       playAudio('error');
+    } else {
+      setTimeout(() => setMessage(null), 1500);
     }
   };
 
@@ -91,17 +118,18 @@ const OutboundView: React.FC = () => {
     }
   };
 
+  const selectedDriver = drivers.find(d => d.id === selectedDriverId);
+
   return (
-    <div className="space-y-8">
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+    <div className="space-y-8 animate-in fade-in duration-500">
+      {/* KPIs de Resumo Superior */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-card-dark p-4 rounded border-l-4 border-cyan-500 shadow-sm transition-all hover:shadow-md">
           <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Aguardando Saída</p>
-          <p className="text-2xl font-display font-bold text-cyan-500">
-            {availableStockCount}
-          </p>
+          <p className="text-2xl font-display font-bold text-cyan-500">{availableStockCount}</p>
         </div>
         <div className="bg-white dark:bg-card-dark p-4 rounded border-l-4 border-red-500 shadow-sm transition-all hover:shadow-md">
-          <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Saídas Hoje</p>
+          <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Saídas Totais Hoje</p>
           <p className="text-2xl font-display font-bold text-red-500">{totalOutboundToday}</p>
         </div>
         <div className="bg-white dark:bg-card-dark p-4 rounded border-l-4 border-green-500 shadow-sm transition-all hover:shadow-md">
@@ -112,132 +140,133 @@ const OutboundView: React.FC = () => {
           <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Motoristas Ativos</p>
           <p className="text-2xl font-display font-bold text-purple-500">{activeDriversCount}</p>
         </div>
-        <div className="bg-white dark:bg-card-dark p-4 rounded border-l-4 border-orange-500 shadow-sm transition-all hover:shadow-md">
-          <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">TBRs Pendentes</p>
-          <p className="text-2xl font-display font-bold text-orange-500">
-            {availableStockCount}
-          </p>
-        </div>
       </div>
 
-      <div className="bg-white dark:bg-card-dark rounded-lg border border-slate-200 dark:border-slate-800 p-8 shadow-sm">
-        <div className="flex flex-col md:flex-row gap-6 items-end">
-          <div className="flex-1 w-full">
-            <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 block">Selecionar Motorista</label>
-            <div className="relative">
-              <span className="material-icons-round absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">local_shipping</span>
-              <select
-                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded px-10 py-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none appearance-none cursor-pointer"
-                value={selectedDriverId}
-                onChange={(e) => setSelectedDriverId(e.target.value)}
-              >
-                <option value="">Selecione um motorista...</option>
-                {drivers.filter(d => d.status === 'Ativo').map(driver => (
-                  <option key={driver.id} value={driver.id}>
-                    {driver.name} ({driver.plate}) - {driver.vehicleProfile}
-                  </option>
-                ))}
-              </select>
-              <span className="material-icons-round absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">expand_more</span>
-            </div>
-          </div>
-          <div className="flex-[2] w-full">
-            <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 block">Escanear TBR (Barcode/Manual)</label>
-            <div className="relative">
-              <span className="material-icons-round absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">qr_code_scanner</span>
-              <input
-                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded px-10 py-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-400 uppercase font-mono"
-                placeholder="TBR123456"
-                value={tbrInput}
-                onChange={(e) => setTbrInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-              />
-            </div>
-          </div>
+      {/* ÁREA DE OPERAÇÃO: Design focado em performance */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Painel de Controle */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="bg-white dark:bg-card-dark rounded-lg border border-slate-200 dark:border-slate-800 p-8 shadow-sm">
+            <div className="space-y-6">
+              <div className="w-full">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 block">Selecionar Motorista Ativo</label>
+                <div className="relative">
+                  <span className="material-icons-round absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">local_shipping</span>
+                  <select
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-12 py-4 text-sm font-bold focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none appearance-none cursor-pointer transition-all"
+                    value={selectedDriverId}
+                    onChange={(e) => setSelectedDriverId(e.target.value)}
+                  >
+                    <option value="">Selecione um motorista para iniciar...</option>
+                    {drivers.filter(d => d.status === 'Ativo').map(driver => (
+                      <option key={driver.id} value={driver.id}>
+                        {driver.name} | {driver.plate} | {driver.vehicleProfile}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="material-icons-round absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">expand_more</span>
+                </div>
+              </div>
 
-          <button
-            onClick={processOutbound}
-            className="w-full md:w-auto px-8 py-3 bg-primary hover:bg-primary/90 text-white rounded font-bold uppercase text-xs tracking-wider transition-all shadow-lg shadow-primary/20"
-          >
-            Confirmar
-          </button>
-        </div>
-        {message && (
-          <div className={`mt-4 font-bold text-sm uppercase tracking-wide animate-pulse ${message.type === 'error' ? 'text-red-500' : 'text-green-500'}`}>
-            {message.text}
-          </div>
-        )}
-      </div>
+              <div className="w-full">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 block">Escanear TBR (Alta Velocidade)</label>
+                <div className="relative">
+                  <span className="material-icons-round absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xl">qr_code_scanner</span>
+                  <input
+                    autoFocus
+                    className="w-full bg-slate-50 dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 rounded-xl px-12 py-5 text-2xl focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all placeholder:text-slate-300 uppercase font-mono font-black"
+                    placeholder="ESCANEAR TBR..."
+                    value={tbrInput}
+                    onChange={(e) => setTbrInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    disabled={!selectedDriverId}
+                  />
+                  {selectedDriverId && (
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 flex gap-2">
+                      <span className="bg-primary/10 text-primary text-[10px] px-2 py-1 rounded font-black animate-pulse">PRONTO PARA BIPAR</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
 
-      <div className="bg-white dark:bg-card-dark rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
-          <h3 className="font-display font-bold text-slate-500 uppercase tracking-widest text-sm">TBRs em Processo de Saída</h3>
-          <div className="flex items-center gap-2 text-[10px] uppercase font-bold text-slate-400">
-            <div className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse"></div>
-            Em carregamento
-            <span className="material-icons-round ml-2">filter_list</span>
-          </div>
-        </div>
-        <table className="w-full text-left">
-          <thead>
-            <tr className="bg-slate-50 dark:bg-slate-900/50 text-[10px] font-bold uppercase tracking-widest text-slate-500">
-              <th className="px-6 py-4">ID TBR</th>
-              <th className="px-6 py-4">Motorista / Veículo</th>
-              <th className="px-6 py-4">Expedido por</th>
-              <th className="px-6 py-4">Horário Registro</th>
-              <th className="px-6 py-4">Status</th>
-              <th className="px-6 py-4 text-right">Ações</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-            {outboundItems.filter(item => isSameDay(item.time || (item as any).created_at)).length === 0 ? (
-              <tr><td colSpan={6} className="px-6 py-8 text-center text-xs text-slate-400">Nenhuma saída registrada hoje.</td></tr>
-            ) : (
-              outboundItems
-                .filter(item => isSameDay(item.time || (item as any).created_at))
-                .map((item, i) => (
-                  <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                    <td className="px-6 py-4 font-mono font-bold text-primary text-sm">{item.id}</td>
-                    <td className="px-6 py-4">
-                      <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{item.driverName}</p>
-                      <p className="text-[10px] uppercase font-bold text-slate-400">{item.vehicle}</p>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-500">
-                          {item.operator?.substring(0, 2).toUpperCase() || 'SI'}
-                        </div>
-                        <span className="text-xs font-medium text-slate-600 dark:text-slate-400">{item.operator}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-[11px] font-mono text-slate-500">{item.time}</td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-1 border rounded text-[9px] font-extrabold uppercase tracking-widest ${item.status === 'Reversa - Saiu com Motorista'
-                        ? 'bg-green-500/10 text-green-500 border-green-500/20'
-                        : 'bg-cyan-500/10 text-cyan-500 border-cyan-500/20'
-                        }`}>
-                        {item.status?.replace(' - Saiu com Motorista', '') || 'Sem Status'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={async () => {
-                          if (window.confirm(`Remover saída da TBR ${item.id}? O item voltará para o estoque.`)) {
-                            await deleteOutboundItem(item.id);
-                          }
-                        }}
-                        className="text-slate-400 hover:text-red-500 transition-colors"
-                      >
-                        <span className="material-icons-round text-base">delete_outline</span>
-                      </button>
-                    </td>
-                  </tr>
-                ))
+            {message && (
+              <div className={`mt-6 p-4 rounded-lg font-bold text-center text-sm uppercase tracking-widest border transition-all ${message.type === 'error'
+                  ? 'bg-red-50 dark:bg-red-900/10 text-red-600 border-red-100 dark:border-red-900/20'
+                  : 'bg-green-50 dark:bg-green-900/10 text-green-600 border-green-100 dark:border-green-900/20 shadow-lg shadow-green-500/10'
+                }`}>
+                <div className="flex items-center justify-center gap-2">
+                  <span className="material-icons-round">{message.type === 'error' ? 'report' : 'check_circle'}</span>
+                  {message.text}
+                </div>
+              </div>
             )}
-          </tbody>
-        </table>
+          </div>
+        </div>
+
+        {/* Resumo do Motorista (Card de Alto Volume) */}
+        <div className="lg:col-span-1">
+          <div className="bg-white dark:bg-card-dark rounded-xl border-2 border-primary/20 p-6 shadow-xl sticky top-8">
+            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary mb-6 flex items-center gap-2">
+              <span className="material-icons-round text-sm">assignment_ind</span>
+              Resumo da Sessão
+            </h3>
+
+            {selectedDriver ? (
+              <div className="space-y-6">
+                <div>
+                  <p className="text-2xl font-black text-slate-800 dark:text-white leading-tight">{selectedDriver.name}</p>
+                  <p className="text-xs font-bold text-slate-400 uppercase mt-1">Placa: {selectedDriver.plate}</p>
+                </div>
+
+                <div className="bg-slate-50 dark:bg-slate-900/50 rounded-2xl p-6 text-center border border-slate-100 dark:border-slate-800">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Pacotes Bipados Hoje</p>
+                  <div className="relative inline-block">
+                    <p className={`text-7xl font-black font-display transition-all ${isLoadingDriverCount ? 'opacity-20 blur-sm' : 'text-primary'}`}>
+                      {sessionDriverCount}
+                    </p>
+                    {isLoadingDriverCount && (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="material-icons-round animate-spin text-primary opacity-50">sync</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+                  <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
+                    <span>Status do Carregamento</span>
+                    <span className="text-green-500 flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                      Ativo em Tempo Real
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="py-12 text-center space-y-4">
+                <span className="material-icons-round text-5xl text-slate-200">person_search</span>
+                <p className="text-xs font-bold text-slate-400 uppercase leading-relaxed px-4">
+                  Selecione um motorista para visualizar o resumo detalhado das atividades.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Rodapé Informativo */}
+      <div className="bg-slate-50 dark:bg-slate-900/30 p-4 rounded-lg flex items-center gap-3 text-slate-500">
+        <span className="material-icons-round text-lg text-primary">info</span>
+        <p className="text-[10px] font-bold uppercase tracking-wide">
+          MODO ALTO VOLUME ATIVADO: A listagem detalhada foi removida para garantir a performance do dispositivo. Consulte os relatórios para detalhes históricos.
+        </p>
       </div>
     </div>
+  );
+};
+
+export default OutboundView;
   );
 };
 

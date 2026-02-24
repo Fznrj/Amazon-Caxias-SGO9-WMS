@@ -568,18 +568,20 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     } else if (payload.table === 'outbound_log') {
                         if (payload.eventType === 'INSERT') {
                             const newItem = payload.new as any;
-                            setOutboundItems(prev => [{
-                                id: newItem.id,
-                                driverName: newItem.driver_name,
-                                vehicle: newItem.vehicle,
-                                time: newItem.time,
-                                operator: newItem.operator,
-                                status: newItem.status,
-                                palletId: newItem.pallet_id,
-                                createdAt: newItem.created_at
-                            }, ...prev]);
+                            // OTIMIZAÇÃO: Incrementar contadores em tempo real em vez de gerenciar arrays massivos
+                            if (newItem.status?.toLowerCase().includes('reversa')) {
+                                setTodayReversaCount(prev => prev + 1);
+                            } else {
+                                setTodayOutboundCount(prev => prev + 1);
+                            }
                         } else if (payload.eventType === 'DELETE') {
-                            setOutboundItems(prev => prev.filter(o => o.id !== payload.old.id));
+                            // Decrementar contadores se necessário (embora deleções sejam raras em alto volume)
+                            const oldItem = payload.old as any;
+                            if (oldItem.status?.toLowerCase().includes('reversa')) {
+                                setTodayReversaCount(prev => Math.max(0, prev - 1));
+                            } else {
+                                setTodayOutboundCount(prev => Math.max(0, prev - 1));
+                            }
                         }
                     } else if (payload.table === 'stock_items') {
                         if (payload.eventType === 'INSERT') {
@@ -807,11 +809,10 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const activeDriversCount = React.useMemo(() => drivers.filter(d => d.status === 'Ativo').length, [drivers]);
     const availableStockCount = React.useMemo(() => stockItems.filter(item => item.status?.toLowerCase() === 'em estoque').length, [stockItems]);
 
-    // Use derived values for backward compatibility
+    // Constantes derivadas para compatibilidade retroativa (usando os novos estados de contagem)
     const weeklyStats = statsSummary.weeklyStats;
     const totalInboundToday = statsSummary.totalInboundToday;
-    const totalOutboundToday = statsSummary.totalOutboundToday;
-    const totalReversaToday = statsSummary.totalReversaToday;
+    // totalOutboundToday e totalReversaToday são definidos no final do componente
 
     useEffect(() => {
         if (!currentUser) return;
@@ -1601,13 +1602,31 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         playAudio('success');
     };
 
+    // Helper para buscar contagem de hoje de um motorista específico (Alto Volume)
+    const fetchDriverTodayCount = async (driverId: string): Promise<number> => {
+        const { count, error } = await supabase
+            .from('outbound_log')
+            .select('id', { count: 'exact', head: true })
+            .eq('driver_id', driverId)
+            .gte('created_at', getSaoPauloDate() + 'T00:00:00');
+
+        if (error) {
+            console.error('WmsContext: Erro ao buscar contagem do motorista:', error);
+            return 0;
+        }
+        return count || 0;
+    };
+
     const totalInventoryScanned = inventoryItems.length;
     const totalLossItems = statsSummary.totalLossItems;
     const staleItemsCount = statsSummary.staleItemsCount;
 
-    // Total Expected is the items currently marked as 'Em Estoque'
+    // Total Esperado são os itens atualmente marcados como 'Em Estoque'
     const totalExpected = dashboardStats?.total_em_estoque || 0;
 
+    // Constantes derivadas para compatibilidade retroativa (alto volume)
+    const totalOutboundToday = todayOutboundCount;
+    const totalReversaToday = todayReversaCount;
 
     return (
         <WmsContext.Provider value={{
@@ -1630,7 +1649,8 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             resetTransactions,
             verifyStock, isValidTbr, isSameDay, getLocalDateIso: () => getSaoPauloDate(),
             playAudio, refreshProfile, uploadUserAvatar,
-            syncDetailedLogs
+            syncDetailedLogs,
+            fetchDriverTodayCount
         }}>
             {children}
         </WmsContext.Provider>
