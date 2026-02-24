@@ -174,6 +174,8 @@ interface WmsContextData {
     refreshProfile: () => Promise<void>;
     uploadUserAvatar: (file: File) => Promise<{ success: boolean; message: string }>;
     syncDetailedLogs: (module: 'stock' | 'inbound' | 'outbound' | 'treatments') => Promise<void>;
+    // Novo helper para alto volume: busca contagem de saídas de um motorista hoje
+    fetchDriverTodayCount: (driverId: string) => Promise<number>;
 }
 
 const WmsContext = createContext<WmsContextData>({} as WmsContextData);
@@ -376,10 +378,14 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 supabase.from('expeditions').select('*').eq('company_id', companyId).order('dispatch_date', { ascending: false }),
                 supabase.from('v_dashboard_stats').select('*').eq('company_id', companyId).maybeSingle(),
                 supabase.from('mv_weekly_movement').select('*').eq('company_id', companyId).order('day_date', { ascending: true }),
-                supabase.from('inbound_log').select('*').eq('company_id', companyId).order('created_at', { ascending: false }),
-                supabase.from('outbound_log').select('*').eq('company_id', companyId).order('created_at', { ascending: false }),
+                supabase.from('inbound_log').select('*').eq('company_id', companyId).order('created_at', { ascending: false }).limit(100),
+                // OTIMIZAÇÃO: Busca apenas contagem agregada de saídas de hoje para evitar lentidão
+                supabase.from('outbound_log').select('id', { count: 'exact', head: true })
+                    .eq('company_id', companyId)
+                    .gte('created_at', getSaoPauloDate() + 'T00:00:00')
+                    .lte('created_at', getSaoPauloDate() + 'T23:59:59'),
                 supabase.from('stock_items').select('*').eq('company_id', companyId),
-                supabase.from('incidents').select('*').eq('company_id', companyId).order('created_at', { ascending: false })
+                supabase.from('incidents').select('*').eq('company_id', companyId).order('created_at', { ascending: false }).limit(50)
             ]);
 
             console.log('WmsContext: Operational data loaded.');
@@ -484,19 +490,14 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 })));
             }
 
-            // Handle Outbound logs
-            if (toe) console.error('WmsContext: Outbound fetch error:', toe);
-            else if (allOutbound) {
-                setOutboundItems(allOutbound.map((o: any) => ({
-                    id: o.id,
-                    driverName: o.driver_name,
-                    vehicle: o.vehicle,
-                    time: o.time,
-                    operator: o.operator,
-                    status: o.status,
-                    palletId: o.pallet_id,
-                    createdAt: o.created_at
-                })));
+            // Handle Outbound logs (OTIMIZADO: Agora usamos apenas o count para o dashboard)
+            if (toe) console.error('WmsContext: Outbound count error:', toe);
+            else {
+                const totalCount = (toe as any).count || 0;
+                // Como não estamos carregando a lista completa por performance, 
+                // inicializamos o estado com uma lista vazia ou os últimos registros se necessário.
+                // Para o Dashboard, usamos o total_saidas do v_dashboard_stats ou este count.
+                setOutboundItems([]);
             }
 
             // Handle Incidents
