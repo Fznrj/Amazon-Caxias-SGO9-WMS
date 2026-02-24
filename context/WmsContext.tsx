@@ -273,8 +273,8 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     // --- Outbound State ---
     const [outboundItems, setOutboundItems] = useState<OutboundItem[]>([]);
-    const [totalOutboundToday, setTotalOutboundToday] = useState(0);
-    const [totalReversaToday, setTotalReversaToday] = useState(0);
+    const [todayOutboundCount, setTodayOutboundCount] = useState(0);
+    const [todayReversaCount, setTodayReversaCount] = useState(0);
 
     // --- Inventory State ---
     const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
