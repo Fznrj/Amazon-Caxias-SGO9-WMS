@@ -599,7 +599,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
         // Map weekly stats from view
-        const weeklyStats = weeklyStatsFromView.map(d => {
+        let weeklyStats = (weeklyStatsFromView || []).map(d => {
             const date = parseToDate(d.day_date);
             const dayLabel = dayNames[new Date(date).getDay()];
             return {
@@ -607,7 +607,8 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 entradas: d.entradas,
                 saidas: d.saidas,
                 entregues: d.entregues,
-                rts: d.rts
+                rts: d.rts,
+                rawDate: d.day_date
             };
         });
 
@@ -622,9 +623,40 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             return isSameDay(item.time || (item as any).createdAt || (item as any).created_at) && st.includes('reversa');
         }).length;
 
+        // Patch the current day in weekly stats with local counts if they are higher
+        const todayLabel = dayNames[getTodayDate().getDay()];
+        const todayKey = getSaoPauloDate();
+
+        let foundToday = false;
+        weeklyStats = weeklyStats.map(d => {
+            if (d.name === todayLabel || d.rawDate === todayKey) {
+                foundToday = true;
+                return {
+                    ...d,
+                    entradas: Math.max(d.entradas, localInboundToday),
+                    saidas: Math.max(d.saidas, localOutboundToday),
+                    rts: Math.max(d.rts, localReversaToday)
+                };
+            }
+            return d;
+        });
+
+        // If today is not in the list (e.g. empty DB), add it
+        if (!foundToday && (localInboundToday > 0 || localOutboundToday > 0)) {
+            weeklyStats.push({
+                name: todayLabel,
+                entradas: localInboundToday,
+                saidas: localOutboundToday,
+                entregues: 0,
+                rts: localReversaToday,
+                rawDate: todayKey
+            });
+            // Keep only last 7 days
+            if (weeklyStats.length > 7) weeklyStats.shift();
+        }
+
         return {
             weeklyStats,
-            // Prefer local count if logs are loaded, otherwise fallback to DB view
             totalInboundToday: localInboundToday || dashboardStats?.entradas_hoje || 0,
             totalOutboundToday: localOutboundToday || dashboardStats?.saidas_hoje || 0,
             totalReversaToday: localReversaToday || dashboardStats?.reversas_hoje || 0,
