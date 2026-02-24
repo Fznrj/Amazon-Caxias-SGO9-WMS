@@ -633,6 +633,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         await supabase.from('stock_items').upsert(stockData);
         loadInitialData();
+        syncDetailedLogs('inbound');
         playAudio('success');
     };
 
