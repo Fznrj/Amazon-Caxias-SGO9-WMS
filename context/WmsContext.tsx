@@ -760,8 +760,9 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             totalInboundToday: localInboundToday || dashboardStats?.entradas_hoje || 0,
             totalOutboundToday: localOutboundToday || dashboardStats?.saidas_hoje || 0,
             totalReversaToday: localReversaToday || dashboardStats?.reversas_hoje || 0,
-            totalLossItems: dashboardStats?.total_perdas || 0,
-            staleItemsCount: dashboardStats?.parados_24h || 0
+            totalLossItems: stockItems.filter(s => s.status?.toLowerCase() === 'perda').length || dashboardStats?.total_perdas || 0,
+            staleItemsCount: staleStockItems.length || dashboardStats?.parados_24h || 0,
+            totalPossibleLosses: possibleLossItems.length || dashboardStats?.possiveis_perdas || 0
         };
     }, [dashboardStats, weeklyStatsFromView, inboundItems, outboundItems, expeditions]);
 
@@ -1586,7 +1587,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             treatmentItems, addTreatment, updateTreatmentStatus, updateTreatment,
             expeditions, updateExpeditionDelivered, verifyReturn,
             totalInboundToday, totalOutboundToday, totalReversaToday, totalInventoryScanned, totalLossItems, staleItemsCount,
-            totalExpected, totalPossibleLosses: dashboardStats?.possiveis_perdas || 0,
+            totalExpected, totalPossibleLosses: statsSummary.totalPossibleLosses,
             weeklyStats,
             resetTransactions,
             verifyStock, isValidTbr, isSameDay, getLocalDateIso: () => getSaoPauloDate(),
