@@ -719,9 +719,10 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         // 1. Criar base de dados para os últimos 7 dias (preenchido com zeros)
         const last7Days = [];
+        const baseDate = getTodayDate(); // Usar getTodayDate para respeitar offsets de debug
         for (let i = 6; i >= 0; i--) {
-            const d = new Date();
-            d.setDate(d.getDate() - i);
+            const d = new Date(baseDate);
+            d.setDate(baseDate.getDate() - i);
             last7Days.push({
                 name: dayNames[d.getDay()],
                 rawDate: getSaoPauloDate(d),
@@ -745,9 +746,10 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         });
 
         // 3. Cálculos locais para o dia de "Hoje" (contagens instantâneas)
-        const localInboundToday = inboundItems.filter(item => isSameDay(item.time || (item as any).created_at)).length;
-        const localOutboundToday = todayOutboundCount;
-        const localReversaToday = todayReversaCount;
+        const realLocalInbound = inboundItems.filter(item => isSameDay(item.time || (item as any).created_at)).length;
+        const localInboundToday = realLocalInbound || dashboardStats?.entradas_hoje || 0;
+        const localOutboundToday = todayOutboundCount || dashboardStats?.saidas_hoje || 0;
+        const localReversaToday = todayReversaCount || dashboardStats?.reversas_hoje || 0;
         const localEntreguesToday = (expeditions || [])
             .filter(e => isSameDay(e.dispatch_date))
             .reduce((sum, e) => sum + (e.delivered_count || 0), 0);
@@ -770,9 +772,9 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         return {
             weeklyStats,
-            totalInboundToday: localInboundToday || dashboardStats?.entradas_hoje || 0,
-            totalOutboundToday: localOutboundToday || dashboardStats?.saidas_hoje || 0,
-            totalReversaToday: localReversaToday || dashboardStats?.reversas_hoje || 0,
+            totalInboundToday: localInboundToday,
+            totalOutboundToday: localOutboundToday,
+            totalReversaToday: localReversaToday,
             totalLossItems: stockItems.filter(s => s.status?.toLowerCase() === 'perda').length || dashboardStats?.total_perdas || 0,
             staleItemsCount: staleStockItems.length || dashboardStats?.parados_24h || 0,
             totalPossibleLosses: possibleLossItems.length || dashboardStats?.possiveis_perdas || 0
