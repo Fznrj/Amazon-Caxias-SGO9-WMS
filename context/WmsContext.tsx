@@ -162,6 +162,7 @@ interface WmsContextData {
     playAudio: (type: 'success' | 'error') => void;
     refreshProfile: () => Promise<void>;
     uploadUserAvatar: (file: File) => Promise<{ success: boolean; message: string }>;
+    syncDetailedLogs: (module: 'stock' | 'inbound' | 'outbound' | 'treatments') => Promise<void>;
 }
 
 const WmsContext = createContext<WmsContextData>({} as WmsContextData);
@@ -318,22 +319,14 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             console.log('WmsContext: Batch loading data for company:', `"${companyId}"`);
 
             const [
-                { data: stock, error: se },
-                { data: inbound, error: ie },
-                { data: outbound, error: oe },
                 { data: driversData, error: de },
-                { data: incidents, error: incE },
                 { data: config, error: confE },
                 { data: inventory, error: invE },
                 { data: expData, error: expE },
                 { data: dbStats, error: statsE },
                 { data: weeklyData, error: weekE }
             ] = await Promise.all([
-                supabase.from('stock_items').select('*').eq('company_id', companyId),
-                supabase.from('inbound_log').select('*').eq('company_id', companyId).order('created_at', { ascending: false }),
-                supabase.from('outbound_log').select('*').eq('company_id', companyId).order('created_at', { ascending: false }),
                 supabase.from('drivers').select('*').eq('company_id', companyId),
-                supabase.from('incidents').select('*').eq('company_id', companyId).order('created_at', { ascending: false }),
                 supabase.from('system_configs').select('expected_inbound').eq('company_id', companyId).maybeSingle(),
                 supabase.from('inventory_log').select('*').eq('company_id', companyId),
                 supabase.from('expeditions').select('*').eq('company_id', companyId).order('dispatch_date', { ascending: false }),
@@ -341,51 +334,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 supabase.from('mv_weekly_movement').select('*').eq('company_id', companyId).order('day_date', { ascending: true })
             ]);
 
-            // Handle Stock
-            if (se) console.error('WmsContext: Stock fetch error:', se);
-            else if (stock) {
-                const mappedStock = stock.map(s => ({
-                    id: s.id,
-                    entryTime: s.entry_time,
-                    operator: s.operator,
-                    status: s.status,
-                    lossDetectedTime: s.loss_detected_time,
-                    localizedBy: s.localized_by,
-                    rackLocation: s.rack_location
-                }));
-                setStockItems(mappedStock);
-                setPossibleLossItems(mappedStock.filter(s => s.status && s.status.toLowerCase() === 'possível perda'));
-            }
-
-            // Handle Inbound
-            if (ie) console.error('WmsContext: Inbound fetch error:', ie);
-            else if (inbound) {
-                const mappedInbound = inbound.map(i => ({
-                    id: i.id,
-                    status: i.status,
-                    operator: i.operator,
-                    time: i.time,
-                    error: i.error,
-                    createdAt: i.created_at
-                }));
-                setInboundItems(mappedInbound);
-            }
-
-            // Handle Outbound
-            if (oe) console.error('WmsContext: Outbound fetch error:', oe);
-            else if (outbound) {
-                const mappedOutbound = outbound.map(o => ({
-                    id: o.id,
-                    driverName: o.driver_name,
-                    vehicle: o.vehicle,
-                    time: o.time,
-                    operator: o.operator,
-                    status: o.status,
-                    palletId: o.pallet_id,
-                    createdAt: o.created_at
-                }));
-                setOutboundItems(mappedOutbound);
-            }
+            // Heavy logs removed from initial load to optimize performance
 
             // Handle Drivers
             if (de) console.error('WmsContext: Drivers fetch error:', de);
@@ -403,20 +352,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 setDrivers(mappedDrivers);
             }
 
-            // Handle Incidents
-            if (incE) console.error('WmsContext: Incidents fetch error:', incE);
-            else if (incidents) {
-                const mappedIncidents = incidents.map(inc => ({
-                    id: inc.id,
-                    tbrId: inc.tbr_id,
-                    type: inc.type,
-                    description: inc.description,
-                    operator: inc.operator,
-                    time: inc.time,
-                    status: inc.status
-                }));
-                setTreatmentItems(mappedIncidents);
-            }
+            // Incident logs removed from initial load
 
             // Handle Inventory
             if (invE) console.error('WmsContext: Inventory fetch error:', invE);
@@ -464,6 +400,111 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             console.error('WmsContext: Unexpected error in loadInitialData:', err);
         }
     };
+
+    /**
+     * Efficiently syncs detailed logs for specific modules on-demand.
+     * This avoids loading thousands of rows on app startup.
+     */
+    const syncDetailedLogs = async (module: 'stock' | 'inbound' | 'outbound' | 'treatments') => {
+        if (!currentUser) return;
+        const companyId = currentUser.company_id;
+        console.log(`WmsContext: Syncing detailed logs for module: ${module}`);
+
+        try {
+            switch (module) {
+                case 'stock':
+                    const { data: stock, error: se } = await supabase.from('stock_items').select('*').eq('company_id', companyId);
+                    if (se) throw se;
+                    if (stock) {
+                        const mapped = stock.map(s => ({
+                            id: s.id,
+                            entryTime: s.entry_time,
+                            operator: s.operator,
+                            status: s.status,
+                            lossDetectedTime: s.loss_detected_time,
+                            localizedBy: s.localized_by,
+                            rackLocation: s.rack_location
+                        }));
+                        setStockItems(mapped);
+                        setPossibleLossItems(mapped.filter(s => s.status?.toLowerCase() === 'possível perda'));
+                    }
+                    break;
+                case 'inbound':
+                    const { data: inbound, error: ie } = await supabase.from('inbound_log').select('*').eq('company_id', companyId).order('created_at', { ascending: false });
+                    if (ie) throw ie;
+                    if (inbound) {
+                        setInboundItems(inbound.map(i => ({
+                            id: i.id,
+                            status: i.status,
+                            operator: i.operator,
+                            time: i.time,
+                            error: i.error,
+                            createdAt: i.created_at
+                        })));
+                    }
+                    break;
+                case 'outbound':
+                    const { data: outbound, error: oe } = await supabase.from('outbound_log').select('*').eq('company_id', companyId).order('created_at', { ascending: false });
+                    if (oe) throw oe;
+                    if (outbound) {
+                        setOutboundItems(outbound.map(o => ({
+                            id: o.id,
+                            driverName: o.driver_name,
+                            vehicle: o.vehicle,
+                            time: o.time,
+                            operator: o.operator,
+                            status: o.status,
+                            palletId: o.pallet_id,
+                            createdAt: o.created_at
+                        })));
+                    }
+                    break;
+                case 'treatments':
+                    const { data: incidents, error: incE } = await supabase.from('incidents').select('*').eq('company_id', companyId).order('created_at', { ascending: false });
+                    if (incE) throw incE;
+                    if (incidents) {
+                        setTreatmentItems(incidents.map(inc => ({
+                            id: inc.id,
+                            tbrId: inc.tbr_id,
+                            type: inc.type,
+                            description: inc.description,
+                            operator: inc.operator,
+                            time: inc.time,
+                            status: inc.status
+                        })));
+                    }
+                    break;
+            }
+        } catch (err) {
+            console.error(`WmsContext: Error syncing ${module}:`, err);
+        }
+    };
+
+    // Effect to trigger on-demand sync based on navigation
+    React.useEffect(() => {
+        if (!currentUser) return;
+
+        switch (currentView) {
+            case View.STOCK:
+            case View.INVENTORY:
+                syncDetailedLogs('stock');
+                break;
+            case View.INBOUND:
+                syncDetailedLogs('inbound');
+                break;
+            case View.OUTBOUND:
+                syncDetailedLogs('outbound');
+                break;
+            case View.TREATMENTS:
+                syncDetailedLogs('treatments');
+                break;
+            case View.DASHBOARD:
+                // If user opens Dashboard, and we have date filters, they might need logs.
+                // However, for pure KPI dashboard, we use the View.
+                // We could sync here too if we want the "Period Stats" to work immediately.
+                break;
+        }
+    }, [currentView, currentUser]);
 
     // --- Realtime Implementation ---
     useEffect(() => {
@@ -1300,7 +1341,8 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             weeklyStats,
             resetTransactions,
             verifyStock, isValidTbr, isSameDay, getLocalDateIso: () => getSaoPauloDate(),
-            playAudio, refreshProfile, uploadUserAvatar
+            playAudio, refreshProfile, uploadUserAvatar,
+            syncDetailedLogs
         }}>
             {children}
         </WmsContext.Provider>
