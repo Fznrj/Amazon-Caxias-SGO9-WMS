@@ -316,11 +316,24 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         try {
             const companyId = currentUser.company_id;
-            console.log(`WmsContext: Fetching users. Admin? ${currentUser.role === 'superadmin'}`);
+            console.log(`WmsContext: Fetching users for company: "${companyId}". Admin? ${currentUser.role === 'superadmin'}`);
+
+            // Fetch users separately to ensure any failures in other views don't block the user list
+            const { data: userData, error: userError } = await (
+                currentUser.role === 'superadmin'
+                    ? supabase.from('users').select('*').order('name', { ascending: true })
+                    : supabase.from('users').select('*').eq('company_id', companyId).order('name', { ascending: true })
+            );
+
+            if (userError) {
+                console.error('WmsContext: User fetch error:', userError);
+            } else if (userData) {
+                console.log(`WmsContext: Users fetched from DB: ${userData.length}`);
+                setUsers(userData as User[]);
+            }
 
             const [
                 { data: driversData, error: de },
-                { data: allUsers, error: ue },
                 { data: config, error: confE },
                 { data: inventory, error: invE },
                 { data: expData, error: expE },
@@ -332,10 +345,6 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 { data: allIncidents, error: incE }
             ] = await Promise.all([
                 supabase.from('drivers').select('*').eq('company_id', companyId),
-                // Superadmins should see all users, others only their company
-                currentUser.role === 'superadmin'
-                    ? supabase.from('users').select('*').order('name', { ascending: true })
-                    : supabase.from('users').select('*').eq('company_id', companyId).order('name', { ascending: true }),
                 supabase.from('system_configs').select('expected_inbound').eq('company_id', companyId).maybeSingle(),
                 supabase.from('inventory_log').select('*').eq('company_id', companyId),
                 supabase.from('expeditions').select('*').eq('company_id', companyId).order('dispatch_date', { ascending: false }),
@@ -347,14 +356,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 supabase.from('incidents').select('*').eq('company_id', companyId).order('created_at', { ascending: false })
             ]);
 
-            console.log('WmsContext: Data loaded. Users:', allUsers?.length || 0, 'Error:', ue);
-
-            // Handle Users
-            if (ue) console.error('WmsContext: Users fetch error:', ue);
-            else if (allUsers) {
-                setUsers(allUsers as User[]);
-                console.log('WmsContext: Users state updated with', allUsers.length, 'records');
-            }
+            console.log('WmsContext: Operational data loaded.');
 
             // Handle Drivers
             if (de) console.error('WmsContext: Drivers fetch error:', de);
