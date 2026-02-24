@@ -1388,16 +1388,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         playAudio('success');
     };
 
-    // --- Auth & User Management Logic (Removed redundant state declarations here) ---
-
-    useEffect(() => {
-        const loadUsers = async () => {
-            if (!currentUser) return;
-            const allUsers = await AuthService.getUsers();
-            setUsers(allUsers);
-        };
-        loadUsers();
-    }, [currentUser]); // Refresh users when admin logs in
+    // --- Auth & User Management Logic ---
 
     const login = async (identifier: string, password: string) => {
         console.log('WmsContext: login attempt for', identifier);
@@ -1434,8 +1425,18 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
 
     const refreshUsers = async () => {
-        const allUsers = await AuthService.getUsers();
-        setUsers(allUsers);
+        if (!currentUser) return;
+        const { data, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('company_id', currentUser.company_id)
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error('WmsContext: Error refreshing users:', error);
+            return;
+        }
+        setUsers(data as User[]);
     };
     const updateUserStatus = async (id: string, status: UserStatus, role?: Role | null) => {
         await AuthService.updateUserStatus(id, status, role);
