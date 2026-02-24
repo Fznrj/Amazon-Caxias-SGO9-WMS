@@ -324,14 +324,27 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 { data: inventory, error: invE },
                 { data: expData, error: expE },
                 { data: dbStats, error: statsE },
-                { data: weeklyData, error: weekE }
+                { data: weeklyData, error: weekE },
+                { data: todayInbound, error: tie },
+                { data: todayOutbound, error: toe }
             ] = await Promise.all([
                 supabase.from('drivers').select('*').eq('company_id', companyId),
                 supabase.from('system_configs').select('expected_inbound').eq('company_id', companyId).maybeSingle(),
                 supabase.from('inventory_log').select('*').eq('company_id', companyId),
                 supabase.from('expeditions').select('*').eq('company_id', companyId).order('dispatch_date', { ascending: false }),
                 supabase.from('v_dashboard_stats').select('*').eq('company_id', companyId).maybeSingle(),
-                supabase.from('mv_weekly_movement').select('*').eq('company_id', companyId).order('day_date', { ascending: true })
+                supabase.from('mv_weekly_movement').select('*').eq('company_id', companyId).order('day_date', { ascending: true }),
+                // Proactively load today's logs (Sao Paulo time)
+                supabase.from('inbound_log')
+                    .select('*')
+                    .eq('company_id', companyId)
+                    .gte('created_at', `${getSaoPauloDate()}T00:00:00-03:00`)
+                    .lte('created_at', `${getSaoPauloDate()}T23:59:59-03:00`),
+                supabase.from('outbound_log')
+                    .select('*')
+                    .eq('company_id', companyId)
+                    .gte('created_at', `${getSaoPauloDate()}T00:00:00-03:00`)
+                    .lte('created_at', `${getSaoPauloDate()}T23:59:59-03:00`)
             ]);
 
             // Heavy logs removed from initial load to optimize performance
@@ -392,6 +405,29 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             // Handle Weekly Stats
             if (weekE) console.error('WmsContext: Weekly stats fetch error:', weekE);
             else if (weeklyData) setWeeklyStatsFromView(weeklyData);
+
+            // Handle today's logs
+            if (todayInbound) {
+                setInboundItems(todayInbound.map(i => ({
+                    id: i.id,
+                    status: i.status,
+                    operator: i.operator,
+                    time: i.time,
+                    createdAt: i.created_at
+                })));
+            }
+            if (todayOutbound) {
+                setOutboundItems(todayOutbound.map(o => ({
+                    id: o.id,
+                    driverName: o.driver_name,
+                    vehicle: o.vehicle,
+                    time: o.time,
+                    operator: o.operator,
+                    status: o.status,
+                    palletId: o.pallet_id,
+                    createdAt: o.created_at
+                })));
+            }
 
             // Initialize Gamification
             await gamificationService.init(companyId);
@@ -556,15 +592,27 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             };
         });
 
+        // Local calculation for "Today" counts to avoid DB timezone issues
+        const localInboundToday = inboundItems.filter(item => isSameDay(item.time || (item as any).created_at)).length;
+        const localOutboundToday = outboundItems.filter(item => {
+            const st = item.status?.toLowerCase() || '';
+            return isSameDay(item.time || (item as any).createdAt || (item as any).created_at) && !st.includes('reversa');
+        }).length;
+        const localReversaToday = outboundItems.filter(item => {
+            const st = item.status?.toLowerCase() || '';
+            return isSameDay(item.time || (item as any).createdAt || (item as any).created_at) && st.includes('reversa');
+        }).length;
+
         return {
             weeklyStats,
-            totalInboundToday: dashboardStats?.entradas_hoje || 0,
-            totalOutboundToday: dashboardStats?.saidas_hoje || 0,
-            totalReversaToday: dashboardStats?.reversas_hoje || 0,
+            // Prefer local count if logs are loaded, otherwise fallback to DB view
+            totalInboundToday: localInboundToday || dashboardStats?.entradas_hoje || 0,
+            totalOutboundToday: localOutboundToday || dashboardStats?.saidas_hoje || 0,
+            totalReversaToday: localReversaToday || dashboardStats?.reversas_hoje || 0,
             totalLossItems: dashboardStats?.total_perdas || 0,
             staleItemsCount: dashboardStats?.parados_24h || 0
         };
-    }, [dashboardStats, weeklyStatsFromView]);
+    }, [dashboardStats, weeklyStatsFromView, inboundItems, outboundItems]);
 
     // Use derived values for backward compatibility
     const weeklyStats = statsSummary.weeklyStats;
