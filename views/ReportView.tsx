@@ -1,10 +1,11 @@
 import React from 'react';
 import { downloadCSV } from '../utils/download';
+import { supabase } from '../services/supabase';
 import { useWms } from '../context/WmsContext';
 import { getTodayDate, getSaoPauloDate, formatToLocalDate, formatToLocalTime } from '../utils/dateUtils';
 
 const ReportView: React.FC = () => {
-  const { inventoryItems, inboundItems, outboundItems, possibleLossItems, stockItems, users } = useWms();
+  const { currentUser, inventoryItems, inboundItems, outboundItems, possibleLossItems, stockItems, users } = useWms();
   const [startDate, setStartDate] = React.useState<string>(getSaoPauloDate());
   const [endDate, setEndDate] = React.useState<string>(getSaoPauloDate());
 
@@ -12,12 +13,12 @@ const ReportView: React.FC = () => {
 
   // Helper para buscar dados do Supabase baseados no intervalo de datas
   const fetchReportData = async (table: string, dateField: string = 'created_at') => {
-    if (!startDate || !endDate) return [];
+    if (!startDate || !endDate || !currentUser) return [];
 
     const { data, error } = await supabase
       .from(table)
       .select('*')
-      .eq('company_id', users[0]?.company_id) // Usando o company_id do primeiro usuário como fallback
+      .eq('company_id', currentUser.company_id)
       .gte(dateField, `${startDate}T00:00:00`)
       .lte(dateField, `${endDate}T23:59:59`)
       .order(dateField, { ascending: true });
@@ -30,6 +31,7 @@ const ReportView: React.FC = () => {
   };
 
   const handleDownloadReport = async (reportTitle: string) => {
+    if (isExporting) return;
     setIsExporting(true);
     let data: string[][] = [];
     const dateLabel = startDate === endDate ? startDate : `${startDate}_to_${endDate}`;
@@ -39,7 +41,7 @@ const ReportView: React.FC = () => {
       if (reportTitle.includes('Inventário')) {
         const items = await fetchReportData('inventory_log');
         data = [
-          ['ID', 'Operator', 'Data', 'Hora'],
+          ['ID', 'Operador', 'Data', 'Hora'],
           ...items.map(item => [item.id, item.operator, formatToLocalDate(item.time), formatToLocalTime(item.time)])
         ];
       } else if (reportTitle.includes('Saídas')) {
@@ -64,8 +66,10 @@ const ReportView: React.FC = () => {
         ];
       }
 
-      if (data.length > 0) {
+      if (data.length > 1) {
         downloadCSV(filename, data);
+      } else {
+        alert('Nenhum dado encontrado para o período selecionado.');
       }
     } catch (err) {
       console.error('Erro ao gerar relatório:', err);
@@ -75,6 +79,7 @@ const ReportView: React.FC = () => {
   };
 
   const handleDownloadAll = async () => {
+    if (isExporting) return;
     setIsExporting(true);
     const dateLabel = startDate === endDate ? startDate : `${startDate}_to_${endDate}`;
 
@@ -114,11 +119,14 @@ const ReportView: React.FC = () => {
         ])
       ];
 
-      // Ordenar por Data/Hora (primeira coluna) - simplificado para string já que vêm ordenados do banco
-      const header = data[0];
-      const sortedBody = data.slice(1).sort((a, b) => a[0].localeCompare(b[0]));
-
-      downloadCSV(`Relatorio_Geral_Movimentos_${dateLabel}.csv`, [header, ...sortedBody]);
+      if (data.length > 1) {
+        // Ordenar por Data/Hora (primeira coluna)
+        const header = data[0];
+        const sortedBody = data.slice(1).sort((a, b) => a[0].localeCompare(b[0]));
+        downloadCSV(`Relatorio_Geral_Movimentos_${dateLabel}.csv`, [header, ...sortedBody]);
+      } else {
+        alert('Nenhum dado encontrado para o período selecionado.');
+      }
     } catch (err) {
       console.error('Erro ao baixar todos os dados:', err);
     } finally {
@@ -127,7 +135,7 @@ const ReportView: React.FC = () => {
   };
 
   const reports = [
-    { title: 'Inventário Completo', description: 'Relatório detalhado de todos os itens em estoque.', icon: 'inventory_2' },
+    { title: 'Inventário Completo', description: 'Relatório detalhado de todos os itens conferidos.', icon: 'inventory_2' },
     { title: 'Total em Estoque', description: 'Lista de todos os itens atualmente na base (físico).', icon: 'view_in_ar' },
     { title: 'Movimentação de Saídas', description: 'Histórico de todas as saídas e motoristas.', icon: 'local_shipping' },
     { title: 'Relatório de Perdas', description: 'Itens marcados como perda ou não encontrados.', icon: 'warning' },
@@ -173,9 +181,11 @@ const ReportView: React.FC = () => {
               </div>
               <button
                 onClick={handleDownloadAll}
-                className="bg-primary hover:bg-primary/90 text-white px-6 py-2.5 rounded-lg font-bold uppercase text-xs tracking-wider shadow-lg shadow-primary/25 transition-all flex items-center gap-2"
+                disabled={isExporting}
+                className={`${isExporting ? 'bg-slate-600' : 'bg-primary hover:bg-primary/90'} text-white px-6 py-2.5 rounded-lg font-bold uppercase text-xs tracking-wider shadow-lg transition-all flex items-center gap-2`}
               >
-                <span className="material-icons-round text-lg">cloud_download</span> Download All
+                <span className="material-icons-round text-lg">{isExporting ? 'pending' : 'cloud_download'}</span>
+                {isExporting ? 'Processando...' : 'Download All'}
               </button>
             </div>
           </div>

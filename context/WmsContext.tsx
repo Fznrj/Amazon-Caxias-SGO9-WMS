@@ -370,7 +370,8 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 { data: dbStats, error: statsE },
                 { data: weeklyData, error: weekE },
                 { data: allInbound, error: tie },
-                { data: allOutbound, error: toe },
+                { data: toeNormal, error: toeError },
+                { data: toeReversa, error: treError },
                 { data: allStock, error: sce },
                 { data: allIncidents, error: incE }
             ] = await Promise.all([
@@ -381,9 +382,15 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 supabase.from('v_dashboard_stats').select('*').eq('company_id', companyId).maybeSingle(),
                 supabase.from('mv_weekly_movement').select('*').eq('company_id', companyId).order('day_date', { ascending: true }),
                 supabase.from('inbound_log').select('*').eq('company_id', companyId).order('created_at', { ascending: false }).limit(100),
-                // OTIMIZAÇÃO: Busca apenas contagem agregada de saídas de hoje para evitar lentidão
+                // OTIMIZAÇÃO: Busca contagens agregadas separadas para Saídas e Reversas de hoje
                 supabase.from('outbound_log').select('id', { count: 'exact', head: true })
                     .eq('company_id', companyId)
+                    .not('status', 'ilike', '%reversa%')
+                    .gte('created_at', getSaoPauloDate() + 'T00:00:00')
+                    .lte('created_at', getSaoPauloDate() + 'T23:59:59'),
+                supabase.from('outbound_log').select('id', { count: 'exact', head: true })
+                    .eq('company_id', companyId)
+                    .ilike('status', '%reversa%')
                     .gte('created_at', getSaoPauloDate() + 'T00:00:00')
                     .lte('created_at', getSaoPauloDate() + 'T23:59:59'),
                 supabase.from('stock_items').select('*').eq('company_id', companyId),
@@ -492,15 +499,14 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 })));
             }
 
-            // Handle Outbound logs (OTIMIZADO: Agora usamos apenas o count para o dashboard)
-            if (toe) console.error('WmsContext: Outbound count error:', toe);
-            else {
-                const totalCount = (toe as any).count || 0;
-                // Como não estamos carregando a lista completa por performance, 
-                // inicializamos o estado com uma lista vazia ou os últimos registros se necessário.
-                // Para o Dashboard, usamos o total_saidas do v_dashboard_stats ou este count.
-                setOutboundItems([]);
-            }
+            // Handle Outbound counts (OTIMIZADO)
+            if (toeError) console.error('WmsContext: Outbound count error:', toeError);
+            else setTodayOutboundCount((toeNormal as any).count || 0);
+
+            if (treError) console.error('WmsContext: Reversa count error:', treError);
+            else setTodayReversaCount((toeReversa as any).count || 0);
+
+            setOutboundItems([]); // Limpa lista em memória para alto volume
 
             // Gerenciar Incidentes
             if (incE) console.error('WmsContext: Incidents fetch error:', incE);
