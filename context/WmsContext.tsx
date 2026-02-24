@@ -83,6 +83,13 @@ interface WmsContextData {
     expectedInboundList: string[];
     setExpectedInboundList: (list: string[]) => Promise<void>;
     clearInboundManifest: () => Promise<void>;
+    inboundReconciliation: {
+        matches: string[];
+        missing: string[];
+        unexpected: string[];
+        progressPercent: number;
+        successfulScansToday: string[];
+    };
 
     // Outbound
     outboundItems: OutboundItem[];
@@ -133,6 +140,7 @@ interface WmsContextData {
     bulkAddDrivers: (drivers: Omit<Driver, 'id' | 'lastActivity'>[]) => Promise<void>;
     updateDriver: (id: string, updates: Partial<Driver>) => Promise<void>;
     deleteDriver: (id: string) => Promise<void>;
+    // activeDriversCount handled in Stats section for centralization
 
     // RTS Management
     expeditions: ExpeditionItem[];
@@ -144,13 +152,16 @@ interface WmsContextData {
     totalInboundToday: number;
     totalOutboundToday: number;
     totalReversaToday: number;
-    totalInventoryScanned: number;
-    totalLossItems: number;
-    staleItemsCount: number; // +24h items
-    totalExpected: number;
-    totalPossibleLosses: number;
-    weeklyStats: { name: string; entradas: number; saidas: number; entregues: number; rts: number }[];
-    resetTransactions: () => Promise<void>;
+    todayInboundList: InboundItem[];
+    todayOutboundList: OutboundItem[];
+    inboundReconciliation: {
+        matches: string[];
+        missing: string[];
+        unexpected: string[];
+        progressPercent: number;
+        successfulScansToday: string[];
+    };
+    availableStockCount: number;
 
     // Helpers
     verifyStock: (id: string) => Promise<{ success: boolean; message: string }>;
@@ -769,7 +780,33 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             staleItemsCount: staleStockItems.length || dashboardStats?.parados_24h || 0,
             totalPossibleLosses: possibleLossItems.length || dashboardStats?.possiveis_perdas || 0
         };
-    }, [dashboardStats, weeklyStatsFromView, inboundItems, outboundItems, expeditions]);
+    }, [dashboardStats, weeklyStatsFromView, inboundItems, outboundItems, expeditions, stockItems, staleStockItems, possibleLossItems]);
+
+    // --- Optimized Centralized Data (Zero-Loading) ---
+    const todayInboundList = React.useMemo(() =>
+        inboundItems.filter(item => isSameDay(item.time || (item as any).created_at)),
+        [inboundItems]);
+
+    const todayOutboundList = React.useMemo(() =>
+        outboundItems.filter(item => isSameDay(item.time || (item as any).createdAt || (item as any).created_at)),
+        [outboundItems]);
+
+    const inboundReconciliation = React.useMemo(() => {
+        const successfulScansToday = Array.from(new Set(
+            todayInboundList.filter(item => !item.error).map(item => item.id)
+        ));
+        const matches = expectedInboundList.filter(id => successfulScansToday.includes(id));
+        const missing = expectedInboundList.filter(id => !successfulScansToday.includes(id));
+        const unexpected = successfulScansToday.filter(id => !expectedInboundList.includes(id));
+        const progressPercent = expectedInboundList.length > 0
+            ? Math.round((matches.length / expectedInboundList.length) * 100)
+            : 0;
+
+        return { matches, missing, unexpected, progressPercent, successfulScansToday };
+    }, [todayInboundList, expectedInboundList]);
+
+    const activeDriversCount = React.useMemo(() => drivers.filter(d => d.status === 'Ativo').length, [drivers]);
+    const availableStockCount = React.useMemo(() => stockItems.filter(item => item.status?.toLowerCase() === 'em estoque').length, [stockItems]);
 
     // Use derived values for backward compatibility
     const weeklyStats = statsSummary.weeklyStats;
@@ -1588,6 +1625,8 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             expeditions, updateExpeditionDelivered, verifyReturn,
             totalInboundToday, totalOutboundToday, totalReversaToday, totalInventoryScanned, totalLossItems, staleItemsCount,
             totalExpected, totalPossibleLosses: statsSummary.totalPossibleLosses,
+            todayInboundList, todayOutboundList, inboundReconciliation,
+            activeDriversCount, availableStockCount,
             weeklyStats,
             resetTransactions,
             verifyStock, isValidTbr, isSameDay, getLocalDateIso: () => getSaoPauloDate(),

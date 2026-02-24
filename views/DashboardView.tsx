@@ -27,8 +27,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
   const [endDate, setEndDate] = React.useState(getSaoPauloDate(getTodayDate()));
   const [isComparisonMode, setIsComparisonMode] = React.useState(false);
 
-  // Calculate stats for the selected period
+  // Calculate stats for the selected period (only if dates are changed from today)
   const periodStats = React.useMemo(() => {
+    const isToday = startDate === getSaoPauloDate(getTodayDate()) && endDate === getSaoPauloDate(getTodayDate());
+    if (isToday) return { entradas: totalInboundToday, saidas: totalOutboundToday, reversas: totalReversaToday };
+
     let entradas = 0;
     let saidas = 0;
     let reversas = 0;
@@ -49,9 +52,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
     });
 
     return { entradas, saidas, reversas };
-  }, [inboundItems, outboundItems, startDate, endDate]);
+  }, [inboundItems, outboundItems, startDate, endDate, totalInboundToday, totalOutboundToday, totalReversaToday]);
 
-  // No longer need background sync here as all logs are pre-loaded in WmsContext for zero-loading navigation
+  const displayInbound = periodStats.entradas;
+  const displayOutbound = periodStats.saidas;
+  const displayReversa = periodStats.reversas;
+  const totalDepartures = displayOutbound + displayReversa;
 
   // Calculate trends comparing Today vs Yesterday (standard dashboard behavior)
   const yesterdayData = weeklyStats && weeklyStats.length >= 2 ? weeklyStats[weeklyStats.length - 2] : null;
@@ -62,11 +68,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
     const diff = ((current - previous) / previous) * 100;
     return `${diff >= 0 ? '+' : ''}${Math.round(diff)}%`;
   };
-
-  const displayInbound = isComparisonMode ? periodStats.entradas : periodStats.entradas; // Actually use periodStats even if single day
-  const displayOutbound = periodStats.saidas;
-  const displayReversa = periodStats.reversas;
-  const totalDepartures = displayOutbound + displayReversa;
 
   const kpis = [
     {

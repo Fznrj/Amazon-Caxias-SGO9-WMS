@@ -9,7 +9,14 @@ const InboundView: React.FC = () => {
   const [scanValue, setScanValue] = useState('');
   const [showReconciliation, setShowReconciliation] = useState(false);
   const [reconciliationSnapshot, setReconciliationSnapshot] = useState<{ missing: string[], unexpected: string[] } | null>(null);
-  const { inboundItems, addInboundItem, currentUser, stockItems, playAudio, expectedInboundList, setExpectedInboundList, clearInboundManifest } = useWms();
+  const {
+    inboundItems, addInboundItem, currentUser, stockItems,
+    playAudio, expectedInboundList, setExpectedInboundList,
+    clearInboundManifest, todayInboundList, inboundReconciliation
+  } = useWms();
+
+  const { matches, missing: missingItems, unexpected: unexpectedItems, progressPercent, successfulScansToday: successfulScans } = inboundReconciliation;
+
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -85,21 +92,6 @@ const InboundView: React.FC = () => {
     });
     setScanValue('');
   };
-
-  // Progress Calculation - Filter by Today (simulated)
-  const successfulScans = Array.from(new Set(
-    inboundItems
-      .filter(item => !item.error && isSameDay(item.time || (item as any).created_at))
-      .map(item => item.id)
-  ));
-
-  const missingItems = expectedInboundList.filter(id => !successfulScans.includes(id));
-  const unexpectedItems = successfulScans.filter(id => !expectedInboundList.includes(id));
-
-  const matches = expectedInboundList.filter(id => successfulScans.includes(id));
-  const progressPercent = expectedInboundList.length > 0
-    ? Math.round((matches.length / expectedInboundList.length) * 100)
-    : 0;
 
   const handleFinalize = async () => {
     if (!confirm('Deseja finalizar este recebimento? Isso limpará a lista esperada atual, mas manterá o histórico de bipes.')) return;

@@ -4,7 +4,11 @@ import { isSameDay, getTodayDate, formatToLocalTime, getSaoPauloIso } from '../u
 import { isValidTbr } from '../utils/validation';
 
 const OutboundView: React.FC = () => {
-  const { treatmentItems, outboundItems, addOutboundItem, deleteOutboundItem, playAudio, drivers, stockItems, totalOutboundToday, totalReversaToday, currentUser } = useWms();
+  const {
+    treatmentItems, outboundItems, addOutboundItem, deleteOutboundItem,
+    playAudio, drivers, stockItems, totalOutboundToday, totalReversaToday,
+    currentUser, activeDriversCount, availableStockCount, todayOutboundList
+  } = useWms();
   const [tbrInput, setTbrInput] = useState('');
   const [selectedDriverId, setSelectedDriverId] = useState('');
   const [message, setMessage] = useState<{ text: string, type: 'error' | 'success' } | null>(null);
@@ -93,7 +97,7 @@ const OutboundView: React.FC = () => {
         <div className="bg-white dark:bg-card-dark p-4 rounded border-l-4 border-cyan-500 shadow-sm transition-all hover:shadow-md">
           <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Aguardando Saída</p>
           <p className="text-2xl font-display font-bold text-cyan-500">
-            {stockItems.filter(item => item.status?.toLowerCase() === 'em estoque').length}
+            {availableStockCount}
           </p>
         </div>
         <div className="bg-white dark:bg-card-dark p-4 rounded border-l-4 border-red-500 shadow-sm transition-all hover:shadow-md">
@@ -106,12 +110,12 @@ const OutboundView: React.FC = () => {
         </div>
         <div className="bg-white dark:bg-card-dark p-4 rounded border-l-4 border-purple-500 shadow-sm transition-all hover:shadow-md">
           <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Motoristas Ativos</p>
-          <p className="text-2xl font-display font-bold text-purple-500">{drivers.filter(d => d.status === 'Ativo').length}</p>
+          <p className="text-2xl font-display font-bold text-purple-500">{activeDriversCount}</p>
         </div>
         <div className="bg-white dark:bg-card-dark p-4 rounded border-l-4 border-orange-500 shadow-sm transition-all hover:shadow-md">
           <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">TBRs Pendentes</p>
           <p className="text-2xl font-display font-bold text-orange-500">
-            {stockItems.filter(item => item.status?.toLowerCase() === 'em estoque').length}
+            {availableStockCount}
           </p>
         </div>
       </div>
