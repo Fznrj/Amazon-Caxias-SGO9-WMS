@@ -73,8 +73,8 @@ interface DashboardStats {
     total_perdas: number;
 }
 
-// UserItem is now just User from types.ts
-// Removed legacy UserItem interface
+// UserItem agora é apenas User vindo de types.ts
+// Removida interface UserItem legada
 
 interface WmsContextData {
     // Inbound
@@ -392,7 +392,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
             console.log('WmsContext: Operational data loaded.');
 
-            // Handle Drivers
+            // Gerenciar Motoristas
             if (de) console.error('WmsContext: Drivers fetch error:', de);
             else if (driversData) {
                 const mappedDrivers = driversData.map(d => ({
@@ -408,7 +408,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 setDrivers(mappedDrivers);
             }
 
-            // Handle Inventory
+            // Gerenciar Inventário
             if (invE) console.error('WmsContext: Inventory fetch error:', invE);
             else if (inventory) {
                 const mappedInventory = inventory.map(i => ({
@@ -420,11 +420,11 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 setInventoryItems(mappedInventory);
             }
 
-            // Handle Config
+            // Gerenciar Configurações
             if (confE) console.error('WmsContext: Config fetch error:', confE);
             else if (config?.expected_inbound) _setExpectedInboundList(config.expected_inbound);
 
-            // Handle Expeditions (RTS)
+            // Gerenciar Expedições (RTS)
             if (expE) console.error('WmsContext: Expeditions fetch error:', expE);
             else if (expData) {
                 setExpeditions(expData.map(e => ({
@@ -439,7 +439,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 })));
             }
 
-            // Handle Stock Items
+            // Gerenciar Itens de Estoque
             if (sce) console.error('WmsContext: Stock items fetch error:', sce);
             else if (allStock) {
                 const mapped = allStock.map((s: any) => ({
@@ -454,7 +454,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 setStockItems(mapped);
                 setPossibleLossItems(mapped.filter((s: any) => s.status?.toLowerCase() === 'possível perda'));
 
-                // Handle dashboard stats fallback with real count
+                // Gerenciar fallback das estatísticas do dashboard com contagem real
                 const stockCount = mapped.filter((s: any) => s.status?.toLowerCase() === 'em estoque').length;
                 if (dbStats) {
                     const updatedStats = {
@@ -475,11 +475,11 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 }
             }
 
-            // Handle Weekly Stats
+            // Gerenciar Estatísticas Semanais
             if (weekE) console.error('WmsContext: Weekly stats fetch error:', weekE);
             else if (weeklyData) setWeeklyStatsFromView(weeklyData);
 
-            // Handle Inbound logs
+            // Gerenciar logs de Entrada
             if (tie) console.error('WmsContext: Inbound fetch error:', tie);
             else if (allInbound) {
                 setInboundItems(allInbound.map((i: any) => ({
@@ -502,7 +502,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 setOutboundItems([]);
             }
 
-            // Handle Incidents
+            // Gerenciar Incidentes
             if (incE) console.error('WmsContext: Incidents fetch error:', incE);
             else if (allIncidents) {
                 setTreatmentItems(allIncidents.map((inc: any) => ({
@@ -516,7 +516,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 })));
             }
 
-            // Initialize Gamification
+            // Inicializar Gamificação
             await gamificationService.init(companyId);
 
         } catch (err) {
@@ -533,7 +533,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         await loadInitialData();
     };
 
-    // Zero-Loading Navigation: Removed syncDetailedLogs from view change effect
+    // Navegação Zero-Loading: Removido syncDetailedLogs do efeito de mudança de view
     React.useEffect(() => {
         if (!currentUser) return;
         // Navigation is now handled by pure state access
