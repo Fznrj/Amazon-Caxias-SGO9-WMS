@@ -192,8 +192,8 @@ const OutboundView: React.FC = () => {
 
             {message && (
               <div className={`mt-6 p-4 rounded-lg font-bold text-center text-sm uppercase tracking-widest border transition-all ${message.type === 'error'
-                  ? 'bg-red-50 dark:bg-red-900/10 text-red-600 border-red-100 dark:border-red-900/20'
-                  : 'bg-green-50 dark:bg-green-900/10 text-green-600 border-green-100 dark:border-green-900/20 shadow-lg shadow-green-500/10'
+                ? 'bg-red-50 dark:bg-red-900/10 text-red-600 border-red-100 dark:border-red-900/20'
+                : 'bg-green-50 dark:bg-green-900/10 text-green-600 border-green-100 dark:border-green-900/20 shadow-lg shadow-green-500/10'
                 }`}>
                 <div className="flex items-center justify-center gap-2">
                   <span className="material-icons-round">{message.type === 'error' ? 'report' : 'check_circle'}</span>
@@ -263,10 +263,6 @@ const OutboundView: React.FC = () => {
         </p>
       </div>
     </div>
-  );
-};
-
-export default OutboundView;
   );
 };
 
