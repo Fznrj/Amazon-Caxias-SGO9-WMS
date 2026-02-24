@@ -667,6 +667,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             .eq('company_id', currentUser.company_id);
 
         loadInitialData();
+        syncDetailedLogs('outbound');
         playAudio('success');
 
         // Sync with RTS Expeditions
@@ -721,6 +722,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
 
         loadInitialData();
+        syncDetailedLogs('outbound');
         playAudio('success');
 
         // Sync with RTS Expeditions
@@ -744,6 +746,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             .eq('company_id', currentUser.company_id);
 
         loadInitialData();
+        syncDetailedLogs('outbound');
         playAudio('success');
     };
 
@@ -910,6 +913,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             .eq('company_id', currentUser.company_id);
 
         loadInitialData();
+        syncDetailedLogs('stock');
         return { success: true, message: 'Retorno verificado com sucesso.' };
     };
 
@@ -1172,6 +1176,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
 
         await loadInitialData();
+        syncDetailedLogs('treatments');
         playAudio('success');
         return { success: true, message: 'Incidente registrado com sucesso.' };
     };
