@@ -1445,15 +1445,26 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const refreshUsers = async () => {
         if (!currentUser) return;
-        console.log('WmsContext: Manual users refresh. Admin?', currentUser.role === 'superadmin');
+        const userRole = (currentUser.role || '').toLowerCase();
+        const isSuperAdmin = userRole === 'superadmin';
+        const isAdmin = isSuperAdmin || userRole === 'admin';
 
-        const query = supabase.from('users').select('*').order('name', { ascending: true });
+        console.log('WmsContext: Manual refresh. Admin?', isAdmin);
 
-        if (currentUser.role !== 'superadmin') {
-            query.eq('company_id', currentUser.company_id);
+        let query = supabase.from('users').select('*').order('name', { ascending: true });
+
+        if (!isSuperAdmin) {
+            query = query.eq('company_id', currentUser.company_id);
         }
 
-        const { data, error } = await query;
+        let { data, error } = await query;
+
+        // Fallback for admins if company filter yields nothing
+        if (!error && (!data || data.length === 0) && isAdmin) {
+            console.log('WmsContext: Refresh empty, trying fallback...');
+            const { data: fallback } = await supabase.from('users').select('*').limit(100);
+            if (fallback) data = fallback;
+        }
 
         if (error) {
             console.error('WmsContext: Error refreshing users:', error);
