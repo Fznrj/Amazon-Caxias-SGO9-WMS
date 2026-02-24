@@ -737,10 +737,10 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             const realDay = (weeklyStatsFromView || []).find(d => d.day_date === emptyDay.rawDate);
             return realDay ? {
                 ...emptyDay,
-                entradas: realDay.entradas,
-                saidas: realDay.saidas,
-                entregues: realDay.entregues,
-                rts: realDay.rts
+                entradas: Number(realDay.entradas || 0),
+                saidas: Number(realDay.saidas || 0),
+                entregues: Number(realDay.entregues || 0),
+                rts: Number(realDay.reversas || realDay.rts || 0)
             } : emptyDay;
         });
 
@@ -759,10 +759,10 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             if (d.rawDate === todayKey) {
                 return {
                     ...d,
-                    entradas: Math.max(d.entradas, localInboundToday),
-                    saidas: Math.max(d.saidas, localOutboundToday),
-                    entregues: Math.max(d.entregues || 0, localEntreguesToday),
-                    rts: Math.max(d.rts, localReversaToday)
+                    entradas: Math.max(Number(d.entradas || 0), localInboundToday),
+                    saidas: Math.max(Number(d.saidas || 0), localOutboundToday),
+                    entregues: Math.max(Number(d.entregues || 0), localEntreguesToday),
+                    rts: Math.max(Number(d.rts || 0), localReversaToday)
                 };
             }
             return d;
