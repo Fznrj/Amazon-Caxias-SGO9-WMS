@@ -69,6 +69,16 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
     return `${diff >= 0 ? '+' : ''}${Math.round(diff)}%`;
   };
 
+  // Mapeamento de cores Tailwind para Hex para bordas manuais
+  const colorMap: Record<string, string> = {
+    'primary': '#087f8c',
+    'green-500': '#10b981',
+    'orange-500': '#f3a847',
+    'yellow-600': '#ca8a04',
+    'red-500': '#ef4444',
+    'black': '#000000'
+  };
+
   const kpis = [
     {
       label: 'Total em Estoque',
@@ -77,7 +87,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
       color: 'primary',
       trend: calculateTrend(
         totalExpected,
-        // Estimation: current stock - (today's net change) = yesterday's stock
         totalExpected - ((todayData?.entradas || 0) - (todayData?.saidas || 0))
       )
     },
@@ -150,21 +159,27 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {kpis.map((kpi, idx) => (
-          <div key={idx} className="bg-white dark:bg-card-dark p-5 rounded border-l-4 shadow-sm flex flex-col justify-between h-32 transition-transform hover:scale-[1.02]" style={{ borderColor: `var(--tw-border-opacity, 1) ${kpi.color === 'primary' ? '#087f8c' : kpi.color}` }}>
-            <div className="flex justify-between items-start">
-              <span className={`material-icons-round text-${kpi.color} opacity-80`}>{kpi.icon}</span>
-              <div className="text-right">
-                <span className={`text-3xl font-display font-bold ${kpi.label === 'Saídas Hoje' ? 'flex items-baseline gap-2 justify-end' : ''}`}>
+          <div
+            key={idx}
+            className="bg-white dark:bg-card-dark p-5 rounded border-l-4 shadow-sm flex flex-col justify-between h-32 transition-transform hover:scale-[1.02]"
+            style={{ borderLeftColor: colorMap[kpi.color] || '#087f8c' }}
+          >
+            <div className="flex justify-between items-start w-full">
+              <span className={`material-icons-round text-${kpi.color === 'primary' ? 'primary' : kpi.color} opacity-80 text-xl`}>{kpi.icon}</span>
+              <div className="flex flex-col items-end">
+                <div className="text-2xl font-display font-bold text-slate-800 dark:text-white flex items-baseline gap-1">
                   {kpi.value.includes('(') ? (
                     <>
-                      <span className="text-[14px] text-red-500 font-bold mb-1 cursor-help" title="Reversa">{kpi.value.match(/\((.*?)\)/)?.[0] || ''}</span>
+                      <span className="text-xs text-red-500 font-bold mb-1" title="Reversa">{kpi.value.match(/\((.*?)\)/)?.[0] || ''}</span>
                       <span>{kpi.value.split(' ')[0]}</span>
                     </>
                   ) : kpi.value}
-                </span>
+                </div>
               </div>
             </div>
-            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">{kpi.label}</span>
+            <div className="mt-auto">
+              <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest block">{kpi.label}</span>
+            </div>
           </div>
         ))}
       </div>
