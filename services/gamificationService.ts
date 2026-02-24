@@ -142,8 +142,7 @@ export class GamificationService {
             badges: profile.badges,
             fraud_flag: profile.fraudFlag,
             fraud_alerts: profile.fraudAlerts,
-            company_id: companyId,
-            updated_at: getSaoPauloIso()
+            company_id: companyId
         };
 
         const { error } = await supabase

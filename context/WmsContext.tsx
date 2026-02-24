@@ -838,8 +838,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (existing) {
             const { error: ue } = await supabase.from('expeditions')
                 .update({
-                    total_packages: existing.total_packages + count,
-                    updated_at: getSaoPauloIso()
+                    total_packages: existing.total_packages + count
                 })
                 .eq('id', existing.id);
             if (ue) console.error('WmsContext: Error updating expedition:', ue);
@@ -863,8 +862,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (!currentUser) return;
         await supabase.from('expeditions')
             .update({
-                delivered_count: delivered,
-                updated_at: getSaoPauloIso()
+                delivered_count: delivered
             })
             .eq('id', id)
             .eq('company_id', currentUser.company_id);
@@ -900,8 +898,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (exp) {
             await supabase.from('expeditions')
                 .update({
-                    returned_count: exp.returned_count + 1,
-                    updated_at: getSaoPauloIso()
+                    returned_count: exp.returned_count + 1
                 })
                 .eq('id', exp.id);
         }
