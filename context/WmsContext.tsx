@@ -688,16 +688,13 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                         }
                     }
 
-                    // Refresh Dashboard Views (they are complex aggregations)
+                    // Atualizar visualizações do dashboard (que são agregações complexas)
                     const { data: dbStats } = await supabase.from('v_dashboard_stats').select('*').eq('company_id', companyId).maybeSingle();
                     const { data: weeklyData } = await supabase.from('mv_weekly_movement').select('*').eq('company_id', companyId).order('day_date', { ascending: true });
 
                     if (dbStats) {
-                        // Patch stock items count from our local state for absolute accuracy
-                        setDashboardStats(prev => ({
-                            ...(dbStats as DashboardStats),
-                            total_em_estoque: stockItems.filter(s => s.status?.toLowerCase() === 'em estoque').length
-                        }));
+                        // Atualizar estatísticas do dashboard, mantendo a contagem de estoque baseada no estado local sincronizado
+                        setDashboardStats(dbStats as DashboardStats);
                     }
                     if (weeklyData) setWeeklyStatsFromView(weeklyData);
                 })
@@ -1622,8 +1619,8 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const totalLossItems = statsSummary.totalLossItems;
     const staleItemsCount = statsSummary.staleItemsCount;
 
-    // Total Esperado são os itens atualmente marcados como 'Em Estoque'
-    const totalExpected = dashboardStats?.total_em_estoque || 0;
+    // Total Esperado são os itens atualmente marcados como 'Em Estoque' (Instantâneo)
+    const totalExpected = availableStockCount;
 
     return (
         <WmsContext.Provider value={{
