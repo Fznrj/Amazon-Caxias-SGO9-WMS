@@ -83,14 +83,6 @@ interface WmsContextData {
     expectedInboundList: string[];
     setExpectedInboundList: (list: string[]) => Promise<void>;
     clearInboundManifest: () => Promise<void>;
-    inboundReconciliation: {
-        matches: string[];
-        missing: string[];
-        unexpected: string[];
-        progressPercent: number;
-        successfulScansToday: string[];
-    };
-
     // Outbound
     outboundItems: OutboundItem[];
     addOutboundItem: (item: OutboundItem) => Promise<{ success: boolean; message?: string }>;
@@ -161,7 +153,15 @@ interface WmsContextData {
         progressPercent: number;
         successfulScansToday: string[];
     };
+    activeDriversCount: number;
     availableStockCount: number;
+    totalInventoryScanned: number;
+    totalLossItems: number;
+    staleItemsCount: number; // +24h items
+    totalExpected: number;
+    totalPossibleLosses: number;
+    weeklyStats: { name: string; entradas: number; saidas: number; entregues: number; rts: number }[];
+    resetTransactions: () => Promise<void>;
 
     // Helpers
     verifyStock: (id: string) => Promise<{ success: boolean; message: string }>;
