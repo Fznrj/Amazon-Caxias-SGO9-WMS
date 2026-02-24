@@ -954,6 +954,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             return;
         }
 
+        syncDetailedLogs('stock');
         playAudio('success');
     };
 
