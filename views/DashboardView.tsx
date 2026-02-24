@@ -51,13 +51,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
     return { entradas, saidas, reversas };
   }, [inboundItems, outboundItems, startDate, endDate]);
 
-  // Trigger background sync when comparison mode is active to ensure we have data for period stats
-  React.useEffect(() => {
-    if (isComparisonMode) {
-      syncDetailedLogs('inbound');
-      syncDetailedLogs('outbound');
-    }
-  }, [isComparisonMode]);
+  // No longer need background sync here as all logs are pre-loaded in WmsContext for zero-loading navigation
 
   // Calculate trends comparing Today vs Yesterday (standard dashboard behavior)
   const yesterdayData = weeklyStats && weeklyStats.length >= 2 ? weeklyStats[weeklyStats.length - 2] : null;
