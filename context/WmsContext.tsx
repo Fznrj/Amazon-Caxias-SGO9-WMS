@@ -320,6 +320,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
             const [
                 { data: driversData, error: de },
+                { data: allUsers, error: ue },
                 { data: config, error: confE },
                 { data: inventory, error: invE },
                 { data: expData, error: expE },
@@ -331,6 +332,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 { data: allIncidents, error: incE }
             ] = await Promise.all([
                 supabase.from('drivers').select('*').eq('company_id', companyId),
+                supabase.from('users').select('*').eq('company_id', companyId),
                 supabase.from('system_configs').select('expected_inbound').eq('company_id', companyId).maybeSingle(),
                 supabase.from('inventory_log').select('*').eq('company_id', companyId),
                 supabase.from('expeditions').select('*').eq('company_id', companyId).order('dispatch_date', { ascending: false }),
@@ -342,6 +344,10 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 supabase.from('stock_items').select('*').eq('company_id', companyId),
                 supabase.from('incidents').select('*').eq('company_id', companyId).order('created_at', { ascending: false })
             ]);
+
+            // Handle Users
+            if (ue) console.error('WmsContext: Users fetch error:', ue);
+            else if (allUsers) setUsers(allUsers as User[]);
 
             // Handle Drivers
             if (de) console.error('WmsContext: Drivers fetch error:', de);
@@ -577,6 +583,41 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                         } else if (payload.eventType === 'UPDATE') {
                             const updated = payload.new as any;
                             setTreatmentItems(prev => prev.map(t => t.id === updated.id ? { ...t, status: updated.status } : t));
+                        }
+                    } else if (payload.table === 'users') {
+                        // Keep user list synced for UserManagementView
+                        const updated = payload.new as any;
+                        if (payload.eventType === 'INSERT') {
+                            setUsers(prev => [updated as User, ...prev]);
+                        } else if (payload.eventType === 'UPDATE') {
+                            setUsers(prev => prev.map(u => u.id === updated.id ? (updated as User) : u));
+                        } else if (payload.eventType === 'DELETE') {
+                            setUsers(prev => prev.filter(u => u.id !== payload.old.id));
+                        }
+                    } else if (payload.table === 'drivers') {
+                        const updated = payload.new as any;
+                        if (payload.eventType === 'INSERT') {
+                            setDrivers(prev => [...prev, {
+                                id: updated.id,
+                                name: updated.name,
+                                cpf: updated.cpf,
+                                plate: updated.plate,
+                                company: updated.company,
+                                status: updated.status,
+                                vehicleProfile: updated.vehicle_profile,
+                                lastActivity: updated.last_activity
+                            }]);
+                        } else if (payload.eventType === 'UPDATE') {
+                            setDrivers(prev => prev.map(d => d.id === updated.id ? {
+                                id: updated.id,
+                                name: updated.name,
+                                cpf: updated.cpf,
+                                plate: updated.plate,
+                                company: updated.company,
+                                status: updated.status,
+                                vehicleProfile: updated.vehicle_profile,
+                                lastActivity: updated.last_activity
+                            } : d));
                         }
                     }
 
