@@ -17,13 +17,21 @@ function createWindow() {
     title: "Amazon Caxias SGO9 - WMS",
     autoHideMenuBar: true
   });
+  win.webContents.openDevTools();
   win.webContents.on("did-finish-load", () => {
+    console.log("WmsMain: Window finished loading");
     win == null ? void 0 : win.webContents.send("main-process-message", (/* @__PURE__ */ new Date()).toLocaleString());
   });
+  win.webContents.on("did-fail-load", (event, errorCode, errorDescription) => {
+    console.error("WmsMain: Failed to load:", errorCode, errorDescription);
+  });
   if (VITE_DEV_SERVER_URL) {
+    console.log("WmsMain: Loading URL:", VITE_DEV_SERVER_URL);
     win.loadURL(VITE_DEV_SERVER_URL);
   } else {
-    win.loadFile(path.join(process.env.DIST, "index.html"));
+    const indexPath = path.join(process.env.DIST, "index.html");
+    console.log("WmsMain: Loading File:", indexPath);
+    win.loadFile(indexPath);
   }
 }
 app.on("window-all-closed", () => {
