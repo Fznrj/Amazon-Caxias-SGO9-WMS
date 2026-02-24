@@ -33,16 +33,26 @@ function createWindow() {
         autoHideMenuBar: true,
     });
 
+    // Open DevTools for debugging
+    win.webContents.openDevTools();
+
     // Test actively push message to the Electron-Renderer
     win.webContents.on('did-finish-load', () => {
+        console.log('WmsMain: Window finished loading');
         win?.webContents.send('main-process-message', (new Date()).toLocaleString());
     });
 
+    win.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+        console.error('WmsMain: Failed to load:', errorCode, errorDescription);
+    });
+
     if (VITE_DEV_SERVER_URL) {
+        console.log('WmsMain: Loading URL:', VITE_DEV_SERVER_URL);
         win.loadURL(VITE_DEV_SERVER_URL);
     } else {
-        // win.loadFile('dist/index.html')
-        win.loadFile(path.join(process.env.DIST, 'index.html'));
+        const indexPath = path.join(process.env.DIST, 'index.html');
+        console.log('WmsMain: Loading File:', indexPath);
+        win.loadFile(indexPath);
     }
 }
 
