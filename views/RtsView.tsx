@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useWms } from '../context/WmsContext';
+import { getSaoPauloDate } from '../utils/dateUtils';
 
 const RtsView: React.FC = () => {
     const {
@@ -341,7 +342,7 @@ const RtsView: React.FC = () => {
                     <h3 className="text-xs font-bold uppercase tracking-widest text-slate-700 bg-slate-100 p-2 mb-4">Lista de Pacotes Devolvidos (Total do Dia)</h3>
                     {(() => {
                         const driver = groupedExpeditions.find(e => e.id === selectedExpedition)?.driver_name;
-                        const today = new Date().toISOString().split('T')[0];
+                        const today = getSaoPauloDate(); // YYYY-MM-DD
 
                         // Find all items dispatched to this driver today
                         const driverTbrs = outboundItems
