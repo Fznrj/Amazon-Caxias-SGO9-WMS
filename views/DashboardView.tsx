@@ -16,9 +16,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
     totalInboundToday,
     totalOutboundToday,
     totalReversaToday,
-    stockItems,
     staleItemsCount,
-    totalLossItems
+    totalLossItems,
+    totalExpected,
+    totalPossibleLosses
   } = useWms();
 
   const [startDate, setStartDate] = React.useState(getSaoPauloDate(getTodayDate()));
@@ -67,13 +68,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
   const kpis = [
     {
       label: 'Total em Estoque',
-      value: stockItems.filter(i => i.status === 'Em Estoque').length.toString(),
+      value: totalExpected.toString(),
       icon: 'view_in_ar',
       color: 'primary',
       trend: calculateTrend(
-        stockItems.filter(i => i.status === 'Em Estoque').length,
+        totalExpected,
         // Estimation: current stock - (today's net change) = yesterday's stock
-        stockItems.filter(i => i.status === 'Em Estoque').length - ((todayData?.entradas || 0) - (todayData?.saidas || 0))
+        totalExpected - ((todayData?.entradas || 0) - (todayData?.saidas || 0))
       )
     },
     {
@@ -91,7 +92,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
       trend: isComparisonMode ? 'Histórico' : calculateTrend(isComparisonMode ? (periodStats.saidas + periodStats.reversas) : (totalOutboundToday + totalReversaToday), (yesterdayData?.saidas || 0))
     },
     { label: 'Parados +1 Dia', value: staleItemsCount.toString(), icon: 'schedule', color: 'yellow-600', trend: 'Audit' },
-    { label: 'Possíveis Perdas', value: stockItems.filter(i => i.status === 'Possível Perda').length.toString(), icon: 'warning', color: 'red-500', trend: 'Audit' },
+    { label: 'Possíveis Perdas', value: totalPossibleLosses.toString(), icon: 'warning', color: 'red-500', trend: 'Audit' },
     { label: 'Perdas / Extravios', value: totalLossItems.toString(), icon: 'cancel', color: 'black', trend: 'Permanente' },
   ];
 
