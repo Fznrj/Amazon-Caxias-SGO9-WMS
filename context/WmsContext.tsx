@@ -326,7 +326,8 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 { data: dbStats, error: statsE },
                 { data: weeklyData, error: weekE },
                 { data: todayInbound, error: tie },
-                { data: todayOutbound, error: toe }
+                { data: todayOutbound, error: toe },
+                { count: stockCount, error: sce }
             ] = await Promise.all([
                 supabase.from('drivers').select('*').eq('company_id', companyId),
                 supabase.from('system_configs').select('expected_inbound').eq('company_id', companyId).maybeSingle(),
@@ -344,7 +345,9 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     .select('*')
                     .eq('company_id', companyId)
                     .gte('created_at', `${getSaoPauloDate()}T00:00:00-03:00`)
-                    .lte('created_at', `${getSaoPauloDate()}T23:59:59-03:00`)
+                    .lte('created_at', `${getSaoPauloDate()}T23:59:59-03:00`),
+                // Direct count for stock
+                supabase.from('stock_items').select('*', { count: 'exact', head: true }).eq('company_id', companyId).eq('status', 'Em Estoque')
             ]);
 
             // Heavy logs removed from initial load to optimize performance
@@ -398,9 +401,25 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 })));
             }
 
-            // Handle Dashboard Stats
-            if (statsE) console.error('WmsContext: Dashboard stats fetch error:', statsE);
-            else if (dbStats) setDashboardStats(dbStats as DashboardStats);
+            // Handle dashboard stats fallback
+            if (dbStats) {
+                const updatedStats = {
+                    ...dbStats,
+                    total_em_estoque: stockCount !== null ? stockCount : (dbStats as any).total_em_estoque
+                };
+                setDashboardStats(updatedStats as DashboardStats);
+            } else if (stockCount !== null) {
+                // Initial creation if view returns nothing
+                setDashboardStats({
+                    total_em_estoque: stockCount,
+                    entradas_hoje: 0,
+                    saidas_hoje: 0,
+                    reversas_hoje: 0,
+                    parados_24h: 0,
+                    possiveis_perdas: 0,
+                    total_perdas: 0
+                } as DashboardStats);
+            }
 
             // Handle Weekly Stats
             if (weekE) console.error('WmsContext: Weekly stats fetch error:', weekE);
@@ -410,10 +429,10 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             if (todayInbound) {
                 setInboundItems(todayInbound.map(i => ({
                     id: i.id,
-                    status: i.status,
+                    status: i.status || 'Sucesso',
                     operator: i.operator,
                     time: i.time,
-                    createdAt: i.created_at
+                    error: false
                 })));
             }
             if (todayOutbound) {
