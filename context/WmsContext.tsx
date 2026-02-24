@@ -920,41 +920,55 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // --- RTS Helper & Methods ---
     const syncExpedition = async (driverName: string, plate: string, count: number) => {
         if (!currentUser) return;
-        const today = getSaoPauloIso().split('T')[0];
+        const today = getSaoPauloDate(); // YYYY-MM-DD
 
-        // Try to find existing expedition for today
-        const { data: existing, error: fe } = await supabase.from('expeditions')
-            .select('*')
-            .eq('company_id', currentUser.company_id)
-            .eq('driver_name', driverName)
-            .eq('dispatch_date', today)
-            .maybeSingle();
+        console.log(`WmsContext: Syncing expedition for ${driverName} on ${today} (+${count} packages)`);
 
-        if (fe) {
-            console.error('WmsContext: Error fetching existing expedition:', fe);
+        try {
+            // Use RPC or Upsert with onConflict if supported, 
+            // but since we added a unique constraint, we can use a simpler approach:
+            // 1. Fetch current total
+            const { data: existing } = await supabase.from('expeditions')
+                .select('id, total_packages')
+                .eq('company_id', currentUser.company_id)
+                .eq('driver_name', driverName)
+                .eq('dispatch_date', today)
+                .maybeSingle();
+
+            if (existing) {
+                const { error: ue } = await supabase.from('expeditions')
+                    .update({
+                        total_packages: (existing.total_packages || 0) + count,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', existing.id);
+
+                if (ue) throw ue;
+            } else {
+                const { error: ie } = await supabase.from('expeditions').insert({
+                    company_id: currentUser.company_id,
+                    driver_name: driverName,
+                    plate: plate,
+                    dispatch_date: today,
+                    total_packages: count,
+                    delivered_count: 0,
+                    returned_count: 0,
+                    status: 'EM_ROTA'
+                });
+                if (ie) throw ie;
+            }
+
+            // Proactively refresh expeditions in state
+            const { data: freshExp } = await supabase.from('expeditions')
+                .select('*')
+                .eq('company_id', currentUser.company_id)
+                .order('dispatch_date', { ascending: false });
+
+            if (freshExp) setExpeditions(freshExp);
+
+        } catch (err) {
+            console.error('WmsContext: syncExpedition critical error:', err);
         }
-
-        if (existing) {
-            const { error: ue } = await supabase.from('expeditions')
-                .update({
-                    total_packages: existing.total_packages + count
-                })
-                .eq('id', existing.id);
-            if (ue) console.error('WmsContext: Error updating expedition:', ue);
-        } else {
-            const { error: ie } = await supabase.from('expeditions').insert({
-                company_id: currentUser.company_id,
-                driver_name: driverName,
-                plate: plate,
-                dispatch_date: today,
-                total_packages: count,
-                delivered_count: 0,
-                returned_count: 0,
-                status: 'EM_ROTA'
-            });
-            if (ie) console.error('WmsContext: Error inserting expedition:', ie);
-        }
-        loadInitialData();
     };
 
     const updateExpeditionDelivered = async (id: string, delivered: number) => {

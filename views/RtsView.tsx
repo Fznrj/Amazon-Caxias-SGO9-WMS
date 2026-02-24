@@ -109,7 +109,7 @@ const RtsView: React.FC = () => {
 
         // Validation: Block if already returned (in session or in DB today)
         const driver = groupedExpeditions.find(exp => exp.id === selectedExpedition)?.driver_name;
-        const today = new Date().toISOString().split('T')[0];
+        const today = getSaoPauloDate(); // YYYY-MM-DD
         const isReturnedInDb = stockItems.some(item =>
             item.id === cleanTbr && item.status === 'Em Estoque'
         );
