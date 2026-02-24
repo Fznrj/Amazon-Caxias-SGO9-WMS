@@ -717,39 +717,46 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const statsSummary = React.useMemo(() => {
         const dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
-        // Map weekly stats from view
-        let weeklyStats = (weeklyStatsFromView || []).map(d => {
-            const date = parseToDate(d.day_date);
-            const dayLabel = dayNames[date.getDay()];
-            return {
-                name: dayLabel,
-                entradas: d.entradas,
-                saidas: d.saidas,
-                entregues: d.entregues,
-                rts: d.rts,
-                rawDate: d.day_date
-            };
+        // 1. Criar base de dados para os últimos 7 dias (preenchido com zeros)
+        const last7Days = [];
+        for (let i = 6; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            last7Days.push({
+                name: dayNames[d.getDay()],
+                rawDate: getSaoPauloDate(d),
+                entradas: 0,
+                saidas: 0,
+                entregues: 0,
+                rts: 0
+            });
+        }
+
+        // 2. Mesclar dados vindos do banco (se houver) com os últimos 7 dias
+        let weeklyStats = last7Days.map(emptyDay => {
+            const realDay = (weeklyStatsFromView || []).find(d => d.day_date === emptyDay.rawDate);
+            return realDay ? {
+                ...emptyDay,
+                entradas: realDay.entradas,
+                saidas: realDay.saidas,
+                entregues: realDay.entregues,
+                rts: realDay.rts
+            } : emptyDay;
         });
 
-        // Local calculation for "Today" counts to avoid DB timezone issues
+        // 3. Cálculos locais para o dia de "Hoje" (contagens instantâneas)
         const localInboundToday = inboundItems.filter(item => isSameDay(item.time || (item as any).created_at)).length;
-
-        // OTIMIZADO: Usamos os estados de contagem explícitos em vez de filtrar arrays
         const localOutboundToday = todayOutboundCount;
         const localReversaToday = todayReversaCount;
-
         const localEntreguesToday = (expeditions || [])
             .filter(e => isSameDay(e.dispatch_date))
             .reduce((sum, e) => sum + (e.delivered_count || 0), 0);
 
-        // Atualizar o dia atual nas estatísticas semanais com contagens locais se forem maiores
-        const todayLabel = dayNames[getTodayDate().getDay()];
         const todayKey = getSaoPauloDate();
 
-        let foundToday = false;
+        // 4. Aplicar contagens locais ao gráfico para o dia atual (mais precisas que a view)
         weeklyStats = weeklyStats.map(d => {
-            if (d.name === todayLabel || d.rawDate === todayKey) {
-                foundToday = true;
+            if (d.rawDate === todayKey) {
                 return {
                     ...d,
                     entradas: Math.max(d.entradas, localInboundToday),
@@ -760,20 +767,6 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             }
             return d;
         });
-
-        // Se hoje não estiver na lista (ex: banco vazio), adiciona-o
-        if (!foundToday && (localInboundToday > 0 || localOutboundToday > 0 || localEntreguesToday > 0)) {
-            weeklyStats.push({
-                name: todayLabel,
-                entradas: localInboundToday,
-                saidas: localOutboundToday,
-                entregues: localEntreguesToday,
-                rts: localReversaToday,
-                rawDate: todayKey
-            });
-            // Mantém apenas os últimos 7 dias
-            if (weeklyStats.length > 7) weeklyStats.shift();
-        }
 
         return {
             weeklyStats,
