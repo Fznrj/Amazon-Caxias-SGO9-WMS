@@ -739,8 +739,6 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             };
 
         await supabase.from('stock_items').upsert(stockData);
-        loadInitialData();
-        syncDetailedLogs('inbound');
         playAudio('success');
     };
 
@@ -1305,7 +1303,6 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             .update({ status })
             .eq('id', id)
             .eq('company_id', currentUser.company_id);
-        await loadInitialData();
         playAudio('success');
     };
 
@@ -1315,7 +1312,6 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             .update(updates)
             .eq('id', id)
             .eq('company_id', currentUser.company_id);
-        await loadInitialData();
         playAudio('success');
     };
 
