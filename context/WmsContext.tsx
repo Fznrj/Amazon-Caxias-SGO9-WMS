@@ -809,10 +809,11 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const activeDriversCount = React.useMemo(() => drivers.filter(d => d.status === 'Ativo').length, [drivers]);
     const availableStockCount = React.useMemo(() => stockItems.filter(item => item.status?.toLowerCase() === 'em estoque').length, [stockItems]);
 
-    // Constantes derivadas para compatibilidade retroativa (usando os novos estados de contagem)
+    // Constantes derivadas para compatibilidade retroativa
     const weeklyStats = statsSummary.weeklyStats;
     const totalInboundToday = statsSummary.totalInboundToday;
-    // totalOutboundToday e totalReversaToday são definidos no final do componente
+    const totalOutboundToday = statsSummary.totalOutboundToday;
+    const totalReversaToday = statsSummary.totalReversaToday;
 
     useEffect(() => {
         if (!currentUser) return;
@@ -1603,7 +1604,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
 
     // Helper para buscar contagem de hoje de um motorista específico (Alto Volume)
-    const fetchDriverTodayCount = async (driverId: string): Promise<number> => {
+    const fetchDriverTodayCount = React.useCallback(async (driverId: string): Promise<number> => {
         const { count, error } = await supabase
             .from('outbound_log')
             .select('id', { count: 'exact', head: true })
@@ -1615,7 +1616,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             return 0;
         }
         return count || 0;
-    };
+    }, []);
 
     const totalInventoryScanned = inventoryItems.length;
     const totalLossItems = statsSummary.totalLossItems;
@@ -1623,10 +1624,6 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     // Total Esperado são os itens atualmente marcados como 'Em Estoque'
     const totalExpected = dashboardStats?.total_em_estoque || 0;
-
-    // Constantes derivadas para compatibilidade retroativa (alto volume)
-    const totalOutboundToday = todayOutboundCount;
-    const totalReversaToday = todayReversaCount;
 
     return (
         <WmsContext.Provider value={{
