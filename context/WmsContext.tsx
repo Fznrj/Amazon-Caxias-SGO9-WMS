@@ -285,6 +285,11 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         INVENTORY_LOG: 'wms_inventory_log'
     };
 
+    const staleStockItems = React.useMemo(() => stockItems.filter(item => {
+        if (item.status?.toLowerCase() !== 'em estoque' || !item.entryTime) return false;
+        return !isSameDay(item.entryTime);
+    }), [stockItems]);
+
     // --- Helper for Local Persistence ---
     const saveLocal = (key: string, data: any) => {
         localStorage.setItem(key, JSON.stringify(data));
@@ -1567,11 +1572,6 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // Total Expected is the items currently marked as 'Em Estoque'
     const totalExpected = dashboardStats?.total_em_estoque || 0;
 
-    const staleStockItems = React.useMemo(() => stockItems.filter(item => {
-        if (item.status?.toLowerCase() !== 'em estoque' || !item.entryTime) return false;
-        // Item "stays overnight" if it was NOT received today (America/Sao_Paulo)
-        return !isSameDay(item.entryTime);
-    }), [stockItems]);
 
     return (
         <WmsContext.Provider value={{
