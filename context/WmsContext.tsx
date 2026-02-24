@@ -273,6 +273,8 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     // --- Outbound State ---
     const [outboundItems, setOutboundItems] = useState<OutboundItem[]>([]);
+    const [totalOutboundToday, setTotalOutboundToday] = useState(0);
+    const [totalReversaToday, setTotalReversaToday] = useState(0);
 
     // --- Inventory State ---
     const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
@@ -726,14 +728,10 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         // Local calculation for "Today" counts to avoid DB timezone issues
         const localInboundToday = inboundItems.filter(item => isSameDay(item.time || (item as any).created_at)).length;
-        const localOutboundToday = outboundItems.filter(item => {
-            const st = item.status?.toLowerCase() || '';
-            return isSameDay(item.time || (item as any).createdAt || (item as any).created_at) && !st.includes('reversa');
-        }).length;
-        const localReversaToday = outboundItems.filter(item => {
-            const st = item.status?.toLowerCase() || '';
-            return isSameDay(item.time || (item as any).createdAt || (item as any).created_at) && st.includes('reversa');
-        }).length;
+
+        // OTIMIZADO: Usamos os estados de contagem explícitos em vez de filtrar arrays
+        const localOutboundToday = totalOutboundToday;
+        const localReversaToday = totalReversaToday;
 
         const localEntreguesToday = (expeditions || [])
             .filter(e => isSameDay(e.dispatch_date))
