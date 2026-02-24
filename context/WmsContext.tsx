@@ -619,6 +619,33 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                                 lastActivity: updated.last_activity
                             } : d));
                         }
+                    } else if (payload.table === 'expeditions') {
+                        const updated = payload.new as any;
+                        if (payload.eventType === 'INSERT') {
+                            setExpeditions(prev => [{
+                                id: updated.id,
+                                driver_name: updated.driver_name,
+                                plate: updated.plate,
+                                dispatch_date: updated.dispatch_date,
+                                total_packages: updated.total_packages,
+                                delivered_count: updated.delivered_count,
+                                returned_count: updated.returned_count,
+                                status: updated.status
+                            }, ...prev]);
+                        } else if (payload.eventType === 'UPDATE') {
+                            setExpeditions(prev => prev.map(e => e.id === updated.id ? {
+                                id: updated.id,
+                                driver_name: updated.driver_name,
+                                plate: updated.plate,
+                                dispatch_date: updated.dispatch_date,
+                                total_packages: updated.total_packages,
+                                delivered_count: updated.delivered_count,
+                                returned_count: updated.returned_count,
+                                status: updated.status
+                            } : e));
+                        } else if (payload.eventType === 'DELETE') {
+                            setExpeditions(prev => prev.filter(e => e.id !== payload.old.id));
+                        }
                     }
 
                     // Refresh Dashboard Views (they are complex aggregations)
@@ -672,6 +699,10 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             return isSameDay(item.time || (item as any).createdAt || (item as any).created_at) && st.includes('reversa');
         }).length;
 
+        const localEntreguesToday = (expeditions || [])
+            .filter(e => isSameDay(e.dispatch_date))
+            .reduce((sum, e) => sum + (e.delivered_count || 0), 0);
+
         // Patch the current day in weekly stats with local counts if they are higher
         const todayLabel = dayNames[getTodayDate().getDay()];
         const todayKey = getSaoPauloDate();
@@ -684,6 +715,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     ...d,
                     entradas: Math.max(d.entradas, localInboundToday),
                     saidas: Math.max(d.saidas, localOutboundToday),
+                    entregues: Math.max(d.entregues || 0, localEntreguesToday),
                     rts: Math.max(d.rts, localReversaToday)
                 };
             }
@@ -691,12 +723,12 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         });
 
         // If today is not in the list (e.g. empty DB), add it
-        if (!foundToday && (localInboundToday > 0 || localOutboundToday > 0)) {
+        if (!foundToday && (localInboundToday > 0 || localOutboundToday > 0 || localEntreguesToday > 0)) {
             weeklyStats.push({
                 name: todayLabel,
                 entradas: localInboundToday,
                 saidas: localOutboundToday,
-                entregues: 0,
+                entregues: localEntreguesToday,
                 rts: localReversaToday,
                 rawDate: todayKey
             });
@@ -712,7 +744,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             totalLossItems: dashboardStats?.total_perdas || 0,
             staleItemsCount: dashboardStats?.parados_24h || 0
         };
-    }, [dashboardStats, weeklyStatsFromView, inboundItems, outboundItems]);
+    }, [dashboardStats, weeklyStatsFromView, inboundItems, outboundItems, expeditions]);
 
     // Use derived values for backward compatibility
     const weeklyStats = statsSummary.weeklyStats;
