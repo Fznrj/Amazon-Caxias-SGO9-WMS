@@ -1304,7 +1304,12 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         await supabase.from('stock_items').delete().eq('company_id', companyId);
         await supabase.from('incidents').delete().eq('company_id', companyId);
         await supabase.from('inventory_log').delete().eq('company_id', companyId);
+        await supabase.from('expeditions').delete().eq('company_id', companyId);
         await supabase.from('system_configs').update({ expected_inbound: [] }).eq('company_id', companyId);
+
+        // Reset local stats states immediately to show zeroed dashboard
+        setDashboardStats(null);
+        setWeeklyStatsFromView([]);
 
         loadInitialData();
         playAudio('success');
