@@ -1243,57 +1243,85 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const addInventoryItem = async (item: InventoryItem) => {
         if (!currentUser) return;
         const now = getSaoPauloIso();
-        if (inventoryItems.some(i => i.id === item.id)) {
+        const currentId = item.id.trim().toUpperCase();
+
+        // 1. Bloqueio local imediato (Prevenção de bips duplicados rápidos)
+        if (inventoryItems.some(i => i.id === currentId)) {
+            console.warn(`WmsContext: TBR ${currentId} já inventariada nesta sessão.`);
             playAudio('error');
             return;
         }
+
+        // 2. Atualização de estado otimista (Instantânea)
+        const enrichedItem = { ...item, id: currentId, time: now, operator: currentUser.name };
+        setInventoryItems(prev => [enrichedItem, ...prev]);
+
         if (currentUser) {
             await gamificationService.registerScan(currentUser.id, currentUser.name, currentUser.company_id);
         }
 
         const { error } = await supabase.from('inventory_log').insert({
-            ...item,
-            time: now,
+            ...enrichedItem,
             company_id: currentUser.company_id
         });
 
         if (error) {
             console.error('WmsContext: Error adding inventory item:', error);
+            // Reverter estado local se falhar no banco (opcional, mas seguro)
+            setInventoryItems(prev => prev.filter(i => i.id !== currentId));
             playAudio('error');
             return;
         }
 
-        syncDetailedLogs('stock');
         playAudio('success');
+        // Não chamamos syncDetailedLogs aqui para evitar loop de estado, as inserções são leves
     };
 
     const startInventory = async () => {
+        if (!currentUser) return;
         setIsInventoryActive(true);
         setInventoryItems([]);
         localStorage.removeItem(STORAGE_KEYS.INVENTORY_LOG);
+
+        // Limpeza física dos logs de inventário no banco (Reset real da sessão)
+        const { error } = await supabase.from('inventory_log')
+            .delete()
+            .eq('company_id', currentUser.company_id);
+
+        if (error) console.error('WmsContext: Error clearing inventory_log:', error);
     };
 
     const stopInventory = async () => {
         if (!currentUser) return;
         setIsInventoryActive(false);
+
+        // Calcular itens que deveriam estar no estoque mas não foram inventariados
         const missingIds = stockItems
             .filter(s => s.status?.toLowerCase() === 'em estoque' && !inventoryItems.some(inv => inv.id === s.id))
             .map(s => s.id);
 
-        const now = getSaoPauloIso();
+        if (missingIds.length > 0) {
+            console.log(`WmsContext: Finalizando inventário. Marcando ${missingIds.length} itens como Possível Perda.`);
+            const now = getSaoPauloIso();
 
-        // Update each missing item in Supabase
-        for (const id of missingIds) {
-            await supabase.from('stock_items')
+            // Atualização coletiva (Bulk Update) no Supabase
+            const { error } = await supabase.from('stock_items')
                 .update({
                     status: 'Possível Perda' as const,
                     loss_detected_time: now
                 })
-                .eq('id', id)
+                .in('id', missingIds)
                 .eq('company_id', currentUser.company_id);
+
+            if (error) {
+                console.error('WmsContext: Error updating missing items to Possible Loss:', error);
+                playAudio('error');
+            }
         }
 
-        loadInitialData();
+        // Recarrega tudo para garantir que o Dashboard e o Estoque reflitam a realidade
+        await loadInitialData();
+        playAudio('success');
     };
 
     const localizeItem = async (id: string, scannerInput: string) => {
