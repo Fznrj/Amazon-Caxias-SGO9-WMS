@@ -177,6 +177,7 @@ interface WmsContextData {
     syncDetailedLogs: (module: 'stock' | 'inbound' | 'outbound' | 'treatments') => Promise<void>;
     // Novo helper para alto volume: busca contagem de saídas de um motorista hoje
     fetchDriverTodayCount: (driverId: string) => Promise<number>;
+    refreshData: () => Promise<void>;
     loading: boolean;
 }
 
@@ -1781,6 +1782,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             playAudio, refreshProfile, uploadUserAvatar,
             syncDetailedLogs,
             fetchDriverTodayCount,
+            refreshData: loadInitialData,
             loading
         }}>
             {children}
