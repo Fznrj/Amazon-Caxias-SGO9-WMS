@@ -18,6 +18,8 @@ import RtsView from './views/RtsView';
 import GamificationView from './views/GamificationView';
 import PasswordResetModal from './components/PasswordResetModal';
 import { WmsProvider, useWms } from './context/WmsContext';
+import { Capacitor } from '@capacitor/core';
+import { StatusBar } from '@capacitor/status-bar';
 // import { GoogleOAuthProvider } from '@react-oauth/google';
 
 // Inner App Component that consumes Context
@@ -28,6 +30,14 @@ const AppContent: React.FC = () => {
   const [isOffline, setIsOffline] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+
+  useEffect(() => {
+    // Enable Immersive Mode on Native Platforms
+    if (Capacitor.isNativePlatform()) {
+      StatusBar.hide().catch(err => console.warn('Capacitor: StatusBar hide failed', err));
+    }
+  }, []);
 
 
   useEffect(() => {
