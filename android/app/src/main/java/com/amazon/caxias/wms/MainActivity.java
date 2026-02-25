@@ -1,4 +1,4 @@
-package com.getcapacitor.myapp;
+package com.amazon.caxias.wms;
 
 import com.getcapacitor.BridgeActivity;
 

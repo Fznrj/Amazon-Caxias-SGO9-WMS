@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Amazon Caxias SGO9</string>
+    <string name="title_activity_main">Amazon Caxias SGO9</string>
+    <string name="package_name">com.amazon.caxias.wms</string>
+    <string name="custom_url_scheme">com.amazon.caxias.wms</string>
+</resources>
