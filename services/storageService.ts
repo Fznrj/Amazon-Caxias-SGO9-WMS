@@ -3,43 +3,67 @@ import { Preferences } from '@capacitor/preferences';
 /**
  * StorageService: Adaptador assíncrono para persistência de dados.
  * No Android/iOS, utiliza o armazenamento nativo persistente.
- * No Desktop/Web, utiliza o motor do Capacitor que mapeia para localStorage (ou motor disponível).
  */
 export const StorageService = {
     async setItem(key: string, value: string): Promise<void> {
-        await Preferences.set({
-            key,
-            value
-        });
+        try {
+            await Preferences.set({ key, value });
+        } catch (err) {
+            console.error(`StorageService: Error setting key "${key}"`, err);
+            throw err;
+        }
     },
 
     async getItem(key: string): Promise<string | null> {
-        const { value } = await Preferences.get({ key });
-        return value;
+        try {
+            const { value } = await Preferences.get({ key });
+            return value;
+        } catch (err) {
+            console.error(`StorageService: Error getting key "${key}"`, err);
+            return null;
+        }
     },
 
     async removeItem(key: string): Promise<void> {
-        await Preferences.remove({ key });
+        try {
+            await Preferences.remove({ key });
+        } catch (err) {
+            console.error(`StorageService: Error removing key "${key}"`, err);
+        }
     },
 
     async clear(): Promise<void> {
-        await Preferences.clear();
+        try {
+            await Preferences.clear();
+        } catch (err) {
+            console.error('StorageService: Error clearing preferences', err);
+        }
     },
 
-    // Bridge para o Supabase Auth (que espera uma interface Sync ou específica)
-    // O Supabase JS v2 aceita Storage personalizado.
+    // Adaptador para o Supabase Auth (Suporta Async no v2)
     supabaseAdapter: {
-        getItem: (key: string) => {
-            // Nota: O Supabase v2 pode lidar com Promises se configurado corretamente,
-            // ou podemos usar um cache síncrono inicializado no boot.
-            // Para maior robustez no Capacitor, configuraremos o Supabase com suporte a Async.
-            return Preferences.get({ key }).then(res => res.value);
+        getItem: async (key: string): Promise<string | null> => {
+            try {
+                const { value } = await Preferences.get({ key });
+                return value;
+            } catch (err) {
+                console.error(`SupabaseAdapter: Error getting "${key}"`, err);
+                return null;
+            }
         },
-        setItem: (key: string, value: string) => {
-            return Preferences.set({ key, value });
+        setItem: async (key: string, value: string): Promise<void> => {
+            try {
+                await Preferences.set({ key, value });
+            } catch (err) {
+                console.error(`SupabaseAdapter: Error setting "${key}"`, err);
+            }
         },
-        removeItem: (key: string) => {
-            return Preferences.remove({ key });
+        removeItem: async (key: string): Promise<void> => {
+            try {
+                await Preferences.remove({ key });
+            } catch (err) {
+                console.error(`SupabaseAdapter: Error removing "${key}"`, err);
+            }
         }
     }
 };

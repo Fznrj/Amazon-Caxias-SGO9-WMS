@@ -1590,9 +1590,9 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 await StorageService.setItem('wms_active_view', View.DASHBOARD);
             }
             return { success: result.success, message: result.message };
-        } catch (err) {
+        } catch (err: any) {
             console.error('WmsContext: critical login error', err);
-            return { success: false, message: 'Erro crítico na autenticação.' };
+            return { success: false, message: `Erro crítico na autenticação: ${err.message || 'Erro desconhecido'}` };
         }
     };
 

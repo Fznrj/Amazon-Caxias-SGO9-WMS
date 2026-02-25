@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "electron:dev": "vite",
     "electron:build": "vite build && electron-builder",
-    "android:sync": "npm run build && npx cap copy android",
+    "android:sync": "npm run build && npx cap sync android",
     "android:open": "npx cap open android"
   },
   "build": {
