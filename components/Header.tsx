@@ -7,30 +7,38 @@ interface HeaderProps {
   currentUser: User | null;
   isOffline: boolean;
   onToggleOffline: () => void;
+  onMenuToggle: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ viewTitle, isOffline, onToggleOffline }) => {
+const Header: React.FC<HeaderProps> = ({ viewTitle, isOffline, onToggleOffline, onMenuToggle }) => {
   const titles: Record<View, string> = {
+    // ... (titles keep same)
     [View.LOGIN]: 'Login',
     [View.DASHBOARD]: 'Dashboard',
-    [View.INBOUND]: 'Módulo de Entrada (Inbound)',
-    [View.OUTBOUND]: 'Saída (Outbound)',
-    [View.INVENTORY]: 'Inventário',
-    [View.TREATMENTS]: 'Módulo de Tratativas e Perdas',
-    [View.PRODUCTIVITY]: 'Produtividade Operacional',
-    [View.REPORTS]: 'Relatórios & Exportações',
-    [View.USERS]: 'Gestão de Usuários',
-    [View.DRIVERS]: 'Gestão de Motoristas',
+    [View.INBOUND]: 'Logística de Entrada',
+    [View.OUTBOUND]: 'Expedição de Saída',
+    [View.INVENTORY]: 'Inventário de Estoque',
+    [View.TREATMENTS]: 'Tratativas e Perdas',
+    [View.PRODUCTIVITY]: 'Produtividade',
+    [View.REPORTS]: 'Relatórios',
+    [View.USERS]: 'Usuários',
+    [View.DRIVERS]: 'Motoristas',
     [View.SETTINGS]: 'Configurações',
-    [View.REVERSA]: 'Módulo de Logística Reversa',
-    [View.GAMIFICATION]: 'Painel de Gamificação e Performance',
-    [View.RTS]: 'RTS (Return to Station)'
+    [View.REVERSA]: 'Logística Reversa',
+    [View.GAMIFICATION]: 'Performance',
+    [View.RTS]: 'RTS (Devolução)'
   };
 
   return (
-    <header className="h-16 flex items-center justify-between px-8 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-background-dark/80 backdrop-blur sticky top-0 z-40">
-      <div className="flex items-center gap-4">
-        <h2 className="font-display text-xl md:text-2xl font-bold uppercase tracking-tight border-l-4 border-primary pl-4">
+    <header className="h-16 flex items-center justify-between px-4 md:px-8 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-background-dark/80 backdrop-blur sticky top-0 z-40">
+      <div className="flex items-center gap-2 md:gap-4">
+        <button
+          onClick={onMenuToggle}
+          className="p-2 -ml-2 lg:hidden text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
+        >
+          <span className="material-icons-round text-2xl">menu</span>
+        </button>
+        <h2 className="font-display text-sm sm:text-lg md:text-2x font-bold uppercase tracking-tight border-l-2 md:border-l-4 border-primary pl-3 md:pl-4 truncate max-w-[180px] sm:max-w-none">
           {titles[viewTitle]}
         </h2>
       </div>

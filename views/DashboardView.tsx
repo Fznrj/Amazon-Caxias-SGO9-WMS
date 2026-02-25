@@ -157,20 +157,20 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 md:gap-4">
         {kpis.map((kpi, idx) => (
           <div
             key={idx}
-            className="bg-white dark:bg-card-dark p-5 rounded border-l-4 shadow-sm flex flex-col justify-between h-32 transition-transform hover:scale-[1.02]"
+            className="bg-white dark:bg-card-dark p-3 md:p-5 rounded border-l-4 shadow-sm flex flex-col justify-between h-24 md:h-32 transition-transform hover:scale-[1.02]"
             style={{ borderLeftColor: colorMap[kpi.color] || '#087f8c' }}
           >
             <div className="flex justify-between items-start w-full">
-              <span className={`material-icons-round text-${kpi.color === 'primary' ? 'primary' : kpi.color} opacity-80 text-xl`}>{kpi.icon}</span>
+              <span className={`material-icons-round text-${kpi.color === 'primary' ? 'primary' : kpi.color} opacity-80 text-lg md:text-xl`}>{kpi.icon}</span>
               <div className="flex flex-col items-end">
-                <div className="text-2xl font-display font-bold text-slate-800 dark:text-white flex items-baseline gap-1">
+                <div className="text-lg md:text-2xl font-display font-bold text-slate-800 dark:text-white flex items-baseline gap-1">
                   {kpi.value.includes('(') ? (
                     <>
-                      <span className="text-xs text-red-500 font-bold mb-1" title="Reversa">{kpi.value.match(/\((.*?)\)/)?.[0] || ''}</span>
+                      <span className="text-[10px] text-red-500 font-bold mb-1" title="Reversa">{kpi.value.match(/\((.*?)\)/)?.[0] || ''}</span>
                       <span>{kpi.value.split(' ')[0]}</span>
                     </>
                   ) : kpi.value}
@@ -178,30 +178,28 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               </div>
             </div>
             <div className="mt-auto">
-              <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest block">{kpi.label}</span>
+              <span className="text-[8px] md:text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest block truncate">{kpi.label}</span>
             </div>
           </div>
         ))}
       </div>
 
-      <div className="bg-white dark:bg-card-dark p-6 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm">
-        <h3 className="font-display text-lg tracking-widest uppercase mb-6">Volume de Movimentação Semanal</h3>
-        <div className="h-[250px] w-full">
+      <div className="bg-white dark:bg-card-dark p-4 md:p-6 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm mt-4">
+        <h3 className="font-display text-sm md:text-lg tracking-widest uppercase mb-4 md:mb-6">Volume Semanal</h3>
+        <div className="h-[200px] md:h-[250px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             {weeklyStats && weeklyStats.length > 0 ? (
               <BarChart data={weeklyStats}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#374151" opacity={0.1} />
-                <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => Math.round(val).toString()} />
+                <XAxis dataKey="name" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} />
+                <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => Math.round(val).toString()} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px', color: '#fff' }}
+                  contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '12px' }}
                   itemStyle={{ color: '#087f8c' }}
                   formatter={(value: any, name: string) => [value, name]}
                 />
-                <Bar dataKey="entradas" name="Entradas" fill="#087f8c" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="saidas" name="Saídas" fill="#f3a847" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="entregues" name="Entregues" fill="#10b981" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="rts" name="RTS" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="entradas" name="Entr." fill="#087f8c" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="saidas" name="Saíd." fill="#f3a847" radius={[4, 4, 0, 0]} />
               </BarChart>
             ) : (
               <div className="h-full flex items-center justify-center text-slate-400 text-xs italic">
