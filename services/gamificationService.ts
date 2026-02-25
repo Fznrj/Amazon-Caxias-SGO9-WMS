@@ -91,12 +91,12 @@ export class GamificationService {
     private profiles: Map<string, GamificationProfile> = new Map();
     private initialized: boolean = false;
 
-    async init(companyId: string): Promise<void> {
+    async init(companyId?: string): Promise<void> {
         try {
-            const { data, error } = await supabase
-                .from('gamification_profiles')
-                .select('*')
-                .eq('company_id', companyId);
+            let query = supabase.from('gamification_profiles').select('*');
+            if (companyId) query = query.eq('company_id', companyId);
+
+            const { data, error } = await query;
 
             if (error) throw error;
 

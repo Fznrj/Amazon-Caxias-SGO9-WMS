@@ -338,12 +338,21 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             const companyId = currentUser.company_id;
             const userRole = (currentUser.role || '').toLowerCase();
             const isAdmin = userRole === 'superadmin' || userRole === 'admin';
+            const isSuperAdmin = userRole === 'superadmin';
 
-            console.log(`WmsContext: Fetching users. Role: ${userRole}, Company: "${companyId}"`);
+            console.log(`WmsContext: Fetching data. Role: ${userRole}, Company: "${companyId}"`);
+
+            // Helper to conditionally apply company_id filter
+            const applyFilter = (query: any) => {
+                // If superadmin and companyId is null, show everything.
+                // Otherwise, always filter by companyId.
+                if (isSuperAdmin && !companyId) return query;
+                return query.eq('company_id', companyId);
+            };
 
             // Fetch users with resilience
             let { data: userData, error: userError } = await (
-                userRole === 'superadmin'
+                isSuperAdmin && !companyId
                     ? supabase.from('users').select('*').order('name', { ascending: true })
                     : supabase.from('users').select('*').eq('company_id', companyId).order('name', { ascending: true })
             );
@@ -375,26 +384,28 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 { data: allStock, error: sce },
                 { data: allIncidents, error: incE }
             ] = await Promise.all([
-                supabase.from('drivers').select('*').eq('company_id', companyId),
-                supabase.from('system_configs').select('expected_inbound').eq('company_id', companyId).maybeSingle(),
-                supabase.from('inventory_log').select('*').eq('company_id', companyId),
-                supabase.from('expeditions').select('*').eq('company_id', companyId).order('dispatch_date', { ascending: false }),
-                supabase.from('v_dashboard_stats').select('*').eq('company_id', companyId).maybeSingle(),
-                supabase.from('mv_weekly_movement').select('*').eq('company_id', companyId).order('day_date', { ascending: true }),
-                supabase.from('inbound_log').select('*').eq('company_id', companyId).order('created_at', { ascending: false }).limit(100),
+                applyFilter(supabase.from('drivers').select('*')),
+                applyFilter(supabase.from('system_configs').select('expected_inbound')).maybeSingle(),
+                applyFilter(supabase.from('inventory_log').select('*')),
+                applyFilter(supabase.from('expeditions').select('*')).order('dispatch_date', { ascending: false }),
+                applyFilter(supabase.from('v_dashboard_stats').select('*')).maybeSingle(),
+                applyFilter(supabase.from('mv_weekly_movement').select('*')).order('day_date', { ascending: true }),
+                applyFilter(supabase.from('inbound_log').select('*')).order('created_at', { ascending: false }).limit(100),
                 // OTIMIZAÇÃO: Busca contagens agregadas separadas para Saídas e Reversas de hoje
-                supabase.from('outbound_log').select('id', { count: 'exact', head: true })
-                    .eq('company_id', companyId)
-                    .not('status', 'ilike', '%reversa%')
-                    .gte('created_at', getSaoPauloDate() + 'T00:00:00')
-                    .lte('created_at', getSaoPauloDate() + 'T23:59:59'),
-                supabase.from('outbound_log').select('id', { count: 'exact', head: true })
-                    .eq('company_id', companyId)
-                    .ilike('status', '%reversa%')
-                    .gte('created_at', getSaoPauloDate() + 'T00:00:00')
-                    .lte('created_at', getSaoPauloDate() + 'T23:59:59'),
-                supabase.from('stock_items').select('*').eq('company_id', companyId),
-                supabase.from('incidents').select('*').eq('company_id', companyId).order('created_at', { ascending: false }).limit(50)
+                applyFilter(
+                    supabase.from('outbound_log').select('id', { count: 'exact', head: true })
+                        .not('status', 'ilike', '%reversa%')
+                        .gte('created_at', getSaoPauloDate() + 'T00:00:00')
+                        .lte('created_at', getSaoPauloDate() + 'T23:59:59')
+                ),
+                applyFilter(
+                    supabase.from('outbound_log').select('id', { count: 'exact', head: true })
+                        .ilike('status', '%reversa%')
+                        .gte('created_at', getSaoPauloDate() + 'T00:00:00')
+                        .lte('created_at', getSaoPauloDate() + 'T23:59:59')
+                ),
+                applyFilter(supabase.from('stock_items').select('*')),
+                applyFilter(supabase.from('incidents').select('*')).order('created_at', { ascending: false }).limit(50)
             ]);
 
             console.log('WmsContext: Operational data loaded.');
