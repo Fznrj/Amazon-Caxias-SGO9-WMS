@@ -62,16 +62,23 @@ const RtsView: React.FC = () => {
     }, [groupedExpeditions]);
 
     const filteredExpeditions = useMemo(() => {
+        const today = getSaoPauloDate();
         return groupedExpeditions.filter(e => {
-            // NEW: Hide drivers with 0 pending items
-            const pending = (e.total_packages || 0) - ((e.delivered_count || 0) + (e.returned_count || 0));
-            if (pending <= 0) return false;
-
             const search = filter.toLowerCase();
             const nameMatch = (e.driver_name || '').toLowerCase().includes(search);
             const plateMatch = (e.plate || '').toLowerCase().includes(search);
             const dateMatch = (e.dispatch_date || '').includes(search);
-            return nameMatch || plateMatch || dateMatch;
+
+            // Filter for search OR if no search, show only today's data
+            const searchActive = search.length > 0;
+            const isToday = e.dispatch_date === today;
+
+            if (searchActive) {
+                return nameMatch || plateMatch || dateMatch;
+            }
+
+            // By default, showing only today's data (the "reset" at 00:00)
+            return isToday;
         });
     }, [groupedExpeditions, filter]);
 
