@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, Driver, Role, UserStatus, VehicleProfile, View } from '../types';
 import { AuthService } from '../services/authService';
+import { StorageService } from '../services/storageService';
 import { gamificationService } from '../services/gamificationService';
 import { supabase } from '../services/supabase';
 import { isSameDay, parseToDate, getDateKey, getSaoPauloDate, getTodayDate, getSaoPauloIso, formatToLocalTime } from '../utils/dateUtils';
@@ -176,6 +177,7 @@ interface WmsContextData {
     syncDetailedLogs: (module: 'stock' | 'inbound' | 'outbound' | 'treatments') => Promise<void>;
     // Novo helper para alto volume: busca contagem de saídas de um motorista hoje
     fetchDriverTodayCount: (driverId: string) => Promise<number>;
+    loading: boolean;
 }
 
 const WmsContext = createContext<WmsContextData>({} as WmsContextData);
@@ -397,12 +399,6 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 console.error('WmsContext: User fetch error:', queryError);
             } else if (queryData) {
                 setUsers(queryData as User[]);
-            }
-
-            if (userError) {
-                console.error('WmsContext: User fetch error:', userError);
-            } else if (userData) {
-                setUsers(userData as User[]);
             }
 
             const [
@@ -1757,7 +1753,8 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             verifyStock, isValidTbr, isSameDay, getLocalDateIso: () => getSaoPauloDate(),
             playAudio, refreshProfile, uploadUserAvatar,
             syncDetailedLogs,
-            fetchDriverTodayCount
+            fetchDriverTodayCount,
+            loading
         }}>
             {children}
         </WmsContext.Provider>

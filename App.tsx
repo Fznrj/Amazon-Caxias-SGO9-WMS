@@ -24,13 +24,12 @@ import { StatusBar } from '@capacitor/status-bar';
 
 // Inner App Component that consumes Context
 const AppContent: React.FC = () => {
-  const { currentUser, logout, currentView, setCurrentView } = useWms();
+  const { currentUser, logout, currentView, setCurrentView, loading } = useWms();
 
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [isOffline, setIsOffline] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-
 
   useEffect(() => {
     // Enable Immersive Mode on Native Platforms
@@ -38,7 +37,6 @@ const AppContent: React.FC = () => {
       StatusBar.hide().catch(err => console.warn('Capacitor: StatusBar hide failed', err));
     }
   }, []);
-
 
   useEffect(() => {
     if (currentUser) {
@@ -54,6 +52,21 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     setIsMenuOpen(false);
   }, [currentView]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background-dark text-white p-4">
+        <div className="relative">
+          <div className="w-24 h-24 rounded-full border-4 border-primary/20 border-t-primary animate-spin mb-8"></div>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="material-icons-round text-3xl text-primary animate-pulse">warehouse</span>
+          </div>
+        </div>
+        <h1 className="text-2xl font-black tracking-tighter uppercase mb-2">Amazon Caxias</h1>
+        <p className="text-slate-500 font-bold tracking-widest text-[10px] uppercase animate-pulse">Sincronizando Dados...</p>
+      </div>
+    );
+  }
 
   const toggleDarkMode = () => {
     setIsDarkMode(!isDarkMode);
