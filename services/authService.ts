@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { supabase } from './supabase';
+import { StorageService } from './storageService';
 import { User, Role, UserStatus } from '../types';
 
 const CURRENT_USER_KEY = 'wms_current_user';
@@ -133,7 +134,7 @@ export const AuthService = {
             return { success: false, message: 'Seu cadastro ainda está em análise.' };
         }
 
-        AuthService.saveSession(user);
+        await AuthService.saveSession(user);
         return { success: true, user, message: 'Login realizado com sucesso!' };
     },
 
@@ -145,11 +146,11 @@ export const AuthService = {
         if (error) return { success: false, message: error.message };
 
         // Also update force_password_reset in profile
-        const user = AuthService.getCurrentUser();
+        const user = await AuthService.getCurrentUser();
         if (user) {
             await supabase.from('users').update({ force_password_reset: false }).eq('id', user.id);
             user.force_password_reset = false;
-            AuthService.saveSession(user);
+            await AuthService.saveSession(user);
         }
 
         return { success: true, message: 'Senha atualizada com sucesso!' };
@@ -157,17 +158,17 @@ export const AuthService = {
 
     logout: async () => {
         await supabase.auth.signOut();
-        localStorage.removeItem(CURRENT_USER_KEY);
+        await StorageService.removeItem(CURRENT_USER_KEY);
     },
 
     // --- Session Management ---
-    saveSession: (user: User) => {
-        localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
+    saveSession: async (user: User) => {
+        await StorageService.setItem(CURRENT_USER_KEY, JSON.stringify(user));
     },
 
-    getCurrentUser: (): User | null => {
+    getCurrentUser: async (): Promise<User | null> => {
         try {
-            const data = localStorage.getItem(CURRENT_USER_KEY);
+            const data = await StorageService.getItem(CURRENT_USER_KEY);
             return data ? JSON.parse(data) : null;
         } catch (e) {
             return null;
