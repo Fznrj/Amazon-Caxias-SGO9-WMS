@@ -357,20 +357,23 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     : supabase.from('users').select('*').eq('company_id', companyId).order('name', { ascending: true })
             );
 
-            // Resilience check: Fallback fetch if empty for admins
-            if (!userError && (!userData || userData.length === 0) && isAdmin) {
-                console.log('WmsContext: Users empty, trying fallback fetch...');
-                const { data: fallback } = await (isSuperAdmin
-                    ? supabase.from('users').select('*').limit(100)
-                    : supabase.from('users').select('*').eq('company_id', companyId).limit(100)
-                );
+            // 1. Fetch Users (Global for Superadmin)
+            let { data: userData, error: userError } = await (
+                isSuperAdmin
+                    ? supabase.from('users').select('*').order('name', { ascending: true })
+                    : supabase.from('users').select('*').eq('company_id', companyId).order('name', { ascending: true })
+            );
+
+            // Resilience check: If Superadmin sees nothing, try a limit-based fetch (bypass potential RLS filters)
+            if (!userError && (!userData || userData.length === 0) && isSuperAdmin) {
+                console.warn('WmsContext: Superadmin user list empty, trying fallback...');
+                const { data: fallback } = await supabase.from('users').select('*').limit(200);
                 if (fallback && fallback.length > 0) userData = fallback;
             }
 
             if (userError) {
                 console.error('WmsContext: User fetch error:', userError);
             } else if (userData) {
-                console.log(`WmsContext: Loaded ${userData.length} users.`);
                 setUsers(userData as User[]);
             }
 
@@ -536,8 +539,8 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 })));
             }
 
-            // Inicializar Gamificação
-            await gamificationService.init(companyId);
+            // Inicializar Gamificação (Global para Superadmin)
+            await gamificationService.init(isSuperAdmin ? undefined : companyId);
 
         } catch (err) {
             console.error('WmsContext: Unexpected error in loadInitialData:', err);
