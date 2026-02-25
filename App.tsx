@@ -27,6 +27,7 @@ const AppContent: React.FC = () => {
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [isOffline, setIsOffline] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
 
   useEffect(() => {
@@ -38,6 +39,11 @@ const AppContent: React.FC = () => {
       }
     }
   }, [currentUser]);
+
+  // Reset menu when view changes
+  useEffect(() => {
+    setIsMenuOpen(false);
+  }, [currentView]);
 
   const toggleDarkMode = () => {
     setIsDarkMode(!isDarkMode);
@@ -109,9 +115,19 @@ const AppContent: React.FC = () => {
         onLogout={logout}
         onToggleDarkMode={toggleDarkMode}
         currentUser={currentUser}
+        isMobileOpen={isMenuOpen}
+        onClose={() => setIsMenuOpen(false)}
       />
 
-      <div className="flex-1 flex flex-col ml-0 lg:ml-64 transition-all">
+      {/* Overlay for mobile menu */}
+      {isMenuOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setIsMenuOpen(false)}
+        />
+      )}
+
+      <div className="flex-1 flex flex-col ml-0 lg:ml-64 transition-all w-full max-w-full overflow-x-hidden">
         {isOffline && (
           <div className="bg-primary text-white py-2 px-6 flex items-center justify-center gap-2 font-bold uppercase text-xs">
             <span className="material-icons-round text-sm">cloud_off</span>
@@ -124,9 +140,10 @@ const AppContent: React.FC = () => {
           currentUser={currentUser}
           isOffline={isOffline}
           onToggleOffline={() => setIsOffline(!isOffline)}
+          onMenuToggle={() => setIsMenuOpen(!isMenuOpen)}
         />
 
-        <main className="flex-1 p-4 md:p-8 bg-background-light dark:bg-background-dark overflow-y-auto">
+        <main className="flex-1 p-3 md:p-8 bg-background-light dark:bg-background-dark overflow-y-auto">
           {renderView()}
         </main>
       </div>
