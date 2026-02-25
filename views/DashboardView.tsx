@@ -1,115 +1,105 @@
-import React from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { useWms } from '../context/WmsContext';
 import { View } from '../types';
 import { getSaoPauloDate, parseToDate, getDateKey, getTodayDate } from '../utils/dateUtils';
+import PullToRefresh from '../components/PullToRefresh';
 
 interface DashboardViewProps {
   onNavigate: (view: View) => void;
 }
 
 const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
-  const {
-    inboundItems,
-    outboundItems,
-    weeklyStats,
-    totalInboundToday,
-    totalOutboundToday,
-    totalReversaToday,
-    staleItemsCount,
-    totalLossItems,
-    totalExpected,
-    totalPossibleLosses,
-    syncDetailedLogs
-  } = useWms();
+  totalPossibleLosses,
+    syncDetailedLogs,
+    refreshData
+} = useWms();
 
-  const [startDate, setStartDate] = React.useState(getSaoPauloDate(getTodayDate()));
-  const [endDate, setEndDate] = React.useState(getSaoPauloDate(getTodayDate()));
-  const [isComparisonMode, setIsComparisonMode] = React.useState(false);
+const [startDate, setStartDate] = React.useState(getSaoPauloDate(getTodayDate()));
+const [endDate, setEndDate] = React.useState(getSaoPauloDate(getTodayDate()));
+const [isComparisonMode, setIsComparisonMode] = React.useState(false);
 
-  // Calculate stats for the selected period (only if dates are changed from today)
-  const periodStats = React.useMemo(() => {
-    const isToday = startDate === getSaoPauloDate(getTodayDate()) && endDate === getSaoPauloDate(getTodayDate());
-    if (isToday) return { entradas: totalInboundToday, saidas: totalOutboundToday, reversas: totalReversaToday };
+// Calculate stats for the selected period (only if dates are changed from today)
+const periodStats = React.useMemo(() => {
+  const isToday = startDate === getSaoPauloDate(getTodayDate()) && endDate === getSaoPauloDate(getTodayDate());
+  if (isToday) return { entradas: totalInboundToday, saidas: totalOutboundToday, reversas: totalReversaToday };
 
-    let entradas = 0;
-    let saidas = 0;
-    let reversas = 0;
+  let entradas = 0;
+  let saidas = 0;
+  let reversas = 0;
 
-    inboundItems.forEach(item => {
-      if (item.error) return;
-      const date = getSaoPauloDate(parseToDate(item.time || (item as any).created_at));
-      if (date >= startDate && date <= endDate) entradas++;
-    });
+  inboundItems.forEach(item => {
+    if (item.error) return;
+    const date = getSaoPauloDate(parseToDate(item.time || (item as any).created_at));
+    if (date >= startDate && date <= endDate) entradas++;
+  });
 
-    outboundItems.forEach(item => {
-      const date = getSaoPauloDate(parseToDate(item.time || (item as any).created_at));
-      if (date >= startDate && date <= endDate) {
-        const st = item.status?.toLowerCase() || '';
-        if (st === 'saiu com motorista') saidas++;
-        else if (st.includes('reversa')) reversas++;
-      }
-    });
+  outboundItems.forEach(item => {
+    const date = getSaoPauloDate(parseToDate(item.time || (item as any).created_at));
+    if (date >= startDate && date <= endDate) {
+      const st = item.status?.toLowerCase() || '';
+      if (st === 'saiu com motorista') saidas++;
+      else if (st.includes('reversa')) reversas++;
+    }
+  });
 
-    return { entradas, saidas, reversas };
-  }, [inboundItems, outboundItems, startDate, endDate, totalInboundToday, totalOutboundToday, totalReversaToday]);
+  return { entradas, saidas, reversas };
+}, [inboundItems, outboundItems, startDate, endDate, totalInboundToday, totalOutboundToday, totalReversaToday]);
 
-  const displayInbound = periodStats.entradas;
-  const displayOutbound = periodStats.saidas;
-  const displayReversa = periodStats.reversas;
-  const totalDepartures = displayOutbound + displayReversa;
+const displayInbound = periodStats.entradas;
+const displayOutbound = periodStats.saidas;
+const displayReversa = periodStats.reversas;
+const totalDepartures = displayOutbound + displayReversa;
 
-  // Calculate trends comparing Today vs Yesterday (standard dashboard behavior)
-  const yesterdayData = weeklyStats && weeklyStats.length >= 2 ? weeklyStats[weeklyStats.length - 2] : null;
-  const todayData = weeklyStats && weeklyStats.length >= 1 ? weeklyStats[weeklyStats.length - 1] : null;
+// Calculate trends comparing Today vs Yesterday (standard dashboard behavior)
+const yesterdayData = weeklyStats && weeklyStats.length >= 2 ? weeklyStats[weeklyStats.length - 2] : null;
+const todayData = weeklyStats && weeklyStats.length >= 1 ? weeklyStats[weeklyStats.length - 1] : null;
 
-  const calculateTrend = (current: number, previous: number) => {
-    if (!previous || previous === 0) return current > 0 ? '+100%' : '0%';
-    const diff = ((current - previous) / previous) * 100;
-    return `${diff >= 0 ? '+' : ''}${Math.round(diff)}%`;
-  };
+const calculateTrend = (current: number, previous: number) => {
+  if (!previous || previous === 0) return current > 0 ? '+100%' : '0%';
+  const diff = ((current - previous) / previous) * 100;
+  return `${diff >= 0 ? '+' : ''}${Math.round(diff)}%`;
+};
 
-  // Mapeamento de cores Tailwind para Hex para bordas manuais
-  const colorMap: Record<string, string> = {
-    'primary': '#087f8c',
-    'green-500': '#10b981',
-    'orange-500': '#f3a847',
-    'yellow-600': '#ca8a04',
-    'red-500': '#ef4444',
-    'black': '#000000'
-  };
+// Mapeamento de cores Tailwind para Hex para bordas manuais
+const colorMap: Record<string, string> = {
+  'primary': '#087f8c',
+  'green-500': '#10b981',
+  'orange-500': '#f3a847',
+  'yellow-600': '#ca8a04',
+  'red-500': '#ef4444',
+  'black': '#000000'
+};
 
-  const kpis = [
-    {
-      label: 'Total em Estoque',
-      value: totalExpected.toString(),
-      icon: 'view_in_ar',
-      color: 'primary',
-      trend: calculateTrend(
-        totalExpected,
-        totalExpected - ((todayData?.entradas || 0) - (todayData?.saidas || 0))
-      )
-    },
-    {
-      label: isComparisonMode ? 'Entradas Período' : 'Entradas Hoje',
-      value: (isComparisonMode ? periodStats.entradas : totalInboundToday).toString(),
-      icon: 'arrow_upward',
-      color: 'green-500',
-      trend: isComparisonMode ? 'Histórico' : calculateTrend(totalInboundToday, yesterdayData?.entradas || 0)
-    },
-    {
-      label: isComparisonMode ? 'Saídas Período' : 'Saídas Hoje',
-      value: (isComparisonMode ? `${periodStats.saidas + periodStats.reversas}${periodStats.reversas > 0 ? ` (${periodStats.reversas})` : ''}` : `${totalOutboundToday + totalReversaToday}${totalReversaToday > 0 ? ` (${totalReversaToday})` : ''}`),
-      icon: 'arrow_downward',
-      color: 'orange-500',
-      trend: isComparisonMode ? 'Histórico' : calculateTrend(isComparisonMode ? (periodStats.saidas + periodStats.reversas) : (totalOutboundToday + totalReversaToday), (yesterdayData?.saidas || 0))
-    },
-    { label: 'Parados +1 Dia', value: staleItemsCount.toString(), icon: 'schedule', color: 'yellow-600', trend: 'Audit' },
-    { label: 'Possíveis Perdas', value: totalPossibleLosses.toString(), icon: 'warning', color: 'red-500', trend: 'Audit' },
-    { label: 'Perdas / Extravios', value: totalLossItems.toString(), icon: 'cancel', color: 'black', trend: 'Permanente' },
-  ];
+const kpis = [
+  {
+    label: 'Total em Estoque',
+    value: totalExpected.toString(),
+    icon: 'view_in_ar',
+    color: 'primary',
+    trend: calculateTrend(
+      totalExpected,
+      totalExpected - ((todayData?.entradas || 0) - (todayData?.saidas || 0))
+    )
+  },
+  {
+    label: isComparisonMode ? 'Entradas Período' : 'Entradas Hoje',
+    value: (isComparisonMode ? periodStats.entradas : totalInboundToday).toString(),
+    icon: 'arrow_upward',
+    color: 'green-500',
+    trend: isComparisonMode ? 'Histórico' : calculateTrend(totalInboundToday, yesterdayData?.entradas || 0)
+  },
+  {
+    label: isComparisonMode ? 'Saídas Período' : 'Saídas Hoje',
+    value: (isComparisonMode ? `${periodStats.saidas + periodStats.reversas}${periodStats.reversas > 0 ? ` (${periodStats.reversas})` : ''}` : `${totalOutboundToday + totalReversaToday}${totalReversaToday > 0 ? ` (${totalReversaToday})` : ''}`),
+    icon: 'arrow_downward',
+    color: 'orange-500',
+    trend: isComparisonMode ? 'Histórico' : calculateTrend(isComparisonMode ? (periodStats.saidas + periodStats.reversas) : (totalOutboundToday + totalReversaToday), (yesterdayData?.saidas || 0))
+  },
+  { label: 'Parados +1 Dia', value: staleItemsCount.toString(), icon: 'schedule', color: 'yellow-600', trend: 'Audit' },
+  { label: 'Possíveis Perdas', value: totalPossibleLosses.toString(), icon: 'warning', color: 'red-500', trend: 'Audit' },
+  { label: 'Perdas / Extravios', value: totalLossItems.toString(), icon: 'cancel', color: 'black', trend: 'Permanente' },
+];
 
-  return (
+return (
+  <PullToRefresh onRefresh={refreshData}>
     <div className="space-y-8">
       {/* Date Filter Header */}
       <div className="bg-white dark:bg-card-dark p-4 rounded-lg shadow-sm border border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4">
@@ -210,7 +200,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         </div>
       </div>
     </div>
-  );
+  </PullToRefresh>
+);
 };
 
 export default DashboardView;
