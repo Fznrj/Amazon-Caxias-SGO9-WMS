@@ -220,27 +220,22 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // To save context space, I will re-implement the state logic briefly but robustly using previous implementation reference.
 
     // --- Navigation State ---
-    const [currentView, _setCurrentView] = useState<View>(() => {
-        const saved = localStorage.getItem('wms_active_view') as View;
-        if (saved && saved !== View.LOGIN && Object.values(View).includes(saved)) {
-            return saved;
-        }
-        return View.DASHBOARD;
-    });
+    const [currentView, _setCurrentView] = useState<View>(View.DASHBOARD);
+    const [loading, setLoading] = useState(true);
 
-    const setCurrentView = (view: View) => {
+    const setCurrentView = async (view: View) => {
         _setCurrentView(view);
         if (view !== View.LOGIN) {
-            localStorage.setItem('wms_active_view', view);
+            await StorageService.setItem('wms_active_view', view);
         }
     };
 
     // --- Auth & User Management State ---
-    const [currentUser, setCurrentUser] = useState<User | null>(AuthService.getCurrentUser());
+    const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [users, setUsers] = useState<User[]>([]);
 
     const refreshProfile = async () => {
-        const stored = AuthService.getCurrentUser();
+        const stored = await AuthService.getCurrentUser();
         if (stored) {
             const { data: fresh, error } = await supabase
                 .from('users')
@@ -251,16 +246,50 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             if (fresh) {
                 const user = fresh as User;
                 setCurrentUser(user);
-                AuthService.saveSession(user);
+                await AuthService.saveSession(user);
+            } else if (error) {
+                console.error('WmsContext: Profile refresh error', error);
+                // Fallback to stored if DB is offline but session might be valid
+                setCurrentUser(stored);
             }
         } else {
+            // Check if there is a Supabase session even if current_user key is missing
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+                console.log('WmsContext: Found Supabase session, recovering profile...');
+                const { data: profile } = await supabase.from('users').select('*').eq('id', session.user.id).maybeSingle();
+                if (profile) {
+                    const user = profile as User;
+                    setCurrentUser(user);
+                    await AuthService.saveSession(user);
+                    return;
+                }
+            }
             _setCurrentView(View.LOGIN);
         }
     };
 
-    // Force profile refresh from DB to ensure correct company_id and role
+    // Initialization logic: Load everything from persistent storage once
     useEffect(() => {
-        refreshProfile();
+        const initializeApp = async () => {
+            try {
+                // 1. Load Last View
+                const savedView = await StorageService.getItem('wms_active_view') as View;
+                if (savedView && savedView !== View.LOGIN && Object.values(View).includes(savedView)) {
+                    _setCurrentView(savedView);
+                }
+
+                // 2. Load User Session
+                await refreshProfile();
+
+            } catch (err) {
+                console.error('WmsContext: Initialization failed', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        initializeApp();
     }, []);
 
     // --- Initial Sync ---
@@ -306,12 +335,12 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }), [stockItems]);
 
     // --- Helper for Local Persistence ---
-    const saveLocal = (key: string, data: any) => {
-        localStorage.setItem(key, JSON.stringify(data));
+    const saveLocal = async (key: string, data: any) => {
+        await StorageService.setItem(key, JSON.stringify(data));
     };
 
-    const loadLocal = (key: string, defaultValue: any = []) => {
-        const data = localStorage.getItem(key);
+    const loadLocal = async (key: string, defaultValue: any = []) => {
+        const data = await StorageService.getItem(key);
         return data ? JSON.parse(data) : defaultValue;
     };
 
