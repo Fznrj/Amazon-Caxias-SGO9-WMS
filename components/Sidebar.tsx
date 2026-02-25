@@ -8,10 +8,22 @@ interface SidebarProps {
   onLogout: () => void;
   onToggleDarkMode: () => void;
   currentUser: User | null;
+  isMobileOpen?: boolean;
+  onClose?: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, onLogout, onToggleDarkMode, currentUser }) => {
+const Sidebar: React.FC<SidebarProps> = ({
+  currentView,
+  onViewChange,
+  onLogout,
+  onToggleDarkMode,
+  currentUser,
+  isMobileOpen,
+  onClose
+}) => {
   const { resetTransactions } = useWms();
+
+  // ... (menuItems remains same)
   const menuItems = [
     { id: View.DASHBOARD, label: 'Dashboard', icon: 'dashboard' },
     { id: View.INBOUND, label: 'Entrada', icon: 'login' },
@@ -28,7 +40,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, onLogout, 
   ];
 
   return (
-    <aside className="fixed left-0 top-0 h-full w-64 bg-white dark:bg-sidebar-dark border-r border-slate-200 dark:border-slate-800 flex flex-col z-50 hidden lg:flex">
+    <aside className={`fixed left-0 top-0 h-full w-64 bg-white dark:bg-sidebar-dark border-r border-slate-200 dark:border-slate-800 flex flex-col z-50 transition-transform duration-300 lg:translate-x-0 ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'
+      }`}>
       <div className="p-6">
         <div className="flex items-center gap-3">
           <div className="bg-primary p-1.5 rounded text-white">
