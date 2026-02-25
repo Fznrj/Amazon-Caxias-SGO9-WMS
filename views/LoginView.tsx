@@ -6,27 +6,38 @@ const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigateRegiste
   const { login } = useWms();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [message, setMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoggingIn) return;
+
+    setIsLoggingIn(true);
     setMessage(null);
 
-    const result = await login(email, password);
+    try {
+      const result = await login(email, password);
 
-    let displayMessage = result.message;
-    if (!result.success && result.message.includes('rate limit')) {
-      displayMessage = 'Muitas tentativas. Aguarde um momento ou verifique suas credenciais.';
-    } else if (!result.success && result.message.includes('não encontrado')) {
-      displayMessage = 'Usuário não encontrado. Verifique se o Nome ou ID está correto.';
-    } else if (!result.success && result.message.includes('identificador inválido')) {
-      displayMessage = 'Identificador de usuário inválido. Por favor, verifique o formato.';
-    }
+      let displayMessage = result.message;
+      if (!result.success && result.message.includes('rate limit')) {
+        displayMessage = 'Muitas tentativas. Aguarde um momento ou verifique suas credenciais.';
+      } else if (!result.success && result.message.includes('não encontrado')) {
+        displayMessage = 'Usuário não encontrado. Verifique se o Nome ou ID está correto.';
+      } else if (!result.success && result.message.includes('identificador inválido')) {
+        displayMessage = 'Identificador de usuário inválido. Por favor, verifique o formato.';
+      }
 
-    setMessage({ text: displayMessage, type: result.success ? 'success' : 'error' });
-
-    if (result.success) {
-      onLoginSuccess();
+      if (result.success) {
+        onLoginSuccess();
+      } else {
+        setMessage({ text: displayMessage, type: 'error' });
+      }
+    } catch (err) {
+      console.error('LoginView: Connection error', err);
+      setMessage({ text: 'Erro de conexão. Verifique sua internet.', type: 'error' });
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
@@ -37,15 +48,15 @@ const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigateRegiste
           <div className="absolute top-0 left-0 w-64 h-64 bg-secondary rounded-full -translate-x-1/2 -translate-y-1/2 blur-3xl"></div>
           <div className="absolute bottom-0 right-0 w-96 h-96 bg-primary rounded-full translate-x-1/3 translate-y-1/3 blur-3xl"></div>
         </div>
-        <div className="relative z-10 text-center space-y-6">
+        <div className="relative z-10 text-center space-y-4 md:space-y-6">
           <div className="flex justify-center">
             <div className="text-secondary">
-              <span className="material-icons text-8xl">warehouse</span>
+              <span className="material-icons-round text-6xl md:text-8xl">warehouse</span>
             </div>
           </div>
-          <div className="space-y-1">
-            <h1 className="font-display text-5xl md:text-6xl font-bold tracking-wider uppercase">Amazon Caxias</h1>
-            <p className="font-display text-2xl text-secondary font-semibold tracking-[0.2em]">SG09</p>
+          <div className="space-y-0.5 md:space-y-1">
+            <h1 className="font-display text-4xl md:text-6xl font-bold tracking-wider uppercase">Amazon Caxias</h1>
+            <p className="font-display text-xl md:text-2xl text-secondary font-semibold tracking-[0.2em]">SG09</p>
           </div>
           <p className="max-w-xs mx-auto text-gray-300 text-sm font-light leading-relaxed">
             Sistema de Gestão de Armazém para controle eficiente de TBRs
@@ -89,9 +100,17 @@ const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigateRegiste
               </div>
               <button
                 type="submit"
-                className="w-full bg-primary hover:bg-[#066a75] text-white font-display font-bold py-3 px-4 transition-colors tracking-widest text-lg uppercase shadow-lg shadow-primary/20"
+                disabled={isLoggingIn}
+                className="w-full bg-primary hover:bg-[#066a75] disabled:opacity-50 disabled:cursor-not-allowed text-white font-display font-bold py-3 px-4 transition-colors tracking-widest text-lg uppercase shadow-lg shadow-primary/20 flex items-center justify-center space-x-2"
               >
-                Entrar
+                {isLoggingIn ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+                    <span>Aguarde...</span>
+                  </>
+                ) : (
+                  'Entrar'
+                )}
               </button>
 
               <button

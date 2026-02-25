@@ -237,28 +237,31 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const [users, setUsers] = useState<User[]>([]);
 
     const refreshProfile = async () => {
-        const stored = await AuthService.getCurrentUser();
-        if (stored) {
-            const { data: fresh, error } = await supabase
-                .from('users')
-                .select('*')
-                .eq('id', stored.id)
-                .maybeSingle();
+        try {
+            const stored = await AuthService.getCurrentUser();
+            if (stored) {
+                const { data: fresh, error } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('id', stored.id)
+                    .maybeSingle();
 
-            if (fresh) {
-                const user = fresh as User;
-                setCurrentUser(user);
-                await AuthService.saveSession(user);
-            } else if (error) {
-                console.error('WmsContext: Profile refresh error', error);
-                // Fallback to stored if DB is offline but session might be valid
-                setCurrentUser(stored);
+                if (fresh) {
+                    const user = fresh as User;
+                    setCurrentUser(user);
+                    await AuthService.saveSession(user);
+                    return; // Profile restored
+                } else if (error) {
+                    console.error('WmsContext: Profile refresh error', error);
+                    setCurrentUser(stored);
+                    return;
+                }
             }
-        } else {
-            // Check if there is a Supabase session even if current_user key is missing
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session?.user) {
-                console.log('WmsContext: Found Supabase session, recovering profile...');
+
+            // If no stored user or profile not found, check Supabase session
+            const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+            if (session?.user && !sessionError) {
+                console.log('WmsContext: Recovering profile from Supabase session...');
                 const { data: profile } = await supabase.from('users').select('*').eq('id', session.user.id).maybeSingle();
                 if (profile) {
                     const user = profile as User;
@@ -267,6 +270,11 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     return;
                 }
             }
+
+            // If we reach here, no user is found
+            _setCurrentView(View.LOGIN);
+        } catch (err) {
+            console.error('WmsContext: Profile refresh failed', err);
             _setCurrentView(View.LOGIN);
         }
     };
@@ -274,6 +282,13 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // Initialization logic: Load everything from persistent storage once
     useEffect(() => {
         const initializeApp = async () => {
+            const timeout = setTimeout(() => {
+                if (loading) {
+                    console.warn('WmsContext: Initialization timeout, forcing splash screen high');
+                    setLoading(false);
+                }
+            }, 5000); // 5s absolute max for splash
+
             try {
                 // 1. Load Last View
                 const savedView = await StorageService.getItem('wms_active_view') as View;
@@ -286,7 +301,9 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
             } catch (err) {
                 console.error('WmsContext: Initialization failed', err);
+                _setCurrentView(View.LOGIN);
             } finally {
+                clearTimeout(timeout);
                 setLoading(false);
             }
         };
@@ -1560,13 +1577,23 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // --- Auth & User Management Logic ---
 
     const login = async (identifier: string, password: string) => {
-        console.log('WmsContext: login attempt for', identifier);
-        const result = await AuthService.login(identifier, password);
-        console.log('WmsContext: login result:', result.success ? 'SUCCESS' : 'FAILURE', result.message);
-        if (result.success && result.user) {
-            setCurrentUser(result.user);
+        try {
+            console.log('WmsContext: login attempt for', identifier);
+            const result = await AuthService.login(identifier, password);
+            console.log('WmsContext: login result:', result.success ? 'SUCCESS' : 'FAILURE', result.message);
+
+            if (result.success && result.user) {
+                setCurrentUser(result.user);
+                // No need to explicitly set view here, App.tsx useEffect handles it
+                // but let's be proactive for responsiveness
+                _setCurrentView(View.DASHBOARD);
+                await StorageService.setItem('wms_active_view', View.DASHBOARD);
+            }
+            return { success: result.success, message: result.message };
+        } catch (err) {
+            console.error('WmsContext: critical login error', err);
+            return { success: false, message: 'Erro crítico na autenticação.' };
         }
-        return { success: result.success, message: result.message };
     };
 
     const logout = async () => {
