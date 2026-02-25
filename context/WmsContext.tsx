@@ -344,15 +344,15 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
             // Helper to conditionally apply company_id filter
             const applyFilter = (query: any) => {
-                // If superadmin and companyId is null, show everything.
-                // Otherwise, always filter by companyId.
-                if (isSuperAdmin && !companyId) return query;
+                // BUG FIX: Superadmin should see EVERYTHING, period. 
+                // Don't check if companyId is null.
+                if (isSuperAdmin) return query;
                 return query.eq('company_id', companyId);
             };
 
             // Fetch users with resilience
             let { data: userData, error: userError } = await (
-                isSuperAdmin && !companyId
+                isSuperAdmin
                     ? supabase.from('users').select('*').order('name', { ascending: true })
                     : supabase.from('users').select('*').eq('company_id', companyId).order('name', { ascending: true })
             );
@@ -360,7 +360,10 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             // Resilience check: Fallback fetch if empty for admins
             if (!userError && (!userData || userData.length === 0) && isAdmin) {
                 console.log('WmsContext: Users empty, trying fallback fetch...');
-                const { data: fallback } = await supabase.from('users').select('*').limit(100);
+                const { data: fallback } = await (isSuperAdmin
+                    ? supabase.from('users').select('*').limit(100)
+                    : supabase.from('users').select('*').eq('company_id', companyId).limit(100)
+                );
                 if (fallback && fallback.length > 0) userData = fallback;
             }
 
