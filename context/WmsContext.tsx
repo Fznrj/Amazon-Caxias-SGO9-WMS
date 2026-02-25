@@ -350,25 +350,24 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 return query.eq('company_id', companyId);
             };
 
-            // Fetch users with resilience
-            let { data: userData, error: userError } = await (
-                isSuperAdmin
-                    ? supabase.from('users').select('*').order('name', { ascending: true })
-                    : supabase.from('users').select('*').eq('company_id', companyId).order('name', { ascending: true })
-            );
-
             // 1. Fetch Users (Global for Superadmin)
-            let { data: userData, error: userError } = await (
+            let { data: queryData, error: queryError } = await (
                 isSuperAdmin
                     ? supabase.from('users').select('*').order('name', { ascending: true })
                     : supabase.from('users').select('*').eq('company_id', companyId).order('name', { ascending: true })
             );
 
-            // Resilience check: If Superadmin sees nothing, try a limit-based fetch (bypass potential RLS filters)
-            if (!userError && (!userData || userData.length === 0) && isSuperAdmin) {
+            // Resilience check: If Superadmin sees nothing, try a limit-based fetch
+            if (!queryError && (!queryData || queryData.length === 0) && isSuperAdmin) {
                 console.warn('WmsContext: Superadmin user list empty, trying fallback...');
                 const { data: fallback } = await supabase.from('users').select('*').limit(200);
-                if (fallback && fallback.length > 0) userData = fallback;
+                if (fallback && fallback.length > 0) queryData = fallback;
+            }
+
+            if (queryError) {
+                console.error('WmsContext: User fetch error:', queryError);
+            } else if (queryData) {
+                setUsers(queryData as User[]);
             }
 
             if (userError) {
@@ -501,7 +500,21 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
             // Gerenciar Estatísticas Semanais
             if (weekE) console.error('WmsContext: Weekly stats fetch error:', weekE);
-            else if (weeklyData) setWeeklyStatsFromView(weeklyData);
+
+            // FALLBACK PARA SUPERADMIN: Se as views consolidadas falharem ou voltarem vázias
+            if (isSuperAdmin && (!weeklyData || weeklyData.length === 0)) {
+                console.log('WmsContext: Weekly stats empty for Superadmin, using fallback summary from logs...');
+                // Fallback basic: we can populate with current day's totals we already fetched
+                setWeeklyStatsFromView([{
+                    day_date: getSaoPauloDate(),
+                    entradas: dbStats?.total_inbound_today || 0,
+                    saidas: (toeNormal as any)?.count || 0,
+                    entregues: 0, // Need to implement delivered fallback if vital
+                    reversas: (toeReversa as any)?.count || 0
+                }]);
+            } else if (weeklyData) {
+                setWeeklyStatsFromView(weeklyData);
+            }
 
             // Gerenciar logs de Entrada
             if (tie) console.error('WmsContext: Inbound fetch error:', tie);
