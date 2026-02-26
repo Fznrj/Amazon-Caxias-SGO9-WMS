@@ -829,9 +829,13 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             totalInboundToday: localInboundToday,
             totalOutboundToday: localOutboundToday,
             totalReversaToday: localReversaToday,
-            totalLossItems: stockItems.filter(s => s.status?.toLowerCase() === 'perda').length || dashboardStats?.total_perdas || 0,
-            staleItemsCount: staleStockItems.length || dashboardStats?.parados_24h || 0,
-            totalPossibleLosses: possibleLossItems.length || dashboardStats?.possiveis_perdas || 0
+            totalLossItems: stockItems.filter(s => s.status?.toLowerCase() === 'perda').length,
+            staleItemsCount: stockItems.filter(s =>
+                s.status?.toLowerCase() === 'em estoque' &&
+                s.entryTime &&
+                !isSameDay(s.entryTime, baseDate)
+            ).length,
+            totalPossibleLosses: possibleLossItems.length
         };
     }, [dashboardStats, weeklyStatsFromView, inboundItems, expeditions, stockItems, staleStockItems, possibleLossItems, todayOutboundCount, todayReversaCount]);
 
@@ -940,17 +944,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (!currentUser) return { success: false, message: 'Não logado' };
         const now = getSaoPauloIso();
 
-        const enrichedItems = items.map(item => ({
-            id: item.id,
-            driver_name: item.driverName,
-            vehicle: item.vehicle,
-            time: item.time || now,
-            operator: item.operator,
-            status: item.status,
-            pallet_id: (item as any).palletId
-        }));
-
-        const result = await ApiService.bulkLogOutbound(enrichedItems, currentUser);
+        const result = await ApiService.bulkLogOutbound(items, currentUser);
         if (!result.success) {
             console.error('WmsContext: Error bulk adding outbound items:', result.error);
             playAudio('error');
@@ -997,10 +991,12 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const addDriver = async (driverData: Omit<Driver, 'id' | 'lastActivity'>) => {
         if (!currentUser) return;
+        const now = getSaoPauloIso();
         const newDriverId = 'dr-' + Math.random().toString(36).substr(2, 9);
         const result = await ApiService.saveDriver({
             id: newDriverId,
-            ...driverData
+            ...driverData,
+            lastActivity: now
         }, currentUser);
 
         if (result.success) {
@@ -1015,13 +1011,8 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const now = getSaoPauloIso();
         const newOnes = driversList.map(d => ({
             id: 'dr-' + Math.random().toString(36).substr(2, 9),
-            name: d.name,
-            cpf: d.cpf,
-            plate: d.plate,
-            company: d.company,
-            status: d.status,
-            vehicle_profile: d.vehicleProfile,
-            last_activity: now
+            ...d,
+            lastActivity: now
         }));
         await ApiService.bulkAddDrivers(newOnes, currentUser);
         playAudio('success');

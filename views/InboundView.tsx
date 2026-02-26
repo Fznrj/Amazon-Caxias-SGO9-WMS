@@ -200,7 +200,9 @@ const InboundView: React.FC = () => {
 
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500">Histórico de Scans</h3>
+            <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500">
+              Histórico de Scans <span className="ml-2 bg-slate-100 dark:bg-slate-900 px-2 py-0.5 rounded text-primary">{inboundItems.filter(item => isSameDay(item.time || (item as any).created_at)).length}</span>
+            </h3>
           </div>
           <div className="bg-white dark:bg-card-dark rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
             <table className="w-full text-left">
