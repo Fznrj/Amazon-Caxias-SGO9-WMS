@@ -18,11 +18,34 @@ import RtsView from './views/RtsView';
 import GamificationView from './views/GamificationView';
 import PasswordResetModal from './components/PasswordResetModal';
 import { WmsProvider, useWms } from './context/WmsContext';
+import { WmsDataProvider } from './context/WmsDataContext';
+import { KpiProvider } from './context/KpiContext';
+import { GamificationProvider } from './context/GamificationContext';
 import { Capacitor } from '@capacitor/core';
 import { StatusBar } from '@capacitor/status-bar';
-// import { GoogleOAuthProvider } from '@react-oauth/google';
 
-// Inner App Component that consumes Context
+// ─────────────────────────────────────────────────────────────
+// AuthenticatedShell
+// Wraps sub-providers (Data → KPI → Gamification) around content.
+// Only mounted when currentUser exists + is active.
+// ─────────────────────────────────────────────────────────────
+
+const AuthenticatedShell: React.FC<{ currentUser: User; children: React.ReactNode }> = ({ currentUser, children }) => {
+  return (
+    <WmsDataProvider currentUser={currentUser}>
+      <KpiProvider currentUser={currentUser}>
+        <GamificationProvider currentUser={currentUser}>
+          {children}
+        </GamificationProvider>
+      </KpiProvider>
+    </WmsDataProvider>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────
+// AppContent — Inner component that consumes all contexts
+// ─────────────────────────────────────────────────────────────
+
 const AppContent: React.FC = () => {
   const { currentUser, logout, currentView, setCurrentView, loading } = useWms();
 
@@ -32,7 +55,6 @@ const AppContent: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   useEffect(() => {
-    // Enable Immersive Mode on Native Platforms
     if (Capacitor.isNativePlatform()) {
       StatusBar.hide().catch(err => console.warn('Capacitor: StatusBar hide failed', err));
     }
@@ -41,18 +63,17 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     if (currentUser) {
       setIsRegistering(false);
-      // Auto-jump to dashboard only if we were on LOGIN screen
       if (currentView === View.LOGIN) {
         setCurrentView(View.DASHBOARD);
       }
     }
   }, [currentUser]);
 
-  // Reset menu when view changes
   useEffect(() => {
     setIsMenuOpen(false);
   }, [currentView]);
 
+  // ── Loading Splash ──────────────────────────────────────
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background-dark text-white p-4">
@@ -68,6 +89,43 @@ const AppContent: React.FC = () => {
     );
   }
 
+  // ── Auth Guard: Not logged in → Login/Register ──────────
+  if (!currentUser) {
+    if (isRegistering) {
+      return <RegisterView onNavigateLogin={() => setIsRegistering(false)} />;
+    }
+    return <LoginView onLoginSuccess={() => setCurrentView(View.DASHBOARD)} onNavigateRegister={() => setIsRegistering(true)} />;
+  }
+
+  // ── Pending Status ──────────────────────────────────────
+  if (currentUser.status === 'pending') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark p-4">
+        <div className="bg-white dark:bg-card-dark p-8 rounded-xl shadow-2xl max-w-md text-center border border-yellow-200 dark:border-yellow-900">
+          <span className="material-icons-round text-5xl text-yellow-500 mb-4">hourglass_empty</span>
+          <h2 className="text-2xl font-bold mb-2">Cadastro em Análise</h2>
+          <p className="text-slate-500 dark:text-slate-400 mb-6">Seu cadastro está aguardando aprovação de um administrador.</p>
+          <button onClick={logout} className="text-primary font-bold hover:underline">Voltar para Login</button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Blocked Status ──────────────────────────────────────
+  if (currentUser.status === 'blocked') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark p-4">
+        <div className="bg-white dark:bg-card-dark p-8 rounded-xl shadow-2xl max-w-md text-center border border-red-200 dark:border-red-900">
+          <span className="material-icons-round text-5xl text-red-500 mb-4">block</span>
+          <h2 className="text-2xl font-bold mb-2">Acesso Bloqueado</h2>
+          <p className="text-slate-500 dark:text-slate-400 mb-6">Sua conta foi suspensa. Entre em contato com o administrador.</p>
+          <button onClick={logout} className="text-primary font-bold hover:underline">Voltar para Login</button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Authenticated: Mount data providers + main layout ───
   const toggleDarkMode = () => {
     setIsDarkMode(!isDarkMode);
     document.documentElement.classList.toggle('dark');
@@ -91,88 +149,58 @@ const AppContent: React.FC = () => {
     }
   };
 
-
-  // Auth Flow
-  if (!currentUser) {
-    if (isRegistering) {
-      return <RegisterView onNavigateLogin={() => setIsRegistering(false)} />;
-    }
-    // If not logged in, always render LoginView regardless of currentView
-    return <LoginView onLoginSuccess={() => setCurrentView(View.DASHBOARD)} onNavigateRegister={() => setIsRegistering(true)} />;
-  }
-
-  // Pending Status Check
-  if (currentUser.status === 'pending') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark p-4">
-        <div className="bg-white dark:bg-card-dark p-8 rounded-xl shadow-2xl max-w-md text-center border border-yellow-200 dark:border-yellow-900">
-          <span className="material-icons-round text-5xl text-yellow-500 mb-4">hourglass_empty</span>
-          <h2 className="text-2xl font-bold mb-2">Cadastro em Análise</h2>
-          <p className="text-slate-500 dark:text-slate-400 mb-6">Seu cadastro está aguardando aprovação de um administrador.</p>
-          <button onClick={logout} className="text-primary font-bold hover:underline">Voltar para Login</button>
-        </div>
-      </div>
-    );
-  }
-
-  // Blocked Status Check
-  if (currentUser.status === 'blocked') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark p-4">
-        <div className="bg-white dark:bg-card-dark p-8 rounded-xl shadow-2xl max-w-md text-center border border-red-200 dark:border-red-900">
-          <span className="material-icons-round text-5xl text-red-500 mb-4">block</span>
-          <h2 className="text-2xl font-bold mb-2">Acesso Bloqueado</h2>
-          <p className="text-slate-500 dark:text-slate-400 mb-6">Sua conta foi suspensa. Entre em contato com o administrador.</p>
-          <button onClick={logout} className="text-primary font-bold hover:underline">Voltar para Login</button>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className={`flex min-h-screen ${isDarkMode ? 'dark' : ''}`}>
-      {currentUser.force_password_reset && <PasswordResetModal />}
-      <Sidebar
-        currentView={currentView}
-        onViewChange={setCurrentView}
-        onLogout={logout}
-        onToggleDarkMode={toggleDarkMode}
-        currentUser={currentUser}
-        isMobileOpen={isMenuOpen}
-        onClose={() => setIsMenuOpen(false)}
-      />
-
-      {/* Overlay for mobile menu */}
-      {isMenuOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-          onClick={() => setIsMenuOpen(false)}
+    <AuthenticatedShell currentUser={currentUser}>
+      <div className={`flex min-h-screen ${isDarkMode ? 'dark' : ''}`}>
+        {currentUser.force_password_reset && <PasswordResetModal />}
+        <Sidebar
+          currentView={currentView}
+          onViewChange={setCurrentView}
+          onLogout={logout}
+          onToggleDarkMode={toggleDarkMode}
+          currentUser={currentUser}
+          isMobileOpen={isMenuOpen}
+          onClose={() => setIsMenuOpen(false)}
         />
-      )}
 
-      <div className="flex-1 flex flex-col ml-0 lg:ml-64 transition-all w-full max-w-full overflow-x-hidden">
-        {isOffline && (
-          <div className="bg-primary text-white py-2 px-6 flex items-center justify-center gap-2 font-bold uppercase text-xs">
-            <span className="material-icons-round text-sm">cloud_off</span>
-            Você está Offline - Dados sendo salvos localmente
-          </div>
+        {isMenuOpen && (
+          <div
+            className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+            onClick={() => setIsMenuOpen(false)}
+          />
         )}
 
-        <Header
-          viewTitle={currentView}
-          currentUser={currentUser}
-          isOffline={isOffline}
-          onToggleOffline={() => setIsOffline(!isOffline)}
-          onMenuToggle={() => setIsMenuOpen(!isMenuOpen)}
-        />
+        <div className="flex-1 flex flex-col ml-0 lg:ml-64 transition-all w-full max-w-full overflow-x-hidden">
+          {isOffline && (
+            <div className="bg-primary text-white py-2 px-6 flex items-center justify-center gap-2 font-bold uppercase text-xs">
+              <span className="material-icons-round text-sm">cloud_off</span>
+              Você está Offline - Dados sendo salvos localmente
+            </div>
+          )}
 
-        <main className="flex-1 p-3 md:p-8 bg-background-light dark:bg-background-dark overflow-y-auto">
-          {renderView()}
-        </main>
+          <Header
+            viewTitle={currentView}
+            currentUser={currentUser}
+            isOffline={isOffline}
+            onToggleOffline={() => setIsOffline(!isOffline)}
+            onMenuToggle={() => setIsMenuOpen(!isMenuOpen)}
+          />
+
+          <main className="flex-1 p-3 md:p-8 bg-background-light dark:bg-background-dark overflow-y-auto">
+            {renderView()}
+          </main>
+        </div>
       </div>
-    </div>
+    </AuthenticatedShell>
   );
 };
+
+// ─────────────────────────────────────────────────────────────
+// Root App
+// WmsProvider (auth+CRUD) is outermost — no user needed.
+// Sub-providers mount inside AuthenticatedShell only when
+// currentUser is active.
+// ─────────────────────────────────────────────────────────────
 
 const App: React.FC = () => {
   return (
@@ -183,4 +211,3 @@ const App: React.FC = () => {
 };
 
 export default App;
-
