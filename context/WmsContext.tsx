@@ -552,10 +552,10 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
             // Handle Outbound counts
             if (toeError) console.error('WmsContext: Outbound count error:', toeError);
-            else setTodayOutboundCount((toeNormal as any).count || 0);
+            else setTodayOutboundCount((toeNormal as any[]).length || 0);
 
             if (treError) console.error('WmsContext: Reversa count error:', treError);
-            else setTodayReversaCount((toeReversa as any).count || 0);
+            else setTodayReversaCount((toeReversa as any[]).length || 0);
 
             // Handle Productivity View: Calculate "Today" manually for accuracy
             const todayStr = getSaoPauloDate();
@@ -591,9 +591,27 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 });
             }
 
-            // Note: Normal Outbound counts are fetched separately as head counts for performance, 
-            // but for specific operator productivity, we'd need the rows. 
-            // For now, these three capture the main missing pieces for today's view.
+            // 4. Outbound (Normal and Reversa)
+            if (toeNormal) {
+                (toeNormal as any[]).forEach((l: any) => {
+                    const op = l.operator || 'Sistema';
+                    if (!todayStats[op]) todayStats[op] = { operator: op, scan_date: todayStr, total_scans: 0, inbound_scans: 0, outbound_scans: 0, inventory_scans: 0, rts_sc_scans: 0, rts_scans: 0 } as any;
+                    if (!todayStats[op].outbound_scans) todayStats[op].outbound_scans = 0;
+                    todayStats[op].outbound_scans++;
+                    todayStats[op].total_scans++;
+                });
+            }
+            if (toeReversa) {
+                (toeReversa as any[]).forEach((l: any) => {
+                    const op = l.operator || 'Sistema';
+                    if (!todayStats[op]) todayStats[op] = { operator: op, scan_date: todayStr, total_scans: 0, inbound_scans: 0, outbound_scans: 0, inventory_scans: 0, rts_scans: 0 };
+                    if (!todayStats[op].outbound_scans) todayStats[op].outbound_scans = 0;
+                    todayStats[op].outbound_scans++;
+                    todayStats[op].total_scans++;
+                });
+            }
+
+            // Note: Manual deliveries fromupdateExpeditionDelivered are now also in rts_log
 
             setOperatorProductivity(Object.values(todayStats));
 
