@@ -66,6 +66,11 @@ const RtsView: React.FC = () => {
         });
     }, [groupedExpeditions, filter]);
 
+    const selectedExpeditionObj = useMemo(() =>
+        groupedExpeditions.find(e => e.id === selectedExpedition),
+        [groupedExpeditions, selectedExpedition]
+    );
+
     const handleVerifyScan = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!scannerInput || !selectedExpedition) { playAudio('error'); return; }
