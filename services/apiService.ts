@@ -287,7 +287,13 @@ export const ApiService = {
                 ),
                 ApiService.applyScope(supabase.from('stock_items').select('*'), user),
                 ApiService.applyScope(supabase.from('incidents').select('*').order('created_at', { ascending: false }).limit(50), user),
-                ApiService.applyScope(supabase.from('v_operator_productivity').select('*').eq('scan_date', todayStr), user)
+                ApiService.applyScope(supabase.from('v_operator_productivity').select('*').eq('scan_date', todayStr), user),
+                ApiService.applyScope(
+                    supabase.from('rts_log').select('*')
+                        .gte('time', todayStr + 'T00:00:00-03:00')
+                        .lte('time', todayStr + 'T23:59:59-03:00'),
+                    user
+                )
             ]);
 
             return { success: true, data: results };
@@ -298,7 +304,10 @@ export const ApiService = {
 
     resetTransactions: async (user: User): Promise<ApiResult> => {
         const companyId = user.company_id;
-        const tables = ['inbound_log', 'outbound_log', 'stock_items', 'incidents', 'inventory', 'expeditions'];
+        const tables = [
+            'inbound_log', 'outbound_log', 'stock_items', 'incidents',
+            'inventory', 'expeditions', 'rts_log', 'rts_items', 'gamification_profiles'
+        ];
 
         try {
             await Promise.all(tables.map(table =>
