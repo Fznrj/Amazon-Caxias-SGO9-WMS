@@ -112,7 +112,7 @@ export default function ReversaView() {
                     vehicle: driver.plate,
                     time: getSaoPauloIso(),
                     operator: currentUser?.name || 'Sistema',
-                    status: 'Reversa - Saiu com Motorista',
+                    status: 'Reversa - Retorno à Origem',
                     palletId: palletId.toUpperCase()
                 } as any));
 
