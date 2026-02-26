@@ -8,7 +8,7 @@
 
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useGamification, RankingEntry } from '../context/GamificationContext';
+import { useGamification, RankingEntry, AchievementProgress } from '../context/GamificationContext';
 import {
     gamificationService,
     LEVELS,
@@ -25,6 +25,7 @@ const GamificationView: React.FC = () => {
         myLevel,
         nextLevel,
         xpProgress,
+        achievementsProgress,
         gamificationLoading,
         refreshGamification
     } = useGamification();
@@ -233,24 +234,56 @@ const GamificationView: React.FC = () => {
                     🎖️ Conquistas
                 </h3>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                    {(myProfile?.badges || []).map(badge => (
-                        <div
-                            key={badge.id}
-                            className={`p-4 rounded-xl border text-center transition-all ${badge.unlocked
-                                ? 'bg-gradient-to-b from-yellow-50 to-white dark:from-yellow-900/10 dark:to-slate-800 border-yellow-400 shadow-lg shadow-yellow-500/10'
-                                : 'bg-slate-50 dark:bg-slate-900/30 border-slate-200 dark:border-slate-800 opacity-60'
-                                }`}
-                        >
-                            <span className={`material-icons-round text-3xl block mb-2 ${badge.unlocked ? 'text-yellow-500' : 'text-slate-400'}`}>
-                                {badge.icon}
-                            </span>
-                            <p className="font-bold text-xs text-slate-700 dark:text-slate-200">{badge.title}</p>
-                            <p className="text-[10px] text-slate-400 mt-1">{badge.description}</p>
-                            {badge.unlocked && badge.unlockedAt && (
-                                <p className="text-[9px] text-yellow-600 font-bold mt-2 uppercase tracking-tighter">Conquistado!</p>
-                            )}
-                        </div>
-                    ))}
+                    {(myProfile?.badges || []).map(badge => {
+                        const progress = achievementsProgress[badge.id];
+                        return (
+                            <div
+                                key={badge.id}
+                                className={`p-4 rounded-xl border text-center transition-all ${badge.unlocked
+                                    ? 'bg-gradient-to-b from-yellow-50 to-white dark:from-yellow-900/10 dark:to-slate-800 border-yellow-400 shadow-lg shadow-yellow-500/10'
+                                    : 'bg-slate-50 dark:bg-slate-900/30 border-slate-200 dark:border-slate-800 opacity-60'
+                                    }`}
+                            >
+                                <span className={`material-icons-round text-3xl block mb-2 ${badge.unlocked ? 'text-yellow-500' : 'text-slate-400'}`}>
+                                    {badge.icon}
+                                </span>
+                                <p className="font-bold text-xs text-slate-700 dark:text-slate-200">{badge.title}</p>
+                                <p className="text-[10px] text-slate-400 mt-1">{badge.description}</p>
+
+                                {/* Progress Bar + Counter */}
+                                {progress && (
+                                    <div className="mt-3">
+                                        <div className="h-2 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                                            <div
+                                                className={`h-full rounded-full transition-all duration-700 ease-out ${badge.unlocked
+                                                        ? 'bg-gradient-to-r from-yellow-400 to-yellow-500'
+                                                        : progress.percent >= 70
+                                                            ? 'bg-gradient-to-r from-green-400 to-emerald-500'
+                                                            : progress.percent >= 40
+                                                                ? 'bg-gradient-to-r from-blue-400 to-blue-500'
+                                                                : 'bg-gradient-to-r from-slate-400 to-slate-500'
+                                                    }`}
+                                                style={{ width: `${Math.max(progress.percent, 2)}%` }}
+                                            />
+                                        </div>
+                                        <p className={`text-[10px] font-bold mt-1 ${badge.unlocked ? 'text-yellow-600' : 'text-slate-400'
+                                            }`}>
+                                            {badge.id === 'top3_weekly'
+                                                ? (progress.current > 0 && progress.current <= 3
+                                                    ? `#${progress.current} — Conquistado!`
+                                                    : progress.current > 0 ? `#${progress.current} — fora do pódio` : 'Sem posição')
+                                                : `${progress.current.toLocaleString()} / ${progress.goal.toLocaleString()}`
+                                            }
+                                        </p>
+                                    </div>
+                                )}
+
+                                {badge.unlocked && badge.unlockedAt && !progress && (
+                                    <p className="text-[9px] text-yellow-600 font-bold mt-2 uppercase tracking-tighter">Conquistado!</p>
+                                )}
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
 
