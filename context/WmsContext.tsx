@@ -88,6 +88,7 @@ interface WmsContextData {
     fetchDriverTodayCount: (driverId: string) => Promise<number>;
     fetchProductivityReport: (startDate: string, endDate: string) => Promise<OperatorProductivity[]>;
     rtsItems: any[];
+    rtsLogs: any[];
 
     // Stats
     adminResetPassword: (userId: string, newPassword: string) => Promise<{ success: boolean; message: string }>;
@@ -290,6 +291,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // --- Inventory State ---
     const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
     const [rtsItems, setRtsItems] = useState<any[]>([]);
+    const [rtsLogs, setRtsLogs] = useState<any[]>([]);
     const [operatorProductivity, setOperatorProductivity] = useState<OperatorProductivity[]>([]);
 
     // --- Drivers State ---
@@ -456,6 +458,11 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             if (rtsE) console.error('WmsContext: RTS fetch error:', rtsE);
             else if (rtsData) {
                 setRtsItems(rtsData);
+            }
+
+            if (rlE) console.error('WmsContext: RTS Log fetch error:', rlE);
+            else if (rtsLogsToday) {
+                setRtsLogs(rtsLogsToday);
             }
 
             // Gerenciar Itens de Estoque
@@ -1619,6 +1626,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             refreshData: loadInitialData,
             broadcastRefresh,
             rtsItems,
+            rtsLogs,
             fetchProductivityReport,
             fetchDriverTodayCount,
             weeklyStats,
