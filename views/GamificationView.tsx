@@ -10,7 +10,17 @@ import {
 import { getDateKey, isSameDay, getTodayDate, getSaoPauloDate, getSaoPauloIso } from '../utils/dateUtils';
 
 const GamificationView: React.FC = () => {
-    const { currentUser, inboundItems, outboundItems, inventoryItems, rtsItems } = useWms();
+    const {
+        currentUser,
+        inboundItems,
+        outboundItems,
+        inventoryItems,
+        rtsItems,
+        rtsLogs,
+        treatmentItems,
+        stockItems,
+        refreshProfile
+    } = useWms();
 
     const [startDate, setStartDate] = React.useState(getSaoPauloDate(getTodayDate())); // YYYY-MM-DD
     const [endDate, setEndDate] = React.useState(getSaoPauloDate(getTodayDate()));
@@ -41,7 +51,6 @@ const GamificationView: React.FC = () => {
         monthlyReversaPallets: Set<string>;
         monthlyMixedActivityDays: number;
     }
-    const { treatmentItems, stockItems } = useWms(); // Add missing deps
     const operatorData: Map<string, OperatorStats> = React.useMemo(() => {
         const map = new Map<string, OperatorStats>();
 
@@ -256,17 +265,6 @@ const GamificationView: React.FC = () => {
         return map;
     }, [inboundItems, outboundItems, inventoryItems, rtsItems, rtsLogs, treatmentItems, stockItems, startDate, endDate]);
 
-    const {
-        inboundItems,
-        outboundItems,
-        inventoryItems,
-        rtsItems,
-        rtsLogs,
-        treatmentItems,
-        stockItems,
-        currentUser,
-        refreshProfile
-    } = useWms();
     const [ranking, setRanking] = React.useState<GamificationProfile[]>([]);
     const [loadingRanking, setLoadingRanking] = React.useState(true);
 
