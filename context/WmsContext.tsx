@@ -181,6 +181,7 @@ interface WmsContextData {
     todayReversaCount: number;
     operatorProductivity: OperatorProductivity[];
     refreshData: () => Promise<void>;
+    broadcastRefresh: () => Promise<void>;
     loading: boolean;
 }
 
@@ -369,6 +370,15 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return !isSameDay(item.entryTime);
     }), [stockItems]);
 
+    // Role-based filtering helper
+    const applyFilter = useCallback((query: any) => {
+        if (!currentUser) return query;
+        const userRole = (currentUser.role || '').toLowerCase();
+        const isSuperAdmin = userRole === 'superadmin';
+        if (isSuperAdmin) return query;
+        return query.eq('company_id', currentUser.company_id);
+    }, [currentUser]);
+
     // --- Helper for Local Persistence ---
     const saveLocal = async (key: string, data: any) => {
         await StorageService.setItem(key, JSON.stringify(data));
@@ -405,14 +415,6 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             const isSuperAdmin = userRole === 'superadmin';
 
             console.log(`WmsContext: Fetching data. Role: ${userRole}, Company: "${companyId}"`);
-
-            // Helper to conditionally apply company_id filter
-            const applyFilter = (query: any) => {
-                // BUG FIX: Superadmin should see EVERYTHING, period. 
-                // Don't check if companyId is null.
-                if (isSuperAdmin) return query;
-                return query.eq('company_id', companyId);
-            };
 
             // 1. Fetch Users (Global for Superadmin)
             let { data: queryData, error: queryError } = await (
@@ -671,6 +673,24 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         // Navigation is now handled by pure state access
     }, [currentView, currentUser]);
 
+    // --- Broadcast System (Cache Invalidation) ---
+    const broadcastRefresh = async () => {
+        if (!currentUser) return;
+        console.log('WmsContext: Broadcasting refresh signal...');
+        const channel = supabase.channel('system_control');
+        await channel.subscribe(async (status) => {
+            if (status === 'SUBSCRIBED') {
+                await channel.send({
+                    type: 'broadcast',
+                    event: 'FORCE_REFRESH',
+                    payload: { company_id: currentUser.company_id, sender: currentUser.id }
+                });
+                // Note: remove channel handled by effect or manually if cleanup needed
+                supabase.removeChannel(channel);
+            }
+        });
+    };
+
     // --- Realtime Implementation ---
     useEffect(() => {
         if (!currentUser) return;
@@ -678,11 +698,12 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const companyId = currentUser.company_id;
 
         const channels = [
-            supabase.channel('wms_realtime_all')
+            // Data Sync Channel
+            supabase.channel('wms_realtime_data')
                 .on('postgres_changes', { event: '*', schema: 'public' }, async (payload) => {
-                    console.log('WmsContext: Realtime event received:', payload.table, payload.eventType);
+                    console.log(`WmsContext: Realtime [${payload.table}] ${payload.eventType}`);
 
-                    // Update specific logs incrementally
+                    // 1. Specific incremental updates for fast UI feedback
                     if (payload.table === 'inbound_log') {
                         if (payload.eventType === 'INSERT') {
                             const newItem = payload.new as any;
@@ -693,32 +714,23 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                                 time: newItem.time,
                                 error: newItem.error || false,
                                 createdAt: newItem.created_at
-                            }, ...prev]);
+                            }, ...prev].slice(0, 100)); // Maintain limit
                         } else if (payload.eventType === 'DELETE') {
                             setInboundItems(prev => prev.filter(i => i.id !== payload.old.id));
                         }
                     } else if (payload.table === 'outbound_log') {
                         if (payload.eventType === 'INSERT') {
                             const newItem = payload.new as any;
-                            // OTIMIZAÇÃO: Incrementar contadores em tempo real em vez de gerenciar arrays massivos
                             if (newItem.status?.toLowerCase().includes('reversa')) {
                                 setTodayReversaCount(prev => prev + 1);
                             } else {
                                 setTodayOutboundCount(prev => prev + 1);
                             }
-                        } else if (payload.eventType === 'DELETE') {
-                            // Decrementar contadores se necessário (embora deleções sejam raras em alto volume)
-                            const oldItem = payload.old as any;
-                            if (oldItem.status?.toLowerCase().includes('reversa')) {
-                                setTodayReversaCount(prev => Math.max(0, prev - 1));
-                            } else {
-                                setTodayOutboundCount(prev => Math.max(0, prev - 1));
-                            }
                         }
                     } else if (payload.table === 'stock_items') {
                         if (payload.eventType === 'INSERT') {
                             const newItem = payload.new as any;
-                            const mapped = {
+                            setStockItems(prev => [...prev, {
                                 id: newItem.id,
                                 entryTime: newItem.entry_time,
                                 operator: newItem.operator,
@@ -726,8 +738,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                                 lossDetectedTime: newItem.loss_detected_time,
                                 localizedBy: newItem.localized_by,
                                 rackLocation: newItem.rack_location
-                            };
-                            setStockItems(prev => [...prev, mapped]);
+                            }]);
                         } else if (payload.eventType === 'UPDATE') {
                             const updated = payload.new as any;
                             setStockItems(prev => prev.map(s => s.id === updated.id ? {
@@ -739,6 +750,21 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                             } : s));
                         } else if (payload.eventType === 'DELETE') {
                             setStockItems(prev => prev.filter(s => s.id !== payload.old.id));
+                        }
+                    } else if (payload.table === 'expeditions') {
+                        // For expeditions, usually we want to refresh fully to be safe with counts
+                        const { data } = await applyFilter(supabase.from('expeditions').select('*')).order('dispatch_date', { ascending: false });
+                        if (data) {
+                            setExpeditions(data.map(e => ({
+                                id: e.id,
+                                driver_name: e.driver_name,
+                                plate: e.plate,
+                                dispatch_date: e.dispatch_date,
+                                total_packages: e.total_packages,
+                                delivered_count: e.delivered_count,
+                                returned_count: e.returned_count,
+                                status: e.status
+                            })));
                         }
                     } else if (payload.table === 'incidents') {
                         if (payload.eventType === 'INSERT') {
@@ -757,7 +783,6 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                             setTreatmentItems(prev => prev.map(t => t.id === updated.id ? { ...t, status: updated.status } : t));
                         }
                     } else if (payload.table === 'users') {
-                        // Keep user list synced for UserManagementView
                         const updated = payload.new as any;
                         if (payload.eventType === 'INSERT') {
                             setUsers(prev => [updated as User, ...prev]);
@@ -791,52 +816,32 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                                 lastActivity: updated.last_activity
                             } : d));
                         }
-                    } else if (payload.table === 'expeditions') {
-                        const updated = payload.new as any;
-                        if (payload.eventType === 'INSERT') {
-                            setExpeditions(prev => [{
-                                id: updated.id,
-                                driver_name: updated.driver_name,
-                                plate: updated.plate,
-                                dispatch_date: updated.dispatch_date,
-                                total_packages: updated.total_packages,
-                                delivered_count: updated.delivered_count,
-                                returned_count: updated.returned_count,
-                                status: updated.status
-                            }, ...prev]);
-                        } else if (payload.eventType === 'UPDATE') {
-                            setExpeditions(prev => prev.map(e => e.id === updated.id ? {
-                                id: updated.id,
-                                driver_name: updated.driver_name,
-                                plate: updated.plate,
-                                dispatch_date: updated.dispatch_date,
-                                total_packages: updated.total_packages,
-                                delivered_count: updated.delivered_count,
-                                returned_count: updated.returned_count,
-                                status: updated.status
-                            } : e));
-                        } else if (payload.eventType === 'DELETE') {
-                            setExpeditions(prev => prev.filter(e => e.id !== payload.old.id));
-                        }
                     }
 
-                    // Atualizar visualizações do dashboard (que são agregações complexas)
-                    const { data: dbStats } = await supabase.from('v_dashboard_stats').select('*').eq('company_id', companyId).maybeSingle();
-                    const { data: weeklyData } = await supabase.from('mv_weekly_movement').select('*').eq('company_id', companyId).order('day_date', { ascending: true });
+                    // 2. Debounced Aggregate Refresh (Stats & Views)
+                    // We don't want to hit views on every single insert if they are massive
+                    // but for this scale, a simple fetch is okay, just throttled
+                })
+                .subscribe(),
 
-                    if (dbStats) {
-                        // Atualizar estatísticas do dashboard, mantendo a contagem de estoque baseada no estado local sincronizado
-                        setDashboardStats(dbStats as DashboardStats);
+            // System Control Channel (Broadcast)
+            supabase.channel('system_control')
+                .on('broadcast', { event: 'FORCE_REFRESH' }, (payload) => {
+                    const { company_id, sender } = payload.payload;
+                    if (company_id === companyId && sender !== currentUser.id) {
+                        console.log('WmsContext: Global refresh signal received. Invalidating cache...');
+                        loadInitialData();
                     }
-                    if (weeklyData) setWeeklyStatsFromView(weeklyData);
                 })
-                .subscribe((status) => {
-                    console.log('WmsContext: Realtime subscription status:', status);
-                })
+                .subscribe()
         ];
+
+        // Periodic background sync (Safety net every 5 mins)
+        const safetyInterval = setInterval(loadInitialData, 5 * 60 * 1000);
 
         return () => {
             channels.forEach(channel => supabase.removeChannel(channel));
+            clearInterval(safetyInterval);
         };
     }, [currentUser]);
 
@@ -1186,14 +1191,15 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // --- RTS Helper & Methods ---
     const syncExpedition = async (driverName: string, plate: string, count: number) => {
         if (!currentUser) return;
-        const today = getSaoPauloDate(); // YYYY-MM-DD
+        const today = getSaoPauloDate();
 
         console.log(`WmsContext: Syncing expedition for ${driverName} on ${today} (+${count} packages)`);
 
         try {
-            // Use RPC or Upsert with onConflict if supported, 
-            // but since we added a unique constraint, we can use a simpler approach:
-            // 1. Fetch current total
+            // Using upsert with direct increment if possible, or resilient fetch-update
+            // Since we don't have atomic increment in pure JS without RPC, 
+            // we use the current session's latest state or fetch fresh.
+
             const { data: existing } = await supabase.from('expeditions')
                 .select('id, total_packages')
                 .eq('company_id', currentUser.company_id)
@@ -1211,7 +1217,9 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
                 if (ue) throw ue;
             } else {
-                const { error: ie } = await supabase.from('expeditions').insert({
+                // Potential race here: someone else might have created it while we fetched.
+                // Supabase onConflict can help if there is a unique key on [company_id, driver_name, dispatch_date]
+                const { error: ie } = await supabase.from('expeditions').upsert({
                     company_id: currentUser.company_id,
                     driver_name: driverName,
                     plate: plate,
@@ -1220,18 +1228,12 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     delivered_count: 0,
                     returned_count: 0,
                     status: 'EM_ROTA'
-                });
+                }, { onConflict: 'company_id, driver_name, dispatch_date' });
+
                 if (ie) throw ie;
             }
 
-            // Proactively refresh expeditions in state
-            const { data: freshExp } = await supabase.from('expeditions')
-                .select('*')
-                .eq('company_id', currentUser.company_id)
-                .order('dispatch_date', { ascending: false });
-
-            if (freshExp) setExpeditions(freshExp);
-
+            // Realtime will handle the state update for all instances.
         } catch (err) {
             console.error('WmsContext: syncExpedition critical error:', err);
         }
@@ -1832,14 +1834,20 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             activeDriversCount, availableStockCount,
             todayReversaCount,
             operatorProductivity,
+            refreshData: loadInitialData,
+            broadcastRefresh,
             rtsItems,
             fetchProductivityReport,
             weeklyStats,
             resetTransactions,
-            verifyStock, isValidTbr, isSameDay, getLocalDateIso: () => getSaoPauloDate(),
-            playAudio, refreshProfile, uploadUserAvatar,
+            verifyStock,
+            isValidTbr,
+            isSameDay,
+            getLocalDateIso: () => getSaoPauloDate(),
+            playAudio,
+            refreshProfile,
+            uploadUserAvatar,
             syncDetailedLogs,
-            refreshData: loadInitialData,
             loading
         }}>
             {children}

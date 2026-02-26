@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, User } from '../types';
 import { getTodayDate } from '../utils/dateUtils';
+import { useWms } from '../context/WmsContext';
 
 interface HeaderProps {
   viewTitle: View;
@@ -29,6 +30,19 @@ const Header: React.FC<HeaderProps> = ({ viewTitle, isOffline, onToggleOffline, 
     [View.RTS]: 'RTS (Devolução)'
   };
 
+  const { refreshData, broadcastRefresh } = useWms();
+  const [isSyncing, setIsSyncing] = React.useState(false);
+
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    try {
+      await refreshData();
+      await broadcastRefresh();
+    } finally {
+      setTimeout(() => setIsSyncing(false), 800);
+    }
+  };
+
   return (
     <header className="h-16 flex items-center justify-between px-4 md:px-8 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-background-dark/80 backdrop-blur sticky top-0 z-40">
       <div className="flex items-center gap-2 md:gap-4">
@@ -55,6 +69,15 @@ const Header: React.FC<HeaderProps> = ({ viewTitle, isOffline, onToggleOffline, 
         <div className="hidden md:block text-slate-500 dark:text-slate-400 text-[10px] font-mono uppercase tracking-widest bg-slate-100 dark:bg-slate-900 px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-800">
           {getTodayDate().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
         </div>
+
+        <button
+          onClick={handleManualSync}
+          disabled={isSyncing}
+          className={`p-2 rounded-full transition-all ${isSyncing ? 'text-primary bg-primary/10' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+          title="Sincronização Global"
+        >
+          <span className={`material-icons-round text-xl ${isSyncing ? 'animate-spin' : ''}`}>sync</span>
+        </button>
       </div>
     </header>
   );
