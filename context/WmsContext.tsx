@@ -517,9 +517,9 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 setWeeklyStatsFromView([
                     {
                         day_date: yesterdayStr,
-                        entradas: yIn || 15, // Fallback to 15 if query fails but user said so
-                        saidas: yOut || 11,  // Fallback to 11
-                        entregues: 7,
+                        entradas: yIn || 0,
+                        saidas: yOut || 0,
+                        entregues: 0,
                         reversas: 0
                     },
                     {
