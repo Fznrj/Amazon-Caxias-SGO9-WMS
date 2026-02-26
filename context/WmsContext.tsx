@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
-import { User, Driver, Role, UserStatus, VehicleProfile, View, InboundItem, OutboundItem, StockItem, TreatmentItem, ExpeditionItem } from '../types';
+import { User, Driver, Role, UserStatus, VehicleProfile, View, InboundItem, OutboundItem, StockItem, TreatmentItem, ExpeditionItem, InventoryItem } from '../types';
 import { AuthService } from '../services/authService';
 import { StorageService } from '../services/storageService';
 import { gamificationService } from '../services/gamificationService';
@@ -1307,125 +1307,19 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
 
     const localizeItem = async (id: string, scannerInput: string) => {
-        if (!currentUser) return { success: false, message: 'Não logado' };
+        if (!currentUser) return { success: false, message: 'Usuário não logado' };
 
-        const validation = isValidTbr(scannerInput);
-        if (!validation.isValid) {
-            playAudio('error');
-            return { success: false, message: validation.message };
-        }
+        const result = await ApiService.updateStockStatus([id], 'Em Estoque', currentUser, {
+            rack_location: scannerInput,
+            localized_by: currentUser.name
+        });
 
-        const stockItem = stockItems.find(s => s.id === id);
-
-        if (!stockItem) {
-            playAudio('error');
-            return { success: false, message: `TBR ${id} não encontrada no estoque.` };
-        }
-
-        if (stockItem.status?.toLowerCase() !== 'em estoque' && stockItem.status?.toLowerCase() !== 'possível perda') {
-            const status = stockItem?.status?.toLowerCase();
-            const statusMsg = status === 'saiu'
-                ? `ERRO: TBR ${id} já foi expedida anteriormente. Se ela retornou, faça o recebimento na Entrada.`
-                : status === 'perda'
-                    ? `ERRO: TBR ${id} está marcada como Perda definitiva.`
-                    : `ERRO: TBR ${id} está com status: ${stockItem.status}.`;
-            playAudio('error');
-            return { success: false, message: statusMsg };
-        }
-
-        if (stockItem.lossDetectedTime) {
-            const hoursElapsed = (getTodayDate().getTime() - new Date(stockItem.lossDetectedTime).getTime()) / (1000 * 60 * 60);
-            if (hoursElapsed > 72) {
-                // Update status to 'Perda' in DB and local state
-                await supabase.from('stock_items')
-                    .update({ status: 'Perda' as const })
-                    .eq('id', id)
-                    .eq('company_id', currentUser.company_id);
-                loadInitialData(); // Reload to get updated status
-                playAudio('error');
-                return { success: false, message: 'Tempo limite de 72h excedido. Item marcado como Perda definitiva.' };
-            }
-        }
-
-        // If the item is already in stock and the scanner input is different from the item ID,
-        // it means we are re-allocating it to a new rack.
-        if (stockItem.status?.toLowerCase() === 'em estoque' && id !== scannerInput) {
-            const updates = {
-                rack_location: scannerInput,
-                localized_by: currentUser?.name || 'Sistema'
-            };
-            await supabase.from('stock_items')
-                .update(updates)
-                .eq('id', id)
-                .eq('company_id', currentUser.company_id);
-            loadInitialData();
+        if (result.success) {
             playAudio('success');
-            return { success: true, message: `Item ${id} realocado para o rack ${scannerInput}.` };
-        }
-
-        // If the item is not in stock or is a possible loss, we are localizing it.
-        if (stockItem.status?.toLowerCase() === 'possível perda') {
-            const updates = {
-                status: 'Em Estoque' as const,
-                entry_time: getSaoPauloIso(), // Update entry time as it's "re-entered"
-                operator: currentUser?.name || 'Sistema',
-                loss_detected_time: null,
-                localized_by: currentUser?.name || 'Sistema',
-                rack_location: scannerInput // Assuming scannerInput is the rack location
-            };
-
-            await supabase.from('stock_items')
-                .update(updates)
-                .eq('id', id)
-                .eq('company_id', currentUser.company_id);
-
-            loadInitialData();
-            playAudio('success');
-            return { success: true, message: `Item ${id} localizado e re-alocado no rack ${scannerInput}.` };
-        }
-
-        // If it's already 'Em Estoque' and scannerInput is the same as ID, it's just a confirmation.
-        playAudio('success');
-        return { success: true, message: `TBR ${id} confirmada no estoque.` };
-    };
-
-    const uploadUserAvatar = async (file: File) => {
-        if (!currentUser) return { success: false, message: 'Não logado' };
-
-        try {
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${currentUser.id}/${Math.random()}.${fileExt}`;
-            const filePath = `${fileName}`;
-
-            // 1. Upload to Supabase Storage
-            const { error: uploadError } = await supabase.storage
-                .from('avatars')
-                .upload(filePath, file);
-
-            if (uploadError) throw uploadError;
-
-            // 2. Get Public URL
-            const { data: { publicUrl } } = supabase.storage
-                .from('avatars')
-                .getPublicUrl(filePath);
-
-            // 3. Update User Profile in DB
-            const { error: updateError } = await supabase
-                .from('users')
-                .update({ avatar_url: publicUrl })
-                .eq('id', currentUser.id);
-
-            if (updateError) throw updateError;
-
-            // 4. Refresh Local State
-            await refreshProfile();
-            playAudio('success');
-
-            return { success: true, message: 'Avatar atualizado com sucesso!' };
-        } catch (error: any) {
-            console.error('Error uploading avatar:', error);
+            return { success: true, message: 'Item localizado com sucesso!' };
+        } else {
             playAudio('error');
-            return { success: false, message: error.message || 'Erro ao fazer upload' };
+            return { success: false, message: `Erro: ${result.error}` };
         }
     };
 
@@ -1463,45 +1357,43 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             return { success: false, message: `Já existe uma tratativa ativa (${existingActive.id}) para esta TBR.` };
         }
 
-        const trtId = `TRT-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
-        const now = getSaoPauloIso();
-        const displayTime = formatToLocalTime(getSaoPauloIso());
+        const addTreatment = async (item: Omit<TreatmentItem, 'id' | 'time' | 'status'>) => {
+            if (!currentUser) return { success: false, message: 'Não autorizado' };
 
-        const newItem = {
-            id: trtId,
-            tbr_id: itemData.tbrId,
-            type: itemData.type,
-            description: itemData.description,
-            operator: itemData.operator,
-            time: now,
-            status: 'Pendente' as const,
-            company_id: currentUser.company_id
+            const now = getSaoPauloIso();
+            const id = 'inc-' + Math.random().toString(36).substr(2, 9);
+
+            const result = await ApiService.saveIncident({
+                id,
+                tbr_id: item.tbrId,
+                type: item.type,
+                description: item.description,
+                operator: item.operator,
+                time: now,
+                status: 'Pendente'
+            }, currentUser);
+
+            if (result.success) {
+                // Se for extravio ou avaria grave, marcar possível perda no estoque
+                if (item.type === 'Extravio') {
+                    await ApiService.updateStockStatus([item.tbrId], 'Possível Perda', currentUser, {
+                        loss_detected_time: now
+                    });
+                }
+                playAudio('success');
+                return { success: true, message: 'Tratativa registrada!' };
+            } else {
+                playAudio('error');
+                return { success: false, message: result.error || 'Erro desconhecido' };
+            }
         };
-
-        await supabase.from('incidents').insert(newItem);
-
-        if (itemData.type === 'Extravio' || itemData.type === 'Avaria') {
-            await supabase.from('stock_items')
-                .update({
-                    status: 'Possível Perda' as const,
-                    loss_detected_time: now
-                })
-                .eq('id', itemData.tbrId)
-                .eq('company_id', currentUser.company_id);
-        }
-
-        await loadInitialData();
-        syncDetailedLogs('treatments');
         playAudio('success');
         return { success: true, message: 'Incidente registrado com sucesso.' };
     };
 
     const updateTreatmentStatus = async (id: string, status: TreatmentItem['status']) => {
         if (!currentUser) return;
-        await supabase.from('incidents')
-            .update({ status })
-            .eq('id', id)
-            .eq('company_id', currentUser.company_id);
+        await ApiService.updateIncident(id, { status }, currentUser);
         playAudio('success');
     };
 

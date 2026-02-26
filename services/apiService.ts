@@ -157,5 +157,29 @@ export const ApiService = {
             .eq('company_id', user.company_id);
         if (error) return { success: false, error: error.message };
         return { success: true };
+    },
+
+    uploadAvatar: async (file: File, user: User): Promise<ApiResult<string>> => {
+        const fileExt = file.name.split('.').pop();
+        const filePath = `${user.id}/${Math.random()}.${fileExt}`;
+
+        const { error: uploadError } = await supabase.storage
+            .from('avatars')
+            .upload(filePath, file);
+
+        if (uploadError) return { success: false, error: uploadError.message };
+
+        const { data: { publicUrl } } = supabase.storage
+            .from('avatars')
+            .getPublicUrl(filePath);
+
+        const { error: updateError } = await supabase
+            .from('users')
+            .update({ avatar_url: publicUrl })
+            .eq('id', user.id);
+
+        if (updateError) return { success: false, error: updateError.message };
+
+        return { success: true, data: publicUrl };
     }
 };
