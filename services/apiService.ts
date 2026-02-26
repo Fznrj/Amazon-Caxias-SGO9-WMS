@@ -272,17 +272,19 @@ export const ApiService = {
                 ApiService.applyScope(supabase.from('v_weekly_stats').select('*'), user),
                 ApiService.applyScope(supabase.from('inbound_log').select('*').order('created_at', { ascending: false }).limit(100), user),
                 ApiService.applyScope(
-                    supabase.from('outbound_log').select('*', { count: 'exact', head: true })
+                    supabase.from('outbound_log').select('*')
                         .gte('created_at', todayStr + 'T00:00:00-03:00')
                         .lte('created_at', todayStr + 'T23:59:59-03:00')
-                        .not('status', 'ilike', '%reversa%'),
+                        .not('status', 'ilike', '%reversa%')
+                        .limit(500),
                     user
                 ),
                 ApiService.applyScope(
-                    supabase.from('outbound_log').select('*', { count: 'exact', head: true })
+                    supabase.from('outbound_log').select('*')
                         .gte('created_at', todayStr + 'T00:00:00-03:00')
                         .lte('created_at', todayStr + 'T23:59:59-03:00')
-                        .ilike('status', '%reversa%'),
+                        .ilike('status', '%reversa%')
+                        .limit(500),
                     user
                 ),
                 ApiService.applyScope(supabase.from('stock_items').select('*'), user),

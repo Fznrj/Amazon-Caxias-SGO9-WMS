@@ -400,7 +400,8 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 { data: toeReversa, error: treError },
                 { data: allStock, error: sce },
                 { data: allIncidents, error: incE },
-                { data: prodData, error: prodError }
+                { data: prodData, error: prodError },
+                { data: rtsLogsToday, error: rlE }
             ] = results;
 
             console.log('WmsContext: Operational data loaded.');
@@ -556,10 +557,45 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             if (treError) console.error('WmsContext: Reversa count error:', treError);
             else setTodayReversaCount((toeReversa as any).count || 0);
 
-            // Handle Productivity View
-            if (results[11]?.data) {
-                setOperatorProductivity(results[11].data as OperatorProductivity[]);
+            // Handle Productivity View: Calculate "Today" manually for accuracy
+            const todayStr = getSaoPauloDate();
+            const todayStats: Record<string, OperatorProductivity> = {};
+
+            // 1. Inbound
+            if (allInbound) {
+                allInbound.forEach((i: any) => {
+                    const op = i.operator || 'Sistema';
+                    if (!todayStats[op]) todayStats[op] = { operator: op, scan_date: todayStr, total_scans: 0, inbound_scans: 0, outbound_scans: 0, inventory_scans: 0, rts_scans: 0 };
+                    todayStats[op].inbound_scans++;
+                    todayStats[op].total_scans++;
+                });
             }
+
+            // 2. Inventory
+            if (inventory) {
+                inventory.forEach((i: any) => {
+                    const op = i.operator || 'Sistema';
+                    if (!todayStats[op]) todayStats[op] = { operator: op, scan_date: todayStr, total_scans: 0, inbound_scans: 0, outbound_scans: 0, inventory_scans: 0, rts_scans: 0 };
+                    todayStats[op].inventory_scans++;
+                    todayStats[op].total_scans++;
+                });
+            }
+
+            // 3. RTS Logs (Persistence for Devoluções and Pendências)
+            if (rtsLogsToday) {
+                rtsLogsToday.forEach((l: any) => {
+                    const op = l.operator || 'Sistema';
+                    if (!todayStats[op]) todayStats[op] = { operator: op, scan_date: todayStr, total_scans: 0, inbound_scans: 0, outbound_scans: 0, inventory_scans: 0, rts_scans: 0 };
+                    todayStats[op].rts_scans++;
+                    todayStats[op].total_scans++;
+                });
+            }
+
+            // Note: Normal Outbound counts are fetched separately as head counts for performance, 
+            // but for specific operator productivity, we'd need the rows. 
+            // For now, these three capture the main missing pieces for today's view.
+
+            setOperatorProductivity(Object.values(todayStats));
 
             // Gerenciar Incidentes
             if (incE) console.error('WmsContext: Incidents fetch error:', incE);
@@ -1505,9 +1541,18 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (!currentUser) return;
         const result = await ApiService.resetTransactions(currentUser);
         if (result.success) {
+            // Limpa estado local imediatamente
             setDashboardStats(null);
             setWeeklyStatsFromView([]);
-            loadInitialData();
+            setInboundItems([]);
+            setOutboundItems([]);
+            setInventoryItems([]);
+            setExpeditions([]);
+            setRtsItems([]);
+            setTreatmentItems([]);
+            setOperatorProductivity([]);
+
+            await loadInitialData();
             playAudio('success');
         } else {
             playAudio('error');
