@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { formatToLocalTime } from '../utils/dateUtils';
+import React, { useState, useMemo } from 'react';
+import { formatToLocalTime, isSameDay } from '../utils/dateUtils';
 import { useAuth } from '../context/AuthContext';
 import { useWmsData } from '../context/WmsDataContext';
+import { useKpi } from '../context/KpiContext';
 import { useWms } from '../context/WmsContext';
 import { getTodayDate } from '../utils/dateUtils';
 import { isValidTbr } from '../utils/validation';
@@ -9,14 +10,12 @@ import { isValidTbr } from '../utils/validation';
 const TreatmentView: React.FC = () => {
   const { currentUser } = useAuth();
   const { stockItems, possibleLossItems, treatmentItems } = useWmsData();
+  const { statsSummary: { totalLossItems, staleItemsCount, totalPossibleLosses } } = useKpi();
   const {
-    totalLossItems,
     addTreatment,
     updateTreatmentStatus,
     updateTreatment,
     localizeItem,
-    staleStockItems,
-    staleItemsCount,
     playAudio
   } = useWms();
   const [showLogForm, setShowLogForm] = useState(false);
@@ -29,8 +28,14 @@ const TreatmentView: React.FC = () => {
 
   const now = getTodayDate().getTime();
 
-  // 1. Calculate items stuck for more than 24 hours with display info
-  const parados = staleStockItems.map(item => {
+  // Stale stock items — items in stock for more than 24 hours (computed locally from useWmsData)
+  const staleStockItems = useMemo(() =>
+    stockItems.filter(i => i.status?.toLowerCase() === 'em estoque' && i.entryTime && !isSameDay(i.entryTime)),
+    [stockItems]
+  );
+
+  // Calculate items stuck for more than 24 hours with display info
+  const parados = useMemo(() => staleStockItems.map(item => {
     try {
       const entryDate = new Date(item.entryTime).getTime();
       const hours = (now - entryDate) / (1000 * 60 * 60);
@@ -39,10 +44,11 @@ const TreatmentView: React.FC = () => {
     } catch (e) {
       return { ...item, percent: 0, timeRem: 'Erro de data' };
     }
-  });
+  }), [staleStockItems, now]);
 
   const handleLogIncident = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!currentUser) { alert('Faça login para registrar incidentes.'); return; }
     if (!newIncident.tbrId || !newIncident.description) return;
 
     const currentId = newIncident.tbrId.trim().toUpperCase();
