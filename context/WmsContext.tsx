@@ -909,31 +909,22 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const addOutboundItem = async (item: OutboundItem) => {
         if (!currentUser) return { success: false, message: 'Não logado' };
         const now = getSaoPauloIso();
-        const enrichedItem = { ...item, time: now };
+        const enrichedItem = {
+            ...item,
+            time: now,
+            pallet_id: (item as any).palletId
+        };
 
-        await gamificationService.registerScan(currentUser.id, currentUser.name, currentUser.company_id);
+        await gamificationService.registerScan(currentUser.id, currentUser.name, currentUser);
 
-        const { error: insE } = await supabase.from('outbound_log').insert({
-            id: enrichedItem.id,
-            driver_name: enrichedItem.driverName,
-            vehicle: enrichedItem.vehicle,
-            time: enrichedItem.time,
-            operator: enrichedItem.operator,
-            status: enrichedItem.status,
-            pallet_id: (enrichedItem as any).palletId,
-            company_id: currentUser.company_id
-        });
-
-        if (insE) {
-            console.error('WmsContext: Error adding outbound item:', insE);
+        const result = await ApiService.logOutbound(enrichedItem, currentUser);
+        if (!result.success) {
+            console.error('WmsContext: Error adding outbound item:', result.error);
             playAudio('error');
-            return { success: false, message: insE.message };
+            return { success: false, message: result.error };
         }
 
-        await supabase.from('stock_items')
-            .update({ status: 'Saiu' })
-            .eq('id', item.id)
-            .eq('company_id', currentUser.company_id);
+        await ApiService.updateStockStatus([item.id], 'Saiu', currentUser);
 
         loadInitialData();
         syncDetailedLogs('outbound');
@@ -946,8 +937,8 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
 
     const bulkAddOutboundItems = async (items: OutboundItem[]) => {
+        if (!currentUser) return { success: false, message: 'Não logado' };
         const now = getSaoPauloIso();
-        const companyId = currentUser.company_id;
 
         const enrichedItems = items.map(item => ({
             id: item.id,
@@ -956,13 +947,8 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             time: item.time || now,
             operator: item.operator,
             status: item.status,
-            pallet_id: (item as any).palletId,
-            company_id: companyId
+            pallet_id: (item as any).palletId
         }));
-
-        // 2. Bulk Update stock_items status and pallet_id
-        const ids = items.map(i => i.id);
-        const batchPalletId = (items[0] as any).palletId;
 
         const result = await ApiService.bulkLogOutbound(enrichedItems, currentUser);
         if (!result.success) {
@@ -971,6 +957,8 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             return { success: false, message: `Erro ao salvar logs: ${result.error}` };
         }
 
+        const ids = items.map(i => i.id);
+        const batchPalletId = (items[0] as any).palletId;
         const updResult = await ApiService.updateStockStatus(ids, 'Saiu', currentUser, { pallet_id: batchPalletId });
 
         if (!updResult.success) {
@@ -979,7 +967,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         // 3. Register scans in gamification
         for (const item of items) {
-            await gamificationService.registerScan(currentUser.id, currentUser.name, companyId);
+            await gamificationService.registerScan(currentUser.id, currentUser.name, currentUser);
         }
 
         loadInitialData();
