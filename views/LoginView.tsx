@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { useWms } from '../context/WmsContext';
+import { useAuth } from '../context/AuthContext';
 import { LoginViewProps } from '../types';
 
 const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigateRegister }) => {
-  const { login } = useWms();
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);

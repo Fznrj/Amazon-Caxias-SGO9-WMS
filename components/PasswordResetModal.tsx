@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { useWms } from '../context/WmsContext';
+import { useAuth } from '../context/AuthContext';
 
 const PasswordResetModal: React.FC = () => {
-    const { updatePassword, logout } = useWms();
+    const { updatePassword, logout } = useAuth();
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [error, setError] = useState('');

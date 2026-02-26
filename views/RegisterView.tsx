@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { useWms } from '../context/WmsContext';
+import { useAuth } from '../context/AuthContext';
 
 interface RegisterViewProps {
     onNavigateLogin: () => void;
 }
 
 const RegisterView: React.FC<RegisterViewProps> = ({ onNavigateLogin }) => {
-    const { register } = useWms();
+    const { register } = useAuth();
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
