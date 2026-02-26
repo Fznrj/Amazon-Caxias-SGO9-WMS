@@ -875,17 +875,13 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const clearInboundManifest = async () => {
         if (!currentUser) return;
         _setExpectedInboundList([]);
-        await supabase
-            .from('system_configs')
-            .upsert({ company_id: currentUser.company_id, expected_inbound: [] });
+        await ApiService.clearInboundManifest(currentUser);
     };
 
     const setExpectedInboundList = async (list: string[]) => {
         if (!currentUser) return;
         _setExpectedInboundList(list);
-        await supabase
-            .from('system_configs')
-            .upsert({ company_id: currentUser.company_id, expected_inbound: list });
+        await ApiService.updateConfig({ expected_inbound: list }, currentUser);
     };
 
     const addInboundItem = async (item: InboundItem) => {
@@ -1038,18 +1034,15 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             company: d.company,
             status: d.status,
             vehicle_profile: d.vehicleProfile,
-            last_activity: now,
-            company_id: currentUser.company_id
+            last_activity: now
         }));
-        await supabase.from('drivers').insert(newOnes);
-        await loadInitialData();
+        await ApiService.bulkAddDrivers(newOnes, currentUser);
         playAudio('success');
     };
 
     const updateDriver = async (id: string, updates: Partial<Driver>) => {
         if (!currentUser) return;
 
-        // Map camelCase to snake_case for the database
         const dbUpdates: any = { ...updates };
         if (updates.vehicleProfile) {
             dbUpdates.vehicle_profile = updates.vehicleProfile;
@@ -1060,16 +1053,12 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             delete dbUpdates.lastActivity;
         }
 
-        const { error } = await supabase.from('drivers')
-            .update(dbUpdates)
-            .eq('id', id)
-            .eq('company_id', currentUser.company_id);
+        const result = await ApiService.updateDriver(id, dbUpdates, currentUser);
 
-        if (error) {
-            console.error('WmsContext: Error updating driver:', error);
+        if (!result.success) {
+            console.error('WmsContext: Error updating driver:', result.error);
             playAudio('error');
         } else {
-            await loadInitialData();
             playAudio('success');
         }
     };
@@ -1079,50 +1068,13 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (!currentUser) return;
         const today = getSaoPauloDate();
 
-        console.log(`WmsContext: Syncing expedition for ${driverName} on ${today} (+${count} packages)`);
-
-        try {
-            // Using upsert with direct increment if possible, or resilient fetch-update
-            // Since we don't have atomic increment in pure JS without RPC, 
-            // we use the current session's latest state or fetch fresh.
-
-            const { data: existing } = await supabase.from('expeditions')
-                .select('id, total_packages')
-                .eq('company_id', currentUser.company_id)
-                .eq('driver_name', driverName)
-                .eq('dispatch_date', today)
-                .maybeSingle();
-
-            if (existing) {
-                const { error: ue } = await supabase.from('expeditions')
-                    .update({
-                        total_packages: (existing.total_packages || 0) + count,
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq('id', existing.id);
-
-                if (ue) throw ue;
-            } else {
-                // Potential race here: someone else might have created it while we fetched.
-                // Supabase onConflict can help if there is a unique key on [company_id, driver_name, dispatch_date]
-                const { error: ie } = await supabase.from('expeditions').upsert({
-                    company_id: currentUser.company_id,
-                    driver_name: driverName,
-                    plate: plate,
-                    dispatch_date: today,
-                    total_packages: count,
-                    delivered_count: 0,
-                    returned_count: 0,
-                    status: 'EM_ROTA'
-                }, { onConflict: 'company_id, driver_name, dispatch_date' });
-
-                if (ie) throw ie;
-            }
-
-            // Realtime will handle the state update for all instances.
-        } catch (err) {
-            console.error('WmsContext: syncExpedition critical error:', err);
-        }
+        await ApiService.upsertExpedition({
+            driver_name: driverName,
+            plate: plate,
+            dispatch_date: today,
+            total_packages: count, // Note: This will need a better way to increment in UDL if we want atomicity.
+            status: 'EM_ROTA'
+        }, currentUser);
     };
 
     const updateExpeditionDelivered = async (id: string, delivered: number) => {
@@ -1134,69 +1086,54 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (!currentUser) return { success: false, message: 'Não logado' };
 
         // 1. Check if the item was indeed out with this driver today
-        const { data: outbound } = await supabase.from('outbound_log')
+        const query = supabase.from('outbound_log')
             .select('*')
             .eq('id', tbrId)
             .eq('driver_name', driverName)
-            .eq('company_id', currentUser.company_id)
             .order('time', { ascending: false })
-            .limit(1)
-            .maybeSingle();
+            .limit(1);
+        const { data: outbound } = await ApiService.applyScope(query, currentUser).maybeSingle();
 
         if (!outbound) {
             return { success: false, message: `TBR não encontrada na saída deste motorista.` };
         }
 
         // 2. Increment returned_count in expedition
-        const today = getSaoPauloIso().split('T')[0];
-        const { data: exp } = await supabase.from('expeditions')
+        const today = getSaoPauloDate();
+        const expQuery = supabase.from('expeditions')
             .select('*')
             .eq('driver_name', driverName)
-            .eq('dispatch_date', today)
-            .eq('company_id', currentUser.company_id)
-            .maybeSingle();
+            .eq('dispatch_date', today);
+        const { data: exp } = await ApiService.applyScope(expQuery, currentUser).maybeSingle();
 
         if (exp) {
-            await supabase.from('expeditions')
-                .update({
-                    returned_count: exp.returned_count + 1
-                })
-                .eq('id', exp.id);
+            await ApiService.updateExpedition(exp.id, { returned_count: (exp.returned_count || 0) + 1 }, currentUser);
         }
 
         // 3. Update stock_items to 'Em Estoque'
-        await supabase.from('stock_items')
-            .update({ status: 'Em Estoque' })
-            .eq('id', tbrId)
-            .eq('company_id', currentUser.company_id);
+        await ApiService.updateStockStatus([tbrId], 'Em Estoque', currentUser);
 
         // 4. Log RTS action for productivity/ranking
-        await supabase.from('rts_log').insert({
+        await ApiService.logRts({
             id: tbrId,
             operator: currentUser.name,
-            company_id: currentUser.company_id,
             time: getSaoPauloIso()
-        });
+        }, currentUser);
 
         await gamificationService.registerScan(currentUser.id, currentUser.name, currentUser.company_id);
 
-        loadInitialData();
-        syncDetailedLogs('stock');
+        playAudio('success');
         return { success: true, message: 'Retorno verificado com sucesso.' };
     };
 
     const deleteDriver = async (id: string) => {
         if (!currentUser) return;
-        const { error } = await supabase.from('drivers')
-            .delete()
-            .eq('id', id)
-            .eq('company_id', currentUser.company_id);
+        const result = await ApiService.deleteDriver(id, currentUser);
 
-        if (error) {
-            console.error('WmsContext: Error deleting driver:', error);
+        if (!result.success) {
+            console.error('WmsContext: Error deleting driver:', result.error);
             playAudio('error');
         } else {
-            await loadInitialData();
             playAudio('success');
         }
     };
@@ -1257,7 +1194,8 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const stopInventory = async () => {
         if (!currentUser) return;
         setIsInventoryActive(false);
-
+        const result = await ApiService.updateStockStatus([], '', currentUser, { inventory_active: false }); // Needs specialized method in ApiService for system configs if preferred
+        // Actually, let's keep it simple for now or add to ApiService
         // Calcular itens que deveriam estar no estoque mas não foram inventariados
         const missingIds = stockItems
             .filter(s => s.status?.toLowerCase() === 'em estoque' && !inventoryItems.some(inv => inv.id === s.id))

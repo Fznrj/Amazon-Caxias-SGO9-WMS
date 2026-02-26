@@ -120,6 +120,23 @@ export const ApiService = {
         return { success: true };
     },
 
+    updateDriver: async (id: string, updates: any, user: User): Promise<ApiResult> => {
+        const { error } = await supabase.from('drivers')
+            .update(updates)
+            .eq('id', id)
+            .eq('company_id', user.company_id);
+        if (error) return { success: false, error: error.message };
+        return { success: true };
+    },
+
+    bulkAddDrivers: async (drivers: any[], user: User): Promise<ApiResult> => {
+        const { error } = await supabase.from('drivers').insert(
+            drivers.map(d => ({ ...d, company_id: user.company_id }))
+        );
+        if (error) return { success: false, error: error.message };
+        return { success: true };
+    },
+
     // --- RTS & Expeditions ---
     upsertExpedition: async (data: any, user: User): Promise<ApiResult> => {
         const { error } = await supabase.from('expeditions').upsert({
@@ -136,6 +153,15 @@ export const ApiService = {
             .update(updates)
             .eq('id', id)
             .eq('company_id', user.company_id);
+        if (error) return { success: false, error: error.message };
+        return { success: true };
+    },
+
+    logRts: async (item: any, user: User): Promise<ApiResult> => {
+        const { error } = await supabase.from('rts_log').insert({
+            ...item,
+            company_id: user.company_id
+        });
         if (error) return { success: false, error: error.message };
         return { success: true };
     },
@@ -181,6 +207,17 @@ export const ApiService = {
         if (updateError) return { success: false, error: updateError.message };
 
         return { success: true, data: publicUrl };
+    },
+
+    updateConfig: async (updates: any, user: User): Promise<ApiResult> => {
+        const { error } = await supabase.from('system_configs')
+            .upsert({
+                company_id: user.company_id,
+                ...updates,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'company_id' });
+        if (error) return { success: false, error: error.message };
+        return { success: true };
     },
 
     fetchAppData: async (user: User): Promise<ApiResult<any>> => {
