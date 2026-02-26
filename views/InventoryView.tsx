@@ -30,9 +30,30 @@ const InventoryView: React.FC = () => {
     if (!tbrId.trim()) return;
     const currentId = tbrId.trim().toUpperCase();
 
+    // 1. Validação de formato TBR
     const validation = isValidTbr(currentId);
     if (!validation.isValid) {
       setMessage({ text: validation.message || 'ERRO: TBR Inválida.', type: 'error' });
+      playAudio('error');
+      setTbrId('');
+      return;
+    }
+
+    // 2. Check de Duplicidade — impede bipar o mesmo item 2x no inventário
+    const alreadyScanned = inventoryItems.some(i => i.id.toUpperCase() === currentId);
+    if (alreadyScanned) {
+      setMessage({ text: 'Este item já foi bipado neste inventário!', type: 'error' });
+      playAudio('error');
+      setTbrId('');
+      return;
+    }
+
+    // 3. Validação de Existência no Estoque — só aceita itens que constam no estoque atual
+    const existsInStock = stockItems.some(
+      s => s.id.toUpperCase() === currentId && s.status?.toLowerCase() === 'em estoque'
+    );
+    if (!existsInStock) {
+      setMessage({ text: `ERRO: TBR ${currentId} não consta no estoque atual.`, type: 'error' });
       playAudio('error');
       setTbrId('');
       return;
@@ -44,7 +65,7 @@ const InventoryView: React.FC = () => {
       operator: currentUser?.name || 'Sistema'
     });
 
-    setMessage({ text: `TBR ${tbrId} processado!`, type: 'success' });
+    setMessage({ text: `TBR ${currentId} conferido!`, type: 'success' });
     setTimeout(() => setMessage(null), 2000);
     setTbrId('');
   };
