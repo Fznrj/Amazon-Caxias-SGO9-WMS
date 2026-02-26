@@ -1,5 +1,6 @@
-import { supabase } from './supabase';
 import { getSaoPauloIso } from '../utils/dateUtils';
+import { ApiService } from './apiService';
+import { User } from '../types';
 
 export interface GamificationLevel {
     name: string;
@@ -91,12 +92,13 @@ export class GamificationService {
     private profiles: Map<string, GamificationProfile> = new Map();
     private initialized: boolean = false;
 
-    async init(companyId?: string): Promise<void> {
+    async init(currentUser: User): Promise<void> {
         try {
-            let query = supabase.from('gamification_profiles').select('*');
-            if (companyId) query = query.eq('company_id', companyId);
+            const apiResult = await ApiService.getGamificationProfiles(currentUser);
 
-            const { data, error } = await query;
+            if (!apiResult.success) throw new Error(apiResult.error);
+
+            const data = apiResult.data;
 
             if (error) throw error;
 
@@ -128,7 +130,7 @@ export class GamificationService {
         }
     }
 
-    private async save(userId: string, userName: string, companyId: string): Promise<void> {
+    private async save(userId: string, userName: string, currentUser: User): Promise<void> {
         const profile = this.profiles.get(userName);
         if (!profile) return;
 
@@ -141,15 +143,11 @@ export class GamificationService {
             spr_monthly: profile.sprMonthly,
             badges: profile.badges,
             fraud_flag: profile.fraudFlag,
-            fraud_alerts: profile.fraudAlerts,
-            company_id: companyId
+            fraud_alerts: profile.fraudAlerts
         };
 
-        const { error } = await supabase
-            .from('gamification_profiles')
-            .upsert(dbProfile);
-
-        if (error) console.error("Gamification save failed", error);
+        const result = await ApiService.saveGamificationProfile(dbProfile, currentUser);
+        if (!result.success) console.error("Gamification save failed", result.error);
     }
 
     async getProfile(userName: string): Promise<GamificationProfile | undefined> {

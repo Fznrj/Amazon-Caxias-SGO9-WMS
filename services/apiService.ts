@@ -259,5 +259,56 @@ export const ApiService = {
         } catch (error: any) {
             return { success: false, error: error.message };
         }
+    },
+
+    resetTransactions: async (user: User): Promise<ApiResult> => {
+        const companyId = user.company_id;
+        const tables = ['inbound_log', 'outbound_log', 'stock_items', 'incidents', 'inventory', 'expeditions'];
+
+        try {
+            await Promise.all(tables.map(table =>
+                supabase.from(table).delete().eq('company_id', companyId)
+            ));
+            await supabase.from('system_configs').update({ expected_inbound: [] }).eq('company_id', companyId);
+            await supabase.rpc('refresh_weekly_movement');
+            return { success: true };
+        } catch (error: any) {
+            return { success: false, error: error.message };
+        }
+    },
+
+    fetchProductivityReport: async (start: string, end: string, user: User): Promise<ApiResult<any[]>> => {
+        const query = supabase.from('v_operator_productivity')
+            .select('*')
+            .gte('scan_date', start)
+            .lte('scan_date', end);
+
+        const { data, error } = await ApiService.applyScope(query, user);
+        if (error) return { success: false, error: error.message };
+        return { success: true, data };
+    },
+
+    adminResetPassword: async (userId: string, newPassword: string): Promise<ApiResult> => {
+        const { data, error } = await supabase.functions.invoke('admin-reset-password', {
+            body: { userId, newPassword }
+        });
+        if (error) return { success: false, error: error.message };
+        return { success: true, data };
+    },
+
+    getGamificationProfiles: async (user: User): Promise<ApiResult<any[]>> => {
+        const query = supabase.from('gamification_profiles').select('*');
+        const { data, error } = await ApiService.applyScope(query, user, true); // Admin/Superadmin sees all if needed
+        if (error) return { success: false, error: error.message };
+        return { success: true, data };
+    },
+
+    saveGamificationProfile: async (profile: any, user: User): Promise<ApiResult> => {
+        const { error } = await supabase.from('gamification_profiles').upsert({
+            ...profile,
+            company_id: user.company_id
+        });
+        if (error) return { success: false, error: error.message };
+        return { success: true };
     }
 };

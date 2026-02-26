@@ -946,7 +946,6 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
 
     const bulkAddOutboundItems = async (items: OutboundItem[]) => {
-        if (!currentUser || items.length === 0) return { success: false, message: 'Nada para expedir' };
         const now = getSaoPauloIso();
         const companyId = currentUser.company_id;
 
@@ -1452,45 +1451,29 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             return { success: false, message: 'Não autorizado' };
         }
 
-        const { data, error } = await supabase.functions.invoke('admin-reset-password', {
-            body: { userId, newPassword }
-        });
+        const result = await ApiService.adminResetPassword(userId, newPassword);
 
-        if (error) {
-            console.error('WmsContext: Error resetting password:', error);
+        if (!result.success) {
+            console.error('WmsContext: Error resetting password:', result.error);
             playAudio('error');
-            return { success: false, message: error.message };
+            return { success: false, message: result.error };
         }
 
-        if (data?.success) {
-            playAudio('success');
-            return { success: true, message: data.message };
-        } else {
-            return { success: false, message: data?.error || 'Erro desconhecido' };
-        }
+        playAudio('success');
+        return { success: true, message: 'Senha redefinida com sucesso' };
     };
 
     const resetTransactions = async () => {
         if (!currentUser) return;
-        const companyId = currentUser.company_id;
-
-        await supabase.from('inbound_log').delete().eq('company_id', companyId);
-        await supabase.from('outbound_log').delete().eq('company_id', companyId);
-        await supabase.from('stock_items').delete().eq('company_id', companyId);
-        await supabase.from('incidents').delete().eq('company_id', companyId);
-        await supabase.from('inventory_log').delete().eq('company_id', companyId);
-        await supabase.from('expeditions').delete().eq('company_id', companyId);
-        await supabase.from('system_configs').update({ expected_inbound: [] }).eq('company_id', companyId);
-
-        // Reset local stats states immediately to show zeroed dashboard
-        setDashboardStats(null);
-        setWeeklyStatsFromView([]);
-
-        // Refresh the materialized view in the database
-        await supabase.rpc('refresh_weekly_movement');
-
-        loadInitialData();
-        playAudio('success');
+        const result = await ApiService.resetTransactions(currentUser);
+        if (result.success) {
+            setDashboardStats(null);
+            setWeeklyStatsFromView([]);
+            loadInitialData();
+            playAudio('success');
+        } else {
+            playAudio('error');
+        }
     };
 
     // Helper para buscar contagem de hoje de um motorista específico (Alto Volume)
@@ -1510,18 +1493,8 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const fetchProductivityReport = useCallback(async (start: string, end: string) => {
         if (!currentUser) return [];
-        const { data, error } = await supabase
-            .from('v_operator_productivity')
-            .select('*')
-            .gte('scan_date', start)
-            .lte('scan_date', end)
-            .eq('company_id', currentUser.company_id);
-
-        if (error) {
-            console.error('WmsContext: fetchProductivityReport error:', error);
-            return [];
-        }
-        return data as OperatorProductivity[];
+        const result = await ApiService.fetchProductivityReport(start, end, currentUser);
+        return result.success ? result.data : [];
     }, [currentUser]);
 
     const totalInventoryScanned = inventoryItems.length;
