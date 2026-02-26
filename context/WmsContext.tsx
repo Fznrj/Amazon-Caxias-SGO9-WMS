@@ -342,9 +342,22 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const syncExpedition = async (driverName: string, plate: string, count: number) => {
         if (!currentUser) return;
+        const today = getSaoPauloDate();
+
+        // Fetch existing expedition for this driver+date to INCREMENT instead of overwriting
+        const { data: existing } = await supabase
+            .from('expeditions')
+            .select('total_packages')
+            .eq('company_id', currentUser.company_id)
+            .eq('driver_name', driverName)
+            .eq('dispatch_date', today)
+            .maybeSingle();
+
+        const currentTotal = Number(existing?.total_packages || 0);
+
         await ApiService.upsertExpedition({
-            driver_name: driverName, plate, dispatch_date: getSaoPauloDate(),
-            total_packages: count, status: 'EM_ROTA'
+            driver_name: driverName, plate, dispatch_date: today,
+            total_packages: currentTotal + count, status: 'EM_ROTA'
         }, currentUser);
     };
 
