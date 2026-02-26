@@ -161,11 +161,11 @@ const RtsView: React.FC = () => {
                         </div>
                         <div className="flex flex-col sm:flex-row gap-4">
                             <form onSubmit={handleVerifyScan} className="flex-1 flex gap-2">
-                                <input type="text" placeholder="Devolução..." value={scannerInput} onChange={(e) => setScannerInput(e.target.value)} className="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-4 py-2 text-sm outline-none text-slate-800 dark:text-white" />
+                                <input type="text" placeholder="Devolução..." value={scannerInput} onChange={(e) => setScannerInput(e.target.value)} className="flex-1 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg px-4 py-2 text-sm outline-none text-slate-800 dark:text-white" />
                                 <button type="submit" className="bg-orange-500 text-white px-4 py-2 rounded-lg font-bold text-xs uppercase shadow-lg shadow-orange-500/20 active:scale-95 transition-transform">DEV</button>
                             </form>
                             <form onSubmit={handlePendingScan} className="flex-1 flex gap-2">
-                                <input type="text" placeholder="Pendente..." value={scannerInputPending} onChange={(e) => setScannerInputPending(e.target.value)} className="flex-1 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/30 rounded-lg px-4 py-2 text-sm outline-none text-slate-800 dark:text-white" />
+                                <input type="text" placeholder="Pendente..." value={scannerInputPending} onChange={(e) => setScannerInputPending(e.target.value)} className="flex-1 bg-blue-50/10 dark:bg-blue-900/10 border border-blue-100/20 dark:border-blue-900/20 rounded-lg px-4 py-2 text-sm outline-none text-slate-800 dark:text-white placeholder:text-blue-400/50" />
                                 <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded-lg font-bold text-xs uppercase shadow-lg shadow-blue-500/20 active:scale-95 transition-transform">PEN</button>
                             </form>
                         </div>
@@ -198,12 +198,12 @@ const RtsView: React.FC = () => {
                                             <td className="px-6 py-4 text-center">
                                                 <input
                                                     type="number"
-                                                    defaultValue={e.delivered_count}
-                                                    onBlur={(ev) => {
+                                                    value={e.delivered_count}
+                                                    onChange={(ev) => {
                                                         const val = parseInt(ev.target.value) || 0;
-                                                        if (val !== e.delivered_count) updateExpeditionDelivered(e.id, val);
+                                                        updateExpeditionDelivered(e.id, val);
                                                     }}
-                                                    className="w-16 text-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded p-1 font-bold outline-none text-slate-800 dark:text-white focus:ring-2 focus:ring-primary/20 transition-all"
+                                                    className="w-16 text-center bg-slate-50/5 dark:bg-slate-900 border border-slate-200/20 dark:border-slate-800 rounded p-1 font-bold outline-none text-slate-800 dark:text-white focus:ring-2 focus:ring-primary/20 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                                 />
                                             </td>
                                             <td className="px-6 py-4 text-center font-bold text-orange-600">{e.returned_count}</td>

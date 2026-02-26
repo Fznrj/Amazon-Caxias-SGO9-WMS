@@ -769,11 +769,6 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         };
     }, [currentUser]);
 
-    const fetchDriverTodayCount = async (driverId: string) => {
-        if (!currentUser) return 0;
-        const result = await ApiService.fetchDriverTodayCount(driverId, currentUser);
-        return result.data || 0;
-    };
 
     const statsSummary = React.useMemo(() => {
         const dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
@@ -1066,7 +1061,17 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const updateExpeditionDelivered = async (id: string, delivered: number) => {
         if (!currentUser) return;
-        await ApiService.updateExpedition(id, { delivered_count: delivered }, currentUser);
+
+        // Optimistic local update
+        setExpeditions(prev => prev.map(e => e.id === id ? { ...e, delivered_count: delivered } : e));
+
+        const result = await ApiService.updateExpedition(id, { delivered_count: delivered }, currentUser);
+        if (!result.success) {
+            console.error('WmsContext: Error updating expedition delivered count:', result.error);
+            // Revert on failure
+            loadInitialData();
+            playAudio('error');
+        }
     };
 
     const verifyReturn = async (tbrId: string, driverName: string) => {
