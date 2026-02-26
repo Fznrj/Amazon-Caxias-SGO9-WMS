@@ -46,6 +46,12 @@ export interface RankingEntry {
     profile: GamificationProfile;
 }
 
+export interface AchievementProgress {
+    current: number;
+    goal: number;
+    percent: number;
+}
+
 interface GamificationContextValue {
     ranking: RankingEntry[];
     allProfiles: GamificationProfile[];
@@ -53,6 +59,7 @@ interface GamificationContextValue {
     myLevel: GamificationLevel;
     nextLevel: GamificationLevel | null;
     xpProgress: number;
+    achievementsProgress: Record<string, AchievementProgress>;
     gamificationLoading: boolean;
     refreshGamification: () => Promise<void>;
 }
@@ -426,6 +433,54 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
     }, [myProfile, myLevel, nextLevel]);
 
     // ═══════════════════════════════════════════════════════
+    // ACHIEVEMENTS PROGRESS — current / goal for each badge
+    // ═══════════════════════════════════════════════════════
+
+    const achievementsProgress: Record<string, AchievementProgress> = useMemo(() => {
+        if (!currentUser) return {};
+
+        const metrics = operatorMetrics.get(currentUser.name);
+        const prod = operatorProductivity.find(p => p.operator === currentUser.name);
+        const totalScans = prod?.total_scans || 0;
+
+        const activeDays = metrics?.monthlyUniqueDays.size || 0;
+        const errorDayCount = metrics ? Object.keys(metrics.dailyErrors).length : 0;
+        const zeroErrorDays = Math.max(0, activeDays - errorDayCount);
+
+        // Build a map: badge_id -> { current, goal }
+        const raw: Record<string, { current: number; goal: number }> = {
+            scans_1000: { current: totalScans, goal: 1000 },
+            scanner_lendario: { current: totalScans, goal: 10000 },
+            incansavel: { current: totalScans, goal: 30000 },
+            streak_10: { current: 0, goal: 10 }, // consecutive days — not tracked here, leave 0
+            zero_errors_30: { current: zeroErrorDays, goal: 30 },
+            top3_weekly: { current: ranking.find(r => r.operator === currentUser.name)?.position || 0, goal: 3 },
+            avg_110: { current: Math.round((totalScans / Math.max(DAILY_GOAL, 1)) * 100), goal: 110 },
+            dr_inventario: { current: metrics?.monthlyInventoryDays.size || 0, goal: 12 },
+            participacao_ativa: { current: activeDays, goal: 24 },
+            protetor_pacotes: { current: metrics?.monthlyTreatmentCount || 0, goal: 50 },
+            investigador: { current: metrics?.monthlyLocalizedCount || 0, goal: 50 },
+            expedidor_mestre: { current: metrics?.monthlyDriversExpedited.size || 0, goal: 120 },
+            proativo: { current: metrics?.monthlyMixedActivityDays || 0, goal: 20 },
+            mestre_ps: { current: metrics?.monthlyIncidentsCount || 0, goal: 100 },
+            mestre_reversa: { current: metrics?.monthlyReversaPallets.size || 0, goal: 20 },
+        };
+
+        // Convert to { current, goal, percent }
+        const result: Record<string, AchievementProgress> = {};
+        for (const [id, v] of Object.entries(raw)) {
+            // top3_weekly: position <= 3 means achieved, invert logic
+            if (id === 'top3_weekly') {
+                const pos = v.current;
+                result[id] = { current: pos, goal: v.goal, percent: pos > 0 && pos <= 3 ? 100 : 0 };
+            } else {
+                result[id] = { current: v.current, goal: v.goal, percent: Math.min(100, Math.round((v.current / Math.max(v.goal, 1)) * 100)) };
+            }
+        }
+        return result;
+    }, [currentUser, operatorMetrics, operatorProductivity, ranking]);
+
+    // ═══════════════════════════════════════════════════════
     // PROVIDER VALUE
     // ═══════════════════════════════════════════════════════
 
@@ -436,6 +491,7 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
         myLevel,
         nextLevel,
         xpProgress,
+        achievementsProgress,
         gamificationLoading,
         refreshGamification: recalculateAll
     };
