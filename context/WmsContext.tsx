@@ -464,6 +464,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 { data: driversData, error: de },
                 { data: config, error: confE },
                 { data: inventory, error: invE },
+                { data: rtsData, error: rtsE },
                 { data: expData, error: expE },
                 { data: dbStats, error: statsE },
                 { data: weeklyData, error: weekE },
@@ -509,7 +510,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             if (confE) console.error('WmsContext: Config fetch error:', confE);
             else if (config?.expected_inbound) _setExpectedInboundList(config.expected_inbound);
 
-            // Gerenciar Expedições (RTS)
+            // Gerenciar Expedições (Dashboard + RTS)
             if (expE) console.error('WmsContext: Expeditions fetch error:', expE);
             else if (expData) {
                 setExpeditions(expData.map(e => ({
@@ -522,6 +523,11 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     returned_count: e.returned_count,
                     status: e.status
                 })));
+            }
+
+            if (rtsE) console.error('WmsContext: RTS fetch error:', rtsE);
+            else if (rtsData) {
+                setRtsItems(rtsData);
             }
 
             // Gerenciar Itens de Estoque
