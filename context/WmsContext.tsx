@@ -564,9 +564,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
             // Productivity calculation is now handled by useMemo for real-time reactivity
 
-            // Note: Manual deliveries fromupdateExpeditionDelivered are now also in rts_log
-
-            setOperatorProductivity(Object.values(todayStats));
+            // Note: Manual deliveries from updateExpeditionDelivered are now also in rts_log
 
             // Gerenciar Incidentes
             if (incE) console.error('WmsContext: Incidents fetch error:', incE);
@@ -1579,7 +1577,6 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             setExpeditions([]);
             setRtsItems([]);
             setTreatmentItems([]);
-            setOperatorProductivity([]);
 
             await loadInitialData();
             playAudio('success');
