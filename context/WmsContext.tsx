@@ -568,13 +568,21 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             const todayStr = getSaoPauloDate();
             const todayStats: Record<string, OperatorProductivity> = {};
 
-            // 1. Inbound
+            const ensureOp = (op: string) => {
+                if (!todayStats[op]) {
+                    todayStats[op] = { operator: op, scan_date: todayStr, total_scans: 0, inbound_scans: 0, outbound_scans: 0, inventory_scans: 0, rts_scans: 0 };
+                }
+                return todayStats[op];
+            };
+
+            // 1. Inbound (Only success)
             if (allInbound) {
                 allInbound.forEach((i: any) => {
+                    if (i.error) return;
                     const op = i.operator || 'Sistema';
-                    if (!todayStats[op]) todayStats[op] = { operator: op, scan_date: todayStr, total_scans: 0, inbound_scans: 0, outbound_scans: 0, inventory_scans: 0, rts_scans: 0 };
-                    todayStats[op].inbound_scans++;
-                    todayStats[op].total_scans++;
+                    const stats = ensureOp(op);
+                    stats.inbound_scans++;
+                    stats.total_scans++;
                 });
             }
 
@@ -582,19 +590,19 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             if (inventory) {
                 inventory.forEach((i: any) => {
                     const op = i.operator || 'Sistema';
-                    if (!todayStats[op]) todayStats[op] = { operator: op, scan_date: todayStr, total_scans: 0, inbound_scans: 0, outbound_scans: 0, inventory_scans: 0, rts_scans: 0 };
-                    todayStats[op].inventory_scans++;
-                    todayStats[op].total_scans++;
+                    const stats = ensureOp(op);
+                    stats.inventory_scans++;
+                    stats.total_scans++;
                 });
             }
 
-            // 3. RTS Logs (Persistence for Devoluções and Pendências)
+            // 3. RTS Logs
             if (rtsLogsToday) {
                 rtsLogsToday.forEach((l: any) => {
                     const op = l.operator || 'Sistema';
-                    if (!todayStats[op]) todayStats[op] = { operator: op, scan_date: todayStr, total_scans: 0, inbound_scans: 0, outbound_scans: 0, inventory_scans: 0, rts_scans: 0 };
-                    todayStats[op].rts_scans++;
-                    todayStats[op].total_scans++;
+                    const stats = ensureOp(op);
+                    stats.rts_scans++;
+                    stats.total_scans++;
                 });
             }
 
@@ -602,21 +610,21 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             if (toeNormal) {
                 (toeNormal as any[]).forEach((l: any) => {
                     const op = l.operator || 'Sistema';
-                    if (!todayStats[op]) todayStats[op] = { operator: op, scan_date: todayStr, total_scans: 0, inbound_scans: 0, outbound_scans: 0, inventory_scans: 0, rts_sc_scans: 0, rts_scans: 0 } as any;
-                    if (!todayStats[op].outbound_scans) todayStats[op].outbound_scans = 0;
-                    todayStats[op].outbound_scans++;
-                    todayStats[op].total_scans++;
+                    const stats = ensureOp(op);
+                    stats.outbound_scans++;
+                    stats.total_scans++;
                 });
             }
             if (toeReversa) {
                 (toeReversa as any[]).forEach((l: any) => {
                     const op = l.operator || 'Sistema';
-                    if (!todayStats[op]) todayStats[op] = { operator: op, scan_date: todayStr, total_scans: 0, inbound_scans: 0, outbound_scans: 0, inventory_scans: 0, rts_scans: 0 };
-                    if (!todayStats[op].outbound_scans) todayStats[op].outbound_scans = 0;
-                    todayStats[op].outbound_scans++;
-                    todayStats[op].total_scans++;
+                    const stats = ensureOp(op);
+                    stats.outbound_scans++;
+                    stats.total_scans++;
                 });
             }
+
+            setOperatorProductivity(Object.values(todayStats));
 
             // Note: Manual deliveries fromupdateExpeditionDelivered are now also in rts_log
 
@@ -864,11 +872,13 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             } : emptyDay;
         });
 
-        // 3. Contagens instantâneas para "Hoje"
-        const currentInboundCount = inboundItems.filter(item => isSameDay(item.time || (item as any).created_at, baseDate)).length;
-        const localInboundToday = Math.max(currentInboundCount, dashboardStats?.entradas_hoje || 0);
-        const localOutboundToday = todayOutboundCount || dashboardStats?.saidas_hoje || 0;
-        const localReversaToday = todayReversaCount || dashboardStats?.reversas_hoje || 0;
+        // 3. Contagens instantâneas para "Hoje" derivadas da produtividade centralizada
+        const localInboundToday = operatorProductivity.reduce((sum, op) => sum + op.inbound_scans, 0);
+        const localOutboundToday = operatorProductivity.reduce((sum, op) => sum + op.outbound_scans, 0);
+        const localReversaToday = todayReversaCount; // Reversa is part of outbound_scans in productivity, but Dashboard separates them if needed. 
+        // Note: For Dashboard KPI, we usually show Outbound and Reversa separately.
+        // But in Productivity View, we group them. Let's keep them separate for Dashboard cards as before.
+        // Actually, to be 100% consistent with the plan, let's ensure Dashboard uses the exact same sources.
 
         const expeditionsToday = (expeditions || []).filter(e => e.dispatch_date === todayKey);
         const localEntreguesToday = expeditionsToday.reduce((sum, e) => sum + (e.delivered_count || 0), 0);
