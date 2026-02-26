@@ -89,7 +89,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
     },
     {
       label: isComparisonMode ? 'Saídas Período' : 'Saídas Hoje',
-      value: (isComparisonMode ? `${periodStats.saidas + periodStats.reversas}` : `${totalOutboundToday + totalReversaToday}`),
+      value: (isComparisonMode ? `${periodStats.saidas + periodStats.reversas}` : `${totalOutboundToday}`),
       icon: 'arrow_downward',
       color: 'orange-500',
       trend: isComparisonMode ? 'Histórico' : calculateTrend(isComparisonMode ? (periodStats.saidas + periodStats.reversas) : (totalOutboundToday + totalReversaToday), (yesterdayData?.saidas || 0))
