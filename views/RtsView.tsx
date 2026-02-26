@@ -20,30 +20,33 @@ const RtsView: React.FC = () => {
     const [scannedTbrs, setScannedTbrs] = useState<string[]>([]);
     const [scannedTbrsPending, setScannedTbrsPending] = useState<string[]>([]);
 
-    const groupedExpeditions = useMemo(() => {
-        const groups: Record<string, any> = {};
-
-        // Count reversa items per driver from outboundItems
-        const reversaByDriver = new Map<string, number>();
+    // Count how many reversa items each driver has (to subtract from totals)
+    const reversaByDriver = useMemo(() => {
+        const map = new Map<string, number>();
         outboundItems.forEach(item => {
             if (item.status?.toLowerCase().includes('reversa')) {
                 const key = (item.driverName || '').trim();
-                reversaByDriver.set(key, (reversaByDriver.get(key) || 0) + 1);
+                map.set(key, (map.get(key) || 0) + 1);
             }
         });
+        return map;
+    }, [outboundItems]);
 
+    const groupedExpeditions = useMemo(() => {
+        const groups: Record<string, any> = {};
         expeditions.forEach(e => {
             const key = `${(e.driver_name || '').trim()}-${e.dispatch_date}`;
             if (!groups[key]) {
                 const cleanPlate = (e.plate || '').replace(/\)+$/, '').trim();
                 const driverReversa = reversaByDriver.get((e.driver_name || '').trim()) || 0;
+                // Subtract reversa items from total_packages so only regular deliveries count
+                const regularPackages = Math.max(0, Number(e.total_packages || 0) - driverReversa);
                 groups[key] = {
                     ...e,
                     plate: cleanPlate,
-                    total_packages: Number(e.total_packages || 0),
+                    total_packages: regularPackages,
                     delivered_count: Number(e.delivered_count || 0),
-                    returned_count: Number(e.returned_count || 0),
-                    reversa_count: driverReversa
+                    returned_count: Number(e.returned_count || 0)
                 };
             } else {
                 groups[key].total_packages += Number(e.total_packages || 0);
@@ -51,30 +54,17 @@ const RtsView: React.FC = () => {
                 groups[key].returned_count += Number(e.returned_count || 0);
             }
         });
-        return Object.values(groups);
-    }, [expeditions, outboundItems]);
+        // Filter out drivers that have ZERO regular packages (reversa-only drivers)
+        return Object.values(groups).filter(g => g.total_packages > 0);
+    }, [expeditions, reversaByDriver]);
 
     const stats = useMemo(() => {
-        let totalSaidaRegular = 0;
-        let totalEntregue = 0;
-        let totalRts = 0;
-        let totalReversa = 0;
-
-        groupedExpeditions.forEach(e => {
-            const reversa = e.reversa_count || 0;
-            const regularPackages = Math.max(0, (e.total_packages || 0) - reversa);
-
-            totalSaidaRegular += regularPackages;
-            totalEntregue += Math.max(0, (e.delivered_count || 0));
-            totalRts += (e.returned_count || 0);
-            totalReversa += reversa;
-        });
-
-        // Entregue should not count reversa — reversa is NOT delivery
-        // Pendente = regular packages not yet delivered or returned
-        const totalPendente = Math.max(0, totalSaidaRegular - (totalEntregue + totalRts));
+        const totalSaida = groupedExpeditions.reduce((acc, e) => acc + (e.total_packages || 0), 0);
+        const totalEntregue = groupedExpeditions.reduce((acc, e) => acc + (e.delivered_count || 0), 0);
+        const totalRts = groupedExpeditions.reduce((acc, e) => acc + (e.returned_count || 0), 0);
+        const totalPendente = Math.max(0, totalSaida - (totalEntregue + totalRts));
         const rtsDrivers = new Set(groupedExpeditions.filter(e => (e.returned_count || 0) > 0).map(e => e.driver_name));
-        return { totalSaidaRegular, totalEntregue, totalRts, totalReversa, totalPendente, totalMotoristasRts: rtsDrivers.size };
+        return { totalSaida, totalEntregue, totalRts, totalPendente, totalMotoristasRts: rtsDrivers.size };
     }, [groupedExpeditions]);
 
     const filteredExpeditions = useMemo(() => {
@@ -154,10 +144,10 @@ const RtsView: React.FC = () => {
     return (
         <PullToRefresh onRefresh={refreshData}>
             <div className="p-6 space-y-6 animate-in fade-in duration-500">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className="bg-white dark:bg-card-dark p-4 rounded-xl shadow-sm border-l-4 border-blue-500">
-                        <p className="text-[10px] font-bold text-slate-500 uppercase">Saídas (Entregas)</p>
-                        <p className="text-2xl font-bold text-blue-500">{stats.totalSaidaRegular}</p>
+                        <p className="text-[10px] font-bold text-slate-500 uppercase">Total Saída</p>
+                        <p className="text-2xl font-bold text-blue-500">{stats.totalSaida}</p>
                     </div>
                     <div className="bg-white dark:bg-card-dark p-4 rounded-xl shadow-sm border-l-4 border-emerald-500">
                         <p className="text-[10px] font-bold text-slate-500 uppercase">Total Entregue</p>
@@ -166,10 +156,6 @@ const RtsView: React.FC = () => {
                     <div className="bg-white dark:bg-card-dark p-4 rounded-xl shadow-sm border-l-4 border-orange-500">
                         <p className="text-[10px] font-bold text-slate-500 uppercase">Total RTS</p>
                         <p className="text-2xl font-bold text-orange-500">{stats.totalRts}</p>
-                    </div>
-                    <div className="bg-white dark:bg-card-dark p-4 rounded-xl shadow-sm border-l-4 border-purple-500">
-                        <p className="text-[10px] font-bold text-slate-500 uppercase">Reversa em Trânsito</p>
-                        <p className="text-2xl font-bold text-purple-500">{stats.totalReversa}</p>
                     </div>
                     <div className="bg-white dark:bg-card-dark p-4 rounded-xl shadow-sm border-l-4 border-red-500">
                         <p className="text-[10px] font-bold text-slate-500 uppercase">Total Pendente</p>
