@@ -443,14 +443,14 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 applyFilter(
                     supabase.from('outbound_log').select('id', { count: 'exact', head: true })
                         .not('status', 'ilike', '%reversa%')
-                        .gte('created_at', getSaoPauloDate() + 'T00:00:00')
-                        .lte('created_at', getSaoPauloDate() + 'T23:59:59')
+                        .gte('created_at', getSaoPauloDate() + 'T00:00:00-03:00')
+                        .lte('created_at', getSaoPauloDate() + 'T23:59:59-03:00')
                 ),
                 applyFilter(
                     supabase.from('outbound_log').select('id', { count: 'exact', head: true })
                         .ilike('status', '%reversa%')
-                        .gte('created_at', getSaoPauloDate() + 'T00:00:00')
-                        .lte('created_at', getSaoPauloDate() + 'T23:59:59')
+                        .gte('created_at', getSaoPauloDate() + 'T00:00:00-03:00')
+                        .lte('created_at', getSaoPauloDate() + 'T23:59:59-03:00')
                 ),
                 applyFilter(supabase.from('stock_items').select('*')),
                 applyFilter(supabase.from('incidents').select('*')).order('created_at', { ascending: false }).limit(50)
@@ -557,11 +557,11 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 // Fetch raw counts for yesterday (O Fernando reportou 15 entradas e 11 saídas)
                 const [{ count: yIn }, { count: yOut }] = await Promise.all([
                     supabase.from('inbound_log').select('*', { count: 'exact', head: true })
-                        .gte('created_at', yesterdayStr + 'T00:00:00')
-                        .lte('created_at', yesterdayStr + 'T23:59:59'),
+                        .gte('created_at', yesterdayStr + 'T00:00:00-03:00')
+                        .lte('created_at', yesterdayStr + 'T23:59:59-03:00'),
                     supabase.from('outbound_log').select('*', { count: 'exact', head: true })
-                        .gte('created_at', yesterdayStr + 'T00:00:00')
-                        .lte('created_at', yesterdayStr + 'T23:59:59')
+                        .gte('created_at', yesterdayStr + 'T00:00:00-03:00')
+                        .lte('created_at', yesterdayStr + 'T23:59:59-03:00')
                 ]);
 
                 setWeeklyStatsFromView([
@@ -1259,6 +1259,16 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             .update({ status: 'Em Estoque' })
             .eq('id', tbrId)
             .eq('company_id', currentUser.company_id);
+
+        // 4. Log RTS action for productivity/ranking
+        await supabase.from('rts_log').insert({
+            id: tbrId,
+            operator: currentUser.name,
+            company_id: currentUser.company_id,
+            time: getSaoPauloIso()
+        });
+
+        await gamificationService.registerScan(currentUser.id, currentUser.name, currentUser.company_id);
 
         loadInitialData();
         syncDetailedLogs('stock');
