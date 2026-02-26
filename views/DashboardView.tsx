@@ -1,5 +1,7 @@
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { useKpi } from '../context/KpiContext';
+import { useWmsData } from '../context/WmsDataContext';
 import { useWms } from '../context/WmsContext';
 import { View } from '../types';
 import { getSaoPauloDate, parseToDate, getTodayDate } from '../utils/dateUtils';
@@ -10,19 +12,24 @@ interface DashboardViewProps {
 }
 
 const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
+  // KPIs from the SQL View (via KpiContext)
+  const { statsSummary } = useKpi();
   const {
-    inboundItems,
-    outboundItems,
-    weeklyStats,
-    totalInboundToday,
-    totalOutboundToday,
-    totalReversaToday,
-    staleItemsCount,
-    totalLossItems,
-    totalExpected,
-    totalPossibleLosses,
-    refreshData
-  } = useWms();
+    totalInboundToday, totalOutboundToday, totalReversaToday,
+    staleItemsCount, totalLossItems, totalPossibleLosses, weeklyStats
+  } = statsSummary;
+
+  // Raw data for comparison mode only (via WmsDataContext)
+  const { inboundItems, outboundItems, stockItems } = useWmsData();
+
+  // Refresh action only (via WmsContext)
+  const { refreshData } = useWms();
+
+  // Derived: available stock count
+  const totalExpected = React.useMemo(() =>
+    stockItems.filter(i => i.status?.toLowerCase() === 'em estoque').length,
+    [stockItems]
+  );
 
   const [startDate, setStartDate] = React.useState(getSaoPauloDate(getTodayDate()));
   const [endDate, setEndDate] = React.useState(getSaoPauloDate(getTodayDate()));

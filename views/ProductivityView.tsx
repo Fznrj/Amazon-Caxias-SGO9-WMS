@@ -1,5 +1,5 @@
 import React from 'react';
-import { useWms } from '../context/WmsContext';
+import { useKpi } from '../context/KpiContext';
 import { downloadCSV } from '../utils/download';
 import { getSaoPauloDate, parseToDate, getTodayDate } from '../utils/dateUtils';
 
@@ -9,9 +9,8 @@ const DAILY_GOAL = 350;
 const ProductivityView: React.FC = () => {
   const {
     operatorProductivity: todayProductivity,
-    fetchProductivityReport,
-    refreshData
-  } = useWms();
+    fetchProductivityReport
+  } = useKpi();
 
   const [startDate, setStartDate] = React.useState<string>(getSaoPauloDate(getTodayDate()));
   const [endDate, setEndDate] = React.useState<string>(getSaoPauloDate(getTodayDate()));
