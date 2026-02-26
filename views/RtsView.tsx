@@ -1,19 +1,16 @@
 import React, { useState, useMemo } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { useWmsData } from '../context/WmsDataContext';
 import { useWms } from '../context/WmsContext';
 import { getSaoPauloDate } from '../utils/dateUtils';
 import PullToRefresh from '../components/PullToRefresh';
 
 const RtsView: React.FC = () => {
+    const { currentUser } = useAuth();
+    const { expeditions, stockItems, outboundItems } = useWmsData();
     const {
-        expeditions,
-        stockItems,
-        outboundItems,
-        updateExpeditionDelivered,
-        verifyReturn,
-        addRtsPendingItem,
-        playAudio,
-        currentUser,
-        refreshData
+        updateExpeditionDelivered, verifyReturn,
+        addRtsPendingItem, playAudio, refreshData
     } = useWms();
 
     const [filter, setFilter] = useState('');

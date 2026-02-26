@@ -1,11 +1,11 @@
 import React from 'react';
 import { downloadCSV } from '../utils/download';
 import { supabase } from '../services/supabase';
-import { useWms } from '../context/WmsContext';
+import { useAuth } from '../context/AuthContext';
 import { getTodayDate, getSaoPauloDate, formatToLocalDate, formatToLocalTime } from '../utils/dateUtils';
 
 const ReportView: React.FC = () => {
-  const { currentUser, inventoryItems, inboundItems, outboundItems, possibleLossItems, stockItems, users } = useWms();
+  const { currentUser } = useAuth();
   const [startDate, setStartDate] = React.useState<string>(getSaoPauloDate());
   const [endDate, setEndDate] = React.useState<string>(getSaoPauloDate());
 

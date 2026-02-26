@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 import { useWms } from '../context/WmsContext';
 import { PrintService } from '../services/PrintService';
 import { getTodayDate, getSaoPauloIso } from '../utils/dateUtils';
@@ -12,7 +13,8 @@ interface ScannedItem {
 }
 
 export default function ReversaView() {
-    const { drivers, addOutboundItem, bulkAddOutboundItems, currentUser, verifyStock, playAudio } = useWms();
+    const { currentUser } = useAuth();
+    const { drivers, addOutboundItem, bulkAddOutboundItems, verifyStock, playAudio } = useWms();
     const [scannedItems, setScannedItems] = useState<ScannedItem[]>([]);
     const [selectedDriverId, setSelectedDriverId] = useState('');
     const [palletId, setPalletId] = useState('');

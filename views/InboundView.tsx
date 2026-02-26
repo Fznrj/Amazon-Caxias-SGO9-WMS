@@ -1,4 +1,6 @@
 import React, { useState, useRef } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { useWmsData } from '../context/WmsDataContext';
 import { useWms } from '../context/WmsContext';
 import * as XLSX from 'xlsx';
 import { isSameDay, getTodayDate, formatToLocalTime, getSaoPauloIso } from '../utils/dateUtils';
@@ -10,11 +12,11 @@ const InboundView: React.FC = () => {
   const [showReconciliation, setShowReconciliation] = useState(false);
   const [reconciliationSnapshot, setReconciliationSnapshot] = useState<{ missing: string[], unexpected: string[] } | null>(null);
 
+  const { currentUser } = useAuth();
+  const { inboundItems, stockItems } = useWmsData();
   const {
-    inboundItems, addInboundItem, currentUser, stockItems,
-    playAudio, expectedInboundList, setExpectedInboundList,
-    clearInboundManifest, todayInboundList, inboundReconciliation,
-    refreshData
+    addInboundItem, playAudio, expectedInboundList, setExpectedInboundList,
+    clearInboundManifest, todayInboundList, inboundReconciliation, refreshData
   } = useWms();
 
   const { matches, missing: missingItems, unexpected: unexpectedItems, progressPercent, successfulScansToday: successfulScans } = inboundReconciliation;

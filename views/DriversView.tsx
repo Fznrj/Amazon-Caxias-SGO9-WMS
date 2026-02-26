@@ -1,11 +1,13 @@
 import React, { useState, useRef } from 'react';
+import { useAuth } from '../context/AuthContext';
 import { useWms } from '../context/WmsContext';
 import { Driver, VehicleProfile } from '../types';
 import { downloadCSV } from '../utils/download';
 import * as XLSX from 'xlsx';
 
 const DriversView: React.FC = () => {
-    const { drivers, addDriver, bulkAddDrivers, updateDriver, deleteDriver, playAudio, currentUser } = useWms();
+    const { currentUser } = useAuth();
+    const { drivers, addDriver, bulkAddDrivers, updateDriver, deleteDriver, playAudio } = useWms();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);

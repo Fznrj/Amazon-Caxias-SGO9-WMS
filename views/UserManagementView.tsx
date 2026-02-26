@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 import { useWms } from '../context/WmsContext';
 import { Role, UserStatus, User } from '../types';
 
@@ -12,7 +13,8 @@ const ROLE_RANK: Record<Role, number> = {
 };
 
 const UserManagementView: React.FC = () => {
-  const { users, currentUser, updateUserStatus, updateUser, deleteUser, inviteUser, adminResetPassword } = useWms();
+  const { currentUser } = useAuth();
+  const { users, updateUserStatus, updateUser, deleteUser, inviteUser, adminResetPassword } = useWms();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'All' | UserStatus>('All');
 

@@ -1,13 +1,18 @@
 import React, { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { useWmsData } from '../context/WmsDataContext';
+import { useKpi } from '../context/KpiContext';
 import { useWms } from '../context/WmsContext';
 import { isSameDay, getTodayDate, formatToLocalTime, getSaoPauloIso } from '../utils/dateUtils';
 import { isValidTbr } from '../utils/validation';
 
 const OutboundView: React.FC = () => {
+  const { currentUser } = useAuth();
+  const { stockItems, treatmentItems } = useWmsData();
+  const { statsSummary: { totalOutboundToday, totalReversaToday } } = useKpi();
   const {
-    treatmentItems, addOutboundItem,
-    playAudio, drivers, stockItems, totalOutboundToday, totalReversaToday,
-    currentUser, activeDriversCount, availableStockCount, fetchDriverTodayCount
+    addOutboundItem, playAudio, drivers,
+    activeDriversCount, availableStockCount, fetchDriverTodayCount
   } = useWms();
 
   const [tbrInput, setTbrInput] = useState('');

@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { useWmsData } from '../context/WmsDataContext';
 import { useWms } from '../context/WmsContext';
 import { formatToLocalTime, getSaoPauloIso, getTodayDate } from '../utils/dateUtils';
 import { isValidTbr } from '../utils/validation';
 
 const InventoryView: React.FC = () => {
-  const { inventoryItems, addInventoryItem, isInventoryActive, startInventory, stopInventory, stockItems, possibleLossItems, currentUser, localizeItem, playAudio } = useWms();
+  const { currentUser } = useAuth();
+  const { inventoryItems, stockItems, possibleLossItems } = useWmsData();
+  const { addInventoryItem, isInventoryActive, startInventory, stopInventory, localizeItem, playAudio } = useWms();
   const [tbrId, setTbrId] = useState('');
   const [message, setMessage] = useState<{ text: string, type: 'error' | 'success' } | null>(null);
 

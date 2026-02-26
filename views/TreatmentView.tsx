@@ -1,19 +1,19 @@
 import React, { useState } from 'react';
 import { formatToLocalTime } from '../utils/dateUtils';
+import { useAuth } from '../context/AuthContext';
+import { useWmsData } from '../context/WmsDataContext';
 import { useWms } from '../context/WmsContext';
 import { getTodayDate } from '../utils/dateUtils';
 import { isValidTbr } from '../utils/validation';
 
 const TreatmentView: React.FC = () => {
+  const { currentUser } = useAuth();
+  const { stockItems, possibleLossItems, treatmentItems } = useWmsData();
   const {
-    stockItems,
-    possibleLossItems,
     totalLossItems,
-    treatmentItems,
     addTreatment,
     updateTreatmentStatus,
     updateTreatment,
-    currentUser,
     localizeItem,
     staleStockItems,
     staleItemsCount,
