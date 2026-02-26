@@ -288,11 +288,9 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const [todayOutboundCount, setTodayOutboundCount] = useState(0);
     const [todayReversaCount, setTodayReversaCount] = useState(0);
 
-    // --- Inventory State ---
     const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
     const [rtsItems, setRtsItems] = useState<any[]>([]);
     const [rtsLogs, setRtsLogs] = useState<any[]>([]);
-    const [operatorProductivity, setOperatorProductivity] = useState<OperatorProductivity[]>([]);
 
     // --- Drivers State ---
     const [drivers, setDrivers] = useState<Driver[]>([]);
@@ -564,67 +562,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             if (treError) console.error('WmsContext: Reversa count error:', treError);
             else setTodayReversaCount((toeReversa as any[]).length || 0);
 
-            // Handle Productivity View: Calculate "Today" manually for accuracy
-            const todayStr = getSaoPauloDate();
-            const todayStats: Record<string, OperatorProductivity> = {};
-
-            const ensureOp = (op: string) => {
-                if (!todayStats[op]) {
-                    todayStats[op] = { operator: op, scan_date: todayStr, total_scans: 0, inbound_scans: 0, outbound_scans: 0, inventory_scans: 0, rts_scans: 0 };
-                }
-                return todayStats[op];
-            };
-
-            // 1. Inbound (Only success)
-            if (allInbound) {
-                allInbound.forEach((i: any) => {
-                    if (i.error) return;
-                    const op = i.operator || 'Sistema';
-                    const stats = ensureOp(op);
-                    stats.inbound_scans++;
-                    stats.total_scans++;
-                });
-            }
-
-            // 2. Inventory
-            if (inventory) {
-                inventory.forEach((i: any) => {
-                    const op = i.operator || 'Sistema';
-                    const stats = ensureOp(op);
-                    stats.inventory_scans++;
-                    stats.total_scans++;
-                });
-            }
-
-            // 3. RTS Logs
-            if (rtsLogsToday) {
-                rtsLogsToday.forEach((l: any) => {
-                    const op = l.operator || 'Sistema';
-                    const stats = ensureOp(op);
-                    stats.rts_scans++;
-                    stats.total_scans++;
-                });
-            }
-
-            // 4. Outbound (Normal and Reversa)
-            if (toeNormal) {
-                (toeNormal as any[]).forEach((l: any) => {
-                    const op = l.operator || 'Sistema';
-                    const stats = ensureOp(op);
-                    stats.outbound_scans++;
-                    stats.total_scans++;
-                });
-            }
-            if (toeReversa) {
-                (toeReversa as any[]).forEach((l: any) => {
-                    const op = l.operator || 'Sistema';
-                    const stats = ensureOp(op);
-                    stats.outbound_scans++;
-                    stats.total_scans++;
-                });
-            }
-
-            setOperatorProductivity(Object.values(todayStats));
+            // Productivity calculation is now handled by useMemo for real-time reactivity
 
             // Note: Manual deliveries fromupdateExpeditionDelivered are now also in rts_log
 
@@ -840,6 +778,60 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }, [currentUser]);
 
 
+    const operatorProductivity = React.useMemo(() => {
+        const todayStr = getSaoPauloDate();
+        const todayStats: Record<string, OperatorProductivity> = {};
+
+        const ensureOp = (op: string) => {
+            if (!todayStats[op]) {
+                todayStats[op] = { operator: op, scan_date: todayStr, total_scans: 0, inbound_scans: 0, outbound_scans: 0, inventory_scans: 0, rts_scans: 0 };
+            }
+            return todayStats[op];
+        };
+
+        // 1. Inbound (Only success today)
+        inboundItems.forEach((i: any) => {
+            const time = i.createdAt || i.time;
+            if (!isSameDay(time) || i.error) return;
+            const op = i.operator || 'Sistema';
+            const stats = ensureOp(op);
+            stats.inbound_scans++;
+            stats.total_scans++;
+        });
+
+        // 2. Inventory (Today)
+        inventoryItems.forEach((i: any) => {
+            const time = i.createdAt || i.time;
+            if (!isSameDay(time)) return;
+            const op = i.operator || 'Sistema';
+            const stats = ensureOp(op);
+            stats.inventory_scans++;
+            stats.total_scans++;
+        });
+
+        // 3. RTS Logs (Today)
+        rtsLogs.forEach((l: any) => {
+            const time = l.created_at || l.time;
+            if (!isSameDay(time)) return;
+            const op = l.operator || 'Sistema';
+            const stats = ensureOp(op);
+            stats.rts_scans++;
+            stats.total_scans++;
+        });
+
+        // 4. Outbound (Normal and Reversa today)
+        outboundItems.forEach((l: any) => {
+            const time = l.createdAt || l.created_at || l.time;
+            if (!isSameDay(time)) return;
+            const op = l.operator || 'Sistema';
+            const stats = ensureOp(op);
+            stats.outbound_scans++;
+            stats.total_scans++;
+        });
+
+        return Object.values(todayStats);
+    }, [inboundItems, inventoryItems, rtsLogs, outboundItems]);
+
     const statsSummary = React.useMemo(() => {
         const dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
         const baseDate = getTodayDate();
@@ -913,7 +905,9 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             staleItemsCount: staleItems.length,
             totalPossibleLosses: possibleLossItems.length
         };
-    }, [dashboardStats, weeklyStatsFromView, inboundItems, expeditions, stockItems, possibleLossItems, todayOutboundCount, todayReversaCount]);
+    }, [dashboardStats, weeklyStatsFromView, operatorProductivity, expeditions, stockItems, possibleLossItems, todayReversaCount]);
+
+    const operatorProductivityAtLine900Wait = operatorProductivity; // Stale check to prevent duplications if any
 
     // --- Optimized Centralized Data (Zero-Loading) ---
     const todayInboundList = React.useMemo(() =>
