@@ -20,9 +20,13 @@ export const ApiService = {
     },
 
     // --- Inbound Operations ---
-    logInbound: async (item: any, user: User): Promise<ApiResult> => {
+    logInbound: async (item: InboundItem, user: User): Promise<ApiResult> => {
         const { error } = await supabase.from('inbound_log').insert({
-            ...item,
+            id: item.id,
+            status: item.status,
+            operator: item.operator,
+            time: item.time,
+            error: item.error,
             company_id: user.company_id
         });
         if (error) return { success: false, error: error.message };
@@ -48,18 +52,33 @@ export const ApiService = {
     },
 
     // --- Outbound Operations ---
-    logOutbound: async (item: any, user: User): Promise<ApiResult> => {
+    logOutbound: async (item: OutboundItem, user: User): Promise<ApiResult> => {
         const { error } = await supabase.from('outbound_log').insert({
-            ...item,
+            id: item.id,
+            driver_name: item.driverName,
+            vehicle: item.vehicle,
+            time: item.time,
+            operator: item.operator,
+            status: item.status,
+            pallet_id: item.palletId,
             company_id: user.company_id
         });
         if (error) return { success: false, error: error.message };
         return { success: true };
     },
 
-    bulkLogOutbound: async (items: any[], user: User): Promise<ApiResult> => {
+    bulkLogOutbound: async (items: OutboundItem[], user: User): Promise<ApiResult> => {
         const { error } = await supabase.from('outbound_log').insert(
-            items.map(i => ({ ...i, company_id: user.company_id }))
+            items.map(i => ({
+                id: i.id,
+                driver_name: i.driverName,
+                vehicle: i.vehicle,
+                time: i.time,
+                operator: i.operator,
+                status: i.status,
+                pallet_id: i.palletId,
+                company_id: user.company_id
+            }))
         );
         if (error) return { success: false, error: error.message };
         return { success: true };
@@ -101,9 +120,15 @@ export const ApiService = {
     },
 
     // --- Driver Operations ---
-    saveDriver: async (driver: any, user: User): Promise<ApiResult> => {
+    saveDriver: async (driver: Driver, user: User): Promise<ApiResult> => {
         const { error } = await supabase.from('drivers').upsert({
-            ...driver,
+            id: driver.id,
+            name: driver.name,
+            cpf: driver.cpf,
+            plate: driver.plate,
+            company: driver.company,
+            status: driver.status,
+            vehicle_profile: driver.vehicleProfile,
             company_id: user.company_id,
             last_activity: getSaoPauloIso()
         });
@@ -129,9 +154,19 @@ export const ApiService = {
         return { success: true };
     },
 
-    bulkAddDrivers: async (drivers: any[], user: User): Promise<ApiResult> => {
+    bulkAddDrivers: async (drivers: Driver[], user: User): Promise<ApiResult> => {
         const { error } = await supabase.from('drivers').insert(
-            drivers.map(d => ({ ...d, company_id: user.company_id }))
+            drivers.map(d => ({
+                id: d.id,
+                name: d.name,
+                cpf: d.cpf,
+                plate: d.plate,
+                company: d.company,
+                status: d.status,
+                vehicle_profile: d.vehicleProfile,
+                company_id: user.company_id,
+                last_activity: getSaoPauloIso()
+            }))
         );
         if (error) return { success: false, error: error.message };
         return { success: true };
