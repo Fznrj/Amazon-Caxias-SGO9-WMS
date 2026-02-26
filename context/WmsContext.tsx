@@ -139,6 +139,7 @@ interface WmsContextData {
     expeditions: ExpeditionItem[];
     updateExpeditionDelivered: (id: string, delivered: number) => Promise<void>;
     verifyReturn: (tbrId: string, driverName: string) => Promise<{ success: boolean; message: string }>;
+    fetchProductivityReport: (startDate: string, endDate: string) => Promise<OperatorProductivity[]>;
 
     // Stats
     adminResetPassword: (userId: string, newPassword: string) => Promise<{ success: boolean; message: string }>;
@@ -176,12 +177,23 @@ interface WmsContextData {
     uploadUserAvatar: (file: File) => Promise<{ success: boolean; message: string }>;
     syncDetailedLogs: (module: 'stock' | 'inbound' | 'outbound' | 'treatments') => Promise<void>;
     // Novo helper para alto volume: busca contagem de saídas de um motorista hoje
-    fetchDriverTodayCount: (driverId: string) => Promise<number>;
+    todayReversaCount: number;
+    operatorProductivity: OperatorProductivity[];
     refreshData: () => Promise<void>;
     loading: boolean;
 }
 
 const WmsContext = createContext<WmsContextData>({} as WmsContextData);
+
+export interface OperatorProductivity {
+    operator: string;
+    scan_date: string;
+    total_scans: number;
+    inbound_scans: number;
+    outbound_scans: number;
+    inventory_scans: number;
+    rts_scans: number;
+}
 
 export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     // ... (Audio System - keep as is) ...
@@ -327,6 +339,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     // --- Inventory State ---
     const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+    const [operatorProductivity, setOperatorProductivity] = useState<OperatorProductivity[]>([]);
 
     // --- Drivers State ---
     const [drivers, setDrivers] = useState<Driver[]>([]);
@@ -419,19 +432,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 setUsers(queryData as User[]);
             }
 
-            const [
-                { data: driversData, error: de },
-                { data: config, error: confE },
-                { data: inventory, error: invE },
-                { data: expData, error: expE },
-                { data: dbStats, error: statsE },
-                { data: weeklyData, error: weekE },
-                { data: allInbound, error: tie },
-                { data: toeNormal, error: toeError },
-                { data: toeReversa, error: treError },
-                { data: allStock, error: sce },
-                { data: allIncidents, error: incE }
-            ] = await Promise.all([
+            const results = await Promise.all([
                 applyFilter(supabase.from('drivers').select('*')),
                 applyFilter(supabase.from('system_configs').select('expected_inbound')).maybeSingle(),
                 applyFilter(supabase.from('inventory_log').select('*')),
@@ -439,7 +440,6 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 applyFilter(supabase.from('v_dashboard_stats').select('*')).maybeSingle(),
                 applyFilter(supabase.from('mv_weekly_movement').select('*')).order('day_date', { ascending: true }),
                 applyFilter(supabase.from('inbound_log').select('*')).order('created_at', { ascending: false }).limit(100),
-                // OTIMIZAÇÃO: Busca contagens agregadas separadas para Saídas e Reversas de hoje
                 applyFilter(
                     supabase.from('outbound_log').select('id', { count: 'exact', head: true })
                         .not('status', 'ilike', '%reversa%')
@@ -453,8 +453,24 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                         .lte('created_at', getSaoPauloDate() + 'T23:59:59-03:00')
                 ),
                 applyFilter(supabase.from('stock_items').select('*')),
-                applyFilter(supabase.from('incidents').select('*')).order('created_at', { ascending: false }).limit(50)
+                applyFilter(supabase.from('incidents').select('*')).order('created_at', { ascending: false }).limit(50),
+                applyFilter(supabase.from('v_operator_productivity').select('*').eq('scan_date', getSaoPauloDate()))
             ]);
+
+            const [
+                { data: driversData, error: de },
+                { data: config, error: confE },
+                { data: inventory, error: invE },
+                { data: expData, error: expE },
+                { data: dbStats, error: statsE },
+                { data: weeklyData, error: weekE },
+                { data: allInbound, error: tie },
+                { data: toeNormal, error: toeError },
+                { data: toeReversa, error: treError },
+                { data: allStock, error: sce },
+                { data: allIncidents, error: incE },
+                { data: prodData, error: prodError }
+            ] = results;
 
             console.log('WmsContext: Operational data loaded.');
 
@@ -597,14 +613,17 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 })));
             }
 
-            // Handle Outbound counts (OTIMIZADO)
+            // Handle Outbound counts
             if (toeError) console.error('WmsContext: Outbound count error:', toeError);
             else setTodayOutboundCount((toeNormal as any).count || 0);
 
             if (treError) console.error('WmsContext: Reversa count error:', treError);
             else setTodayReversaCount((toeReversa as any).count || 0);
 
-            setOutboundItems([]); // Limpa lista em memória para alto volume
+            // Handle Productivity View
+            if (results[11]?.data) {
+                setOperatorProductivity(results[11].data as OperatorProductivity[]);
+            }
 
             // Gerenciar Incidentes
             if (incE) console.error('WmsContext: Incidents fetch error:', incE);
@@ -1762,6 +1781,22 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return count || 0;
     }, []);
 
+    const fetchProductivityReport = useCallback(async (start: string, end: string) => {
+        if (!currentUser) return [];
+        const { data, error } = await supabase
+            .from('v_operator_productivity')
+            .select('*')
+            .gte('scan_date', start)
+            .lte('scan_date', end)
+            .eq('company_id', currentUser.company_id);
+
+        if (error) {
+            console.error('WmsContext: fetchProductivityReport error:', error);
+            return [];
+        }
+        return data as OperatorProductivity[];
+    }, [currentUser]);
+
     const totalInventoryScanned = inventoryItems.length;
     const totalLossItems = statsSummary.totalLossItems;
     const staleItemsCount = statsSummary.staleItemsCount;
@@ -1786,12 +1821,14 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             totalExpected, totalPossibleLosses: statsSummary.totalPossibleLosses,
             todayInboundList, todayOutboundList, inboundReconciliation,
             activeDriversCount, availableStockCount,
+            todayReversaCount,
+            operatorProductivity,
+            fetchProductivityReport,
             weeklyStats,
             resetTransactions,
             verifyStock, isValidTbr, isSameDay, getLocalDateIso: () => getSaoPauloDate(),
             playAudio, refreshProfile, uploadUserAvatar,
             syncDetailedLogs,
-            fetchDriverTodayCount,
             refreshData: loadInitialData,
             loading
         }}>
