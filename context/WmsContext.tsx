@@ -4,6 +4,7 @@ import { AuthService } from '../services/authService';
 import { StorageService } from '../services/storageService';
 import { gamificationService } from '../services/gamificationService';
 import { supabase } from '../services/supabase';
+import { ApiService } from '../services/apiService';
 import { isSameDay, parseToDate, getDateKey, getSaoPauloDate, getTodayDate, getSaoPauloIso, formatToLocalTime } from '../utils/dateUtils';
 import { isValidTbr } from '../utils/validation';
 
@@ -372,11 +373,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     // Role-based filtering helper
     const applyFilter = useCallback((query: any) => {
-        if (!currentUser) return query;
-        const userRole = (currentUser.role || '').toLowerCase();
-        const isSuperAdmin = userRole === 'superadmin';
-        if (isSuperAdmin) return query;
-        return query.eq('company_id', currentUser.company_id);
+        return ApiService.applyScope(query, currentUser);
     }, [currentUser]);
 
     // --- Helper for Local Persistence ---
@@ -974,36 +971,16 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             await gamificationService.registerScan(currentUser.id, currentUser.name, currentUser.company_id);
         }
 
-        const { error } = await supabase.from('inbound_log').insert({
-            ...enrichedItem,
-            company_id: currentUser.company_id
-        });
+        const result = await ApiService.logInbound(enrichedItem, currentUser);
 
-        if (error) {
-            console.error('WmsContext: Error adding inbound item:', error);
+        if (!result.success) {
+            console.error('WmsContext: Error adding inbound item:', result.error);
             playAudio('error');
             return;
         }
 
         const exists = stockItems.find(s => s.id === item.id);
-        const stockData = exists
-            ? {
-                id: item.id,
-                entry_time: now,
-                operator: item.operator,
-                status: 'Em Estoque' as const,
-                loss_detected_time: null,
-                company_id: currentUser.company_id
-            }
-            : {
-                id: item.id,
-                entry_time: now,
-                operator: item.operator,
-                status: 'Em Estoque' as const,
-                company_id: currentUser.company_id
-            };
-
-        await supabase.from('stock_items').upsert(stockData);
+        await ApiService.upsertStockItem(item.id, item.operator, 'Em Estoque', currentUser);
         playAudio('success');
     };
 
@@ -1062,28 +1039,21 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             company_id: companyId
         }));
 
-        // 1. Bulk Insert into outbound_log
-        const { error: insE } = await supabase.from('outbound_log').insert(enrichedItems);
-        if (insE) {
-            console.error('WmsContext: Error bulk adding outbound items:', insE);
-            playAudio('error');
-            return { success: false, message: `Erro ao salvar logs: ${insE.message}` };
-        }
-
         // 2. Bulk Update stock_items status and pallet_id
         const ids = items.map(i => i.id);
         const batchPalletId = (items[0] as any).palletId;
 
-        const { error: updE } = await supabase.from('stock_items')
-            .update({
-                status: 'Saiu',
-                pallet_id: batchPalletId
-            })
-            .in('id', ids)
-            .eq('company_id', companyId);
+        const result = await ApiService.bulkLogOutbound(enrichedItems, currentUser);
+        if (!result.success) {
+            console.error('WmsContext: Error bulk adding outbound items:', result.error);
+            playAudio('error');
+            return { success: false, message: `Erro ao salvar logs: ${result.error}` };
+        }
 
-        if (updE) {
-            console.error('WmsContext: Error bulk updating stock status:', updE);
+        const updResult = await ApiService.updateStockStatus(ids, 'Saiu', currentUser, { pallet_id: batchPalletId });
+
+        if (!updResult.success) {
+            console.error('WmsContext: Error bulk updating stock status:', updResult.error);
         }
 
         // 3. Register scans in gamification
