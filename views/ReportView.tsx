@@ -47,8 +47,8 @@ const ReportView: React.FC = () => {
       } else if (reportTitle.includes('Saídas')) {
         const items = await fetchReportData('outbound_log');
         data = [
-          ['ID', 'Motorista', 'Veículo', 'Data', 'Hora', 'Operador', 'Status'],
-          ...items.map(item => [item.id, item.driver_name, item.vehicle, formatToLocalDate(item.time), formatToLocalTime(item.time), item.operator, item.status])
+          ['ID', 'Motorista', 'Veículo', 'Data', 'Hora', 'Operador', 'Status', 'ID Reversa'],
+          ...items.map(item => [item.id, item.driver_name, item.vehicle, formatToLocalDate(item.time), formatToLocalTime(item.time), item.operator, item.status, item.pallet_id || 'N/A'])
         ];
       } else if (reportTitle.includes('Perdas')) {
         const items = await fetchReportData('stock_items', 'entry_time');
