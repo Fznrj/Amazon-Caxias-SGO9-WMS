@@ -378,32 +378,13 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 setUsers(queryData as User[]);
             }
 
-            const results = await Promise.all([
-                applyFilter(supabase.from('drivers').select('*')),
-                applyFilter(supabase.from('system_configs').select('expected_inbound')).maybeSingle(),
-                applyFilter(supabase.from('inventory_log').select('*')),
-                applyFilter(supabase.from('rts_log').select('*')),
-                applyFilter(supabase.from('expeditions').select('*')).order('dispatch_date', { ascending: false }),
-                applyFilter(supabase.from('v_dashboard_stats').select('*')).maybeSingle(),
-                applyFilter(supabase.from('mv_weekly_movement').select('*')).order('day_date', { ascending: true }),
-                applyFilter(supabase.from('inbound_log').select('*')).order('created_at', { ascending: false }).limit(100),
-                applyFilter(
-                    supabase.from('outbound_log').select('id', { count: 'exact', head: true })
-                        .not('status', 'ilike', '%reversa%')
-                        .gte('created_at', getSaoPauloDate() + 'T00:00:00-03:00')
-                        .lte('created_at', getSaoPauloDate() + 'T23:59:59-03:00')
-                ),
-                applyFilter(
-                    supabase.from('outbound_log').select('id', { count: 'exact', head: true })
-                        .ilike('status', '%reversa%')
-                        .gte('created_at', getSaoPauloDate() + 'T00:00:00-03:00')
-                        .lte('created_at', getSaoPauloDate() + 'T23:59:59-03:00')
-                ),
-                applyFilter(supabase.from('stock_items').select('*')),
-                applyFilter(supabase.from('incidents').select('*')).order('created_at', { ascending: false }).limit(50),
-                applyFilter(supabase.from('v_operator_productivity').select('*').eq('scan_date', getSaoPauloDate()))
-            ]);
+            const apiResult = await ApiService.fetchAppData(currentUser);
+            if (!apiResult.success) {
+                console.error('WmsContext: Fetch error:', apiResult.error);
+                return;
+            }
 
+            const results = apiResult.data;
             const [
                 { data: driversData, error: de },
                 { data: config, error: confE },
