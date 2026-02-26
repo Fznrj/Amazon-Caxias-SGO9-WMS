@@ -100,11 +100,9 @@ export class GamificationService {
 
             const data = apiResult.data;
 
-            if (error) throw error;
-
-            if (data) {
+            if (apiResult.data) {
                 this.profiles.clear();
-                data.forEach((p: any) => {
+                apiResult.data.forEach((p: any) => {
                     this.profiles.set(p.user_name, {
                         userId: p.user_id,
                         userName: p.user_name,
@@ -219,6 +217,7 @@ export class GamificationService {
         consecutiveDays: number,
         zeroErrorDays: number,
         avgMetaPercent: number,
+        currentUser: User,
         extraMetrics?: any,
         skipSave: boolean = false
     ): Promise<GamificationProfile> {
@@ -254,7 +253,7 @@ export class GamificationService {
         }
 
         if (!skipSave) {
-            await this.save(userId, userName, companyId);
+            await this.save(userId, userName, currentUser);
         }
         return profile;
     }
@@ -296,7 +295,7 @@ export class GamificationService {
         }
     }
 
-    async registerScan(userId: string, userName: string, companyId: string): Promise<{ suspicious: boolean; reason?: string }> {
+    async registerScan(userId: string, userName: string, currentUser: User): Promise<{ suspicious: boolean; reason?: string }> {
         const profile = this.ensureProfile(userId, userName);
         const now = Date.now();
 
@@ -311,20 +310,20 @@ export class GamificationService {
             if (span < 2) { // 2 seconds for 10 scans is inhumanly fast
                 profile.fraudAlerts.push(`${getSaoPauloIso()} - Velocidade suspeita: ${(10 / span).toFixed(1)} scans/s`);
                 profile.fraudFlag = true;
-                await this.save(userId, userName, companyId);
+                await this.save(userId, userName, currentUser);
                 return { suspicious: true, reason: 'Velocidade de scan suspeita detectada' };
             }
         }
 
-        await this.save(userId, userName, companyId);
+        await this.save(userId, userName, currentUser);
         return { suspicious: false };
     }
 
-    async clearFraudFlag(userId: string, userName: string, companyId: string): Promise<void> {
+    async clearFraudFlag(userId: string, userName: string, currentUser: User): Promise<void> {
         const profile = this.profiles.get(userName);
         if (profile) {
             profile.fraudFlag = false;
-            await this.save(userId, userName, companyId);
+            await this.save(userId, userName, currentUser);
         }
     }
 

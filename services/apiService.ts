@@ -12,8 +12,8 @@ export interface ApiResult<T = any> {
 
 export const ApiService = {
     // --- Scoping Helper ---
-    applyScope: (query: any, user: User | null) => {
-        if (!user) return query;
+    applyScope: (query: any, user: User | null, ignoreScope: boolean = false) => {
+        if (!user || ignoreScope) return query;
         const role = (user.role || '').toLowerCase();
         if (role === 'superadmin') return query;
         return query.eq('company_id', user.company_id);

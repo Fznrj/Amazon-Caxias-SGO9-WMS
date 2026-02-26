@@ -573,8 +573,8 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 })));
             }
 
-            // Inicializar Gamificação (Global para Superadmin)
-            await gamificationService.init(isSuperAdmin ? undefined : companyId);
+            // Inicializar Gamificação
+            await gamificationService.init(currentUser);
 
         } catch (err) {
             console.error('WmsContext: Unexpected error in loadInitialData:', err);
@@ -890,7 +890,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const enrichedItem = { ...item, time: now };
 
         if (item.status === 'Sucesso') {
-            await gamificationService.registerScan(currentUser.id, currentUser.name, currentUser.company_id);
+            await gamificationService.registerScan(currentUser.id, currentUser.name, currentUser);
         }
 
         const result = await ApiService.logInbound(enrichedItem, currentUser);
@@ -1119,7 +1119,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             time: getSaoPauloIso()
         }, currentUser);
 
-        await gamificationService.registerScan(currentUser.id, currentUser.name, currentUser.company_id);
+        await gamificationService.registerScan(currentUser.id, currentUser.name, currentUser);
 
         playAudio('success');
         return { success: true, message: 'Retorno verificado com sucesso.' };
