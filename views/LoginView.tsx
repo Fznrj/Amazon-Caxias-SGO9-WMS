@@ -29,24 +29,16 @@ const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigateRegiste
       }
 
       if (result.success) {
-        onLoginSuccess();
-      } else if (result.message.includes('Perfil do usuário não encontrado')) {
-        // AUTO-RECOVERY LOGIC: If auth worked but profile is missing, try to fix it automatically
-        // This usually happens during project migrations or if triggers fail.
-        setMessage({ text: 'Perfil não encontrado. Tentando restaurar acesso...', type: 'success' });
-
-        try {
-          // Re-attempting via register might fail if auth user exists, 
-          // but we can try to call a dedicated recovery if we had one.
-          // Since we are here, the user is ALREADY authenticated in Supabase but missing public.users row.
-          // In this specific app, the AuthService.login returns 'Perfil do usuário não encontrado'
-          // after a successful supabase.auth.signInWithPassword.
-
-          displayMessage = 'Perfil não encontrado no banco. Por favor, tente "Criar Nova Conta" com os mesmos dados para vincular seu perfil, ou contate o suporte.';
-          setMessage({ text: displayMessage, type: 'error' });
-        } catch (err) {
-          setMessage({ text: 'Não foi possível restaurar o perfil automaticamente.', type: 'error' });
+        if (result.message.includes('restaurado')) {
+          setMessage({ text: 'Seu perfil foi restaurado com sucesso! Entrando...', type: 'success' });
+          setTimeout(() => onLoginSuccess(), 1500);
+        } else {
+          onLoginSuccess();
         }
+      } else if (result.message.includes('Perfil não encontrado')) {
+        // FALLBACK: If auto-restoration in AuthService failed
+        displayMessage = 'Não foi possível restaurar seu perfil automaticamente. Por favor, siga o "Método 2 (SQL Editor)" no documento de instruções, ou contate o suporte.';
+        setMessage({ text: displayMessage, type: 'error' });
       } else {
         setMessage({ text: displayMessage, type: 'error' });
       }

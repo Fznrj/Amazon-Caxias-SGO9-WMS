@@ -118,8 +118,28 @@ export const AuthService = {
         }
 
         if (!userProfile) {
-            console.error('Profile not found for ID:', data.user.id);
-            return { success: false, message: 'Perfil do usuário não encontrado no banco de dados. Contate o suporte.' };
+            console.warn('Profile not found for ID:', data.user.id, '. Attempting auto-restoration...');
+
+            // Try to restore profile using auth metadata
+            const metadata = data.user.user_metadata;
+            const newUser = {
+                id: data.user.id,
+                email: data.user.email,
+                name: metadata?.name || data.user.email?.split('@')[0] || 'Usuário',
+                company_id: metadata?.company_id || 'Amazon Caxias',
+                role: (data.user.email === 'fernando10frango@gmail.com') ? 'superadmin' : 'operator',
+                status: 'active',
+                created_at: new Date().toISOString()
+            };
+
+            const { error: insertError } = await supabase.from('users').insert(newUser);
+
+            if (insertError) {
+                console.error('Auto-restoration failed:', insertError);
+                return { success: false, message: 'Perfil não encontrado e falha ao auto-restaurar. Use o Editor SQL.' };
+            }
+
+            return { success: true, user: newUser as any, message: 'Perfil restaurado com sucesso!' };
         }
 
         const user = userProfile as User;
