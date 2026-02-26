@@ -190,6 +190,30 @@ const GamificationView: React.FC = () => {
             }
         });
 
+        // Add rtsLogs (Today's persistent scans)
+        rtsLogs.forEach(item => {
+            const op = item.operator;
+            if (!map.has(op)) map.set(op, getEmptyStats());
+            const data = map.get(op)!;
+            const itemTime = item.created_at || item.time;
+            const dateKey = getDateKey(itemTime);
+            const isoCheck = dateKey.split('/').reverse().join('-');
+            const isThisMonth = isoCheck.substring(0, 7) === currentMonth;
+
+            if (isThisMonth) data.monthlyUniqueDays.add(dateKey);
+
+            if (isoCheck >= startDate && isoCheck <= endDate) {
+                data.scans++;
+                data.dailyScans[dateKey] = (data.dailyScans[dateKey] || 0) + 1;
+                data.uniqueDays.add(dateKey);
+            }
+            if (isThisMonth) {
+                data.monthlyScans++;
+                if (!data.dailyActivities[dateKey]) data.dailyActivities[dateKey] = new Set();
+                data.dailyActivities[dateKey].add('RTS');
+            }
+        });
+
         treatmentItems.forEach(item => {
             const op = item.operator;
             if (!map.has(op)) map.set(op, getEmptyStats());
@@ -230,8 +254,19 @@ const GamificationView: React.FC = () => {
         });
 
         return map;
-    }, [inboundItems, outboundItems, inventoryItems, rtsItems, treatmentItems, stockItems, startDate, endDate]);
+    }, [inboundItems, outboundItems, inventoryItems, rtsItems, rtsLogs, treatmentItems, stockItems, startDate, endDate]);
 
+    const {
+        inboundItems,
+        outboundItems,
+        inventoryItems,
+        rtsItems,
+        rtsLogs,
+        treatmentItems,
+        stockItems,
+        currentUser,
+        refreshProfile
+    } = useWms();
     const [ranking, setRanking] = React.useState<GamificationProfile[]>([]);
     const [loadingRanking, setLoadingRanking] = React.useState(true);
 
