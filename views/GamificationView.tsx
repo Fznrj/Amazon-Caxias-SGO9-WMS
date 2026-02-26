@@ -778,7 +778,7 @@ const GamificationView: React.FC = () => {
                                                 </div>
                                             </div>
                                             <button
-                                                onClick={async () => { await gamificationService.clearFraudFlag(p.userId, p.userName, currentUser!.company_id); window.location.reload(); }}
+                                                onClick={async () => { await gamificationService.clearFraudFlag(p.userId, p.userName, currentUser!); window.location.reload(); }}
                                                 className="text-[10px] px-3 py-1 bg-green-500/10 text-green-500 border border-green-500/30 rounded font-bold uppercase hover:bg-green-500/20 transition-colors"
                                             >
                                                 Limpar Flag
