@@ -10,6 +10,7 @@ const RtsView: React.FC = () => {
         outboundItems,
         updateExpeditionDelivered,
         verifyReturn,
+        addRtsPendingItem,
         playAudio,
         currentUser,
         refreshData
@@ -82,10 +83,12 @@ const RtsView: React.FC = () => {
         }
     };
 
-    const handlePendingScan = (e: React.FormEvent) => {
+    const handlePendingScan = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!scannerInputPending || !selectedExpedition) { playAudio('error'); return; }
         const cleanTbr = scannerInputPending.trim().toUpperCase();
+
+        // Anti-duplicate check
         const isReturnedInDb = stockItems.some(item => item.id === cleanTbr && item.status === 'Em Estoque');
         if (scannedTbrs.includes(cleanTbr) || isReturnedInDb) {
             playAudio('error');
@@ -93,12 +96,18 @@ const RtsView: React.FC = () => {
             setScannerInputPending('');
             return;
         }
-        if (!scannedTbrsPending.includes(cleanTbr)) {
-            setScannedTbrsPending(prev => [cleanTbr, ...prev]);
-            playAudio('success');
+
+        // Persist scan and register productivity
+        const result = await addRtsPendingItem(cleanTbr, selectedExpeditionObj.driver_name);
+
+        if (result.success) {
+            if (!scannedTbrsPending.includes(cleanTbr)) {
+                setScannedTbrsPending(prev => [cleanTbr, ...prev]);
+            }
         } else {
-            playAudio('error');
+            alert(result.message);
         }
+
         setScannerInputPending('');
     };
 

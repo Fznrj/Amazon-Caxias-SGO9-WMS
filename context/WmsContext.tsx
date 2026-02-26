@@ -128,6 +128,7 @@ interface WmsContextData {
     todayReversaCount: number;
     operatorProductivity: OperatorProductivity[];
     refreshData: () => Promise<void>;
+    addRtsPendingItem: (tbrId: string, driverName: string) => Promise<{ success: boolean; message: string }>;
     broadcastRefresh: () => Promise<void>;
     loading: boolean;
 }
@@ -1062,6 +1063,10 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const updateExpeditionDelivered = async (id: string, delivered: number) => {
         if (!currentUser) return;
 
+        // Find the expedition to get the driver name
+        const expedition = expeditions.find(e => e.id === id);
+        const oldDelivered = expedition?.delivered_count || 0;
+
         // Optimistic local update
         setExpeditions(prev => prev.map(e => e.id === id ? { ...e, delivered_count: delivered } : e));
 
@@ -1071,6 +1076,21 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             // Revert on failure
             loadInitialData();
             playAudio('error');
+        } else {
+            // Register scan/activity for productivity if delivered count increased
+            if (delivered > oldDelivered) {
+                const diff = delivered - oldDelivered;
+                // For manual updates, we register one scan per item added
+                for (let i = 0; i < diff; i++) {
+                    await ApiService.logRts({
+                        id: `MANUAL_${id}_${Date.now()}_${i}`,
+                        operator: currentUser.name,
+                        time: getSaoPauloIso(),
+                        type: 'DELIVERED_MANUAL'
+                    }, currentUser);
+                    await gamificationService.registerScan(currentUser.id, currentUser.name, currentUser);
+                }
+            }
         }
     };
 
@@ -1116,6 +1136,31 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         playAudio('success');
         return { success: true, message: 'Retorno verificado com sucesso.' };
+    };
+
+    const addRtsPendingItem = async (tbrId: string, driverName: string) => {
+        if (!currentUser) return { success: false, message: 'Não logado' };
+
+        const cleanTbr = tbrId.trim().toUpperCase();
+
+        // 1. Log to rts_log as PENDING
+        const result = await ApiService.logRts({
+            id: cleanTbr,
+            operator: currentUser.name,
+            time: getSaoPauloIso(),
+            type: 'PENDING_SCAN',
+            driver_name: driverName
+        }, currentUser);
+
+        if (!result.success) {
+            return { success: false, message: 'Erro ao salvar pendência.' };
+        }
+
+        // 2. Register for gamification
+        await gamificationService.registerScan(currentUser.id, currentUser.name, currentUser);
+
+        playAudio('success');
+        return { success: true, message: 'Pendência registrada.' };
     };
 
     const deleteDriver = async (id: string) => {
@@ -1501,7 +1546,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             startInventory, stopInventory, localizeItem,
             drivers, addDriver, bulkAddDrivers, updateDriver, deleteDriver,
             treatmentItems, addTreatment, updateTreatmentStatus, updateTreatment,
-            expeditions, updateExpeditionDelivered, verifyReturn,
+            expeditions, updateExpeditionDelivered, verifyReturn, addRtsPendingItem,
             totalInboundToday, totalOutboundToday, totalReversaToday, totalInventoryScanned, totalLossItems, staleItemsCount,
             totalExpected, totalPossibleLosses: statsSummary.totalPossibleLosses,
             todayInboundList, todayOutboundList, inboundReconciliation,
