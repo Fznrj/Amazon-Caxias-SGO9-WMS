@@ -1156,7 +1156,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setInventoryItems(prev => [enrichedItem, ...prev]);
 
         if (currentUser) {
-            await gamificationService.registerScan(currentUser.id, currentUser.name, currentUser.company_id);
+            await gamificationService.registerScan(currentUser.id, currentUser.name, currentUser);
         }
 
         const { error } = await supabase.from('inventory_log').insert({
@@ -1478,18 +1478,10 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     // Helper para buscar contagem de hoje de um motorista específico (Alto Volume)
     const fetchDriverTodayCount = React.useCallback(async (driverId: string): Promise<number> => {
-        const { count, error } = await supabase
-            .from('outbound_log')
-            .select('id', { count: 'exact', head: true })
-            .eq('driver_id', driverId)
-            .gte('created_at', getSaoPauloDate() + 'T00:00:00');
-
-        if (error) {
-            console.error('WmsContext: Erro ao buscar contagem do motorista:', error);
-            return 0;
-        }
-        return count || 0;
-    }, []);
+        if (!currentUser) return 0;
+        const result = await ApiService.fetchDriverTodayCount(driverId, currentUser);
+        return result.success ? result.data || 0 : 0;
+    }, [currentUser]);
 
     const fetchProductivityReport = useCallback(async (start: string, end: string) => {
         if (!currentUser) return [];

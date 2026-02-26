@@ -288,6 +288,18 @@ export const ApiService = {
         return { success: true, data };
     },
 
+    fetchDriverTodayCount: async (driverId: string, user: User): Promise<ApiResult<number>> => {
+        const todayStr = getSaoPauloDate();
+        const query = supabase.from('outbound_log')
+            .select('id', { count: 'exact', head: true })
+            .eq('driver_id', driverId)
+            .gte('created_at', todayStr + 'T00:00:00-03:00');
+
+        const { count, error } = await ApiService.applyScope(query, user);
+        if (error) return { success: false, error: error.message };
+        return { success: true, data: count || 0 };
+    },
+
     adminResetPassword: async (userId: string, newPassword: string): Promise<ApiResult> => {
         const { data, error } = await supabase.functions.invoke('admin-reset-password', {
             body: { userId, newPassword }
