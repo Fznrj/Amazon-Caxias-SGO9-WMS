@@ -8,60 +8,70 @@ const DAILY_GOAL = 350;
 
 const ProductivityView: React.FC = () => {
   const {
-    inboundItems,
-    outboundItems,
-    inventoryItems,
-    getLocalDateIso
+    operatorProductivity: todayProductivity,
+    fetchProductivityReport,
+    refreshData
   } = useWms();
 
   const [startDate, setStartDate] = React.useState<string>(getSaoPauloDate(getTodayDate()));
   const [endDate, setEndDate] = React.useState<string>(getSaoPauloDate(getTodayDate()));
+  const [rangeProductivity, setRangeProductivity] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(false);
 
-  // Helper to filter items by date range
-  const filterByDateRange = (items: any[]) => {
-    if (!startDate || !endDate) return items;
-    return items.filter(item => {
-      const timeStr = item.time || item.entryTime || item.created_at || '';
-      if (!timeStr) return false;
+  // Load report when date range changes
+  React.useEffect(() => {
+    const loadReport = async () => {
+      setLoading(true);
+      if (startDate === getSaoPauloDate() && endDate === getSaoPauloDate()) {
+        setRangeProductivity(todayProductivity);
+      } else {
+        const data = await fetchProductivityReport(startDate, endDate);
+        setRangeProductivity(data);
+      }
+      setLoading(false);
+    };
+    loadReport();
+  }, [startDate, endDate, todayProductivity, fetchProductivityReport]);
 
-      const spDate = getSaoPauloDate(parseToDate(timeStr)); // Returns YYYY-MM-DD
-      return spDate >= startDate && spDate <= endDate;
+  // --- Aggregate data by operator (in case there are multiple entries per operator in range) ---
+  const aggregatedRanking = React.useMemo(() => {
+    const map = new Map<string, any>();
+
+    rangeProductivity.forEach(item => {
+      const existing = map.get(item.operator) || {
+        name: item.operator,
+        total_scans: 0,
+        inbound: 0,
+        outbound: 0,
+        inventory: 0,
+        rts: 0
+      };
+
+      existing.total_scans += item.total_scans;
+      existing.inbound += item.inbound_scans;
+      existing.outbound += item.outbound_scans;
+      existing.inventory += item.inventory_scans;
+      existing.rts += item.rts_scans;
+
+      map.set(item.operator, existing);
     });
-  };
 
-  // --- Filtered data ---
-  const filteredInbound = filterByDateRange(inboundItems).filter((i: any) => !i.error);
-  const filteredOutbound = filterByDateRange(outboundItems);
-  const filteredInventory = filterByDateRange(inventoryItems);
-
-  // --- Ranking Calculation ---
-  const scansByOperator = new Map<string, number>();
-
-  filteredInbound.forEach((i: any) => {
-    scansByOperator.set(i.operator, (scansByOperator.get(i.operator) || 0) + 1);
-  });
-  filteredOutbound.forEach((i: any) => {
-    scansByOperator.set(i.operator, (scansByOperator.get(i.operator) || 0) + 1);
-  });
-  filteredInventory.forEach((i: any) => {
-    scansByOperator.set(i.operator, (scansByOperator.get(i.operator) || 0) + 1);
-  });
-
-  const ranking = Array.from(scansByOperator.entries())
-    .map(([name, scans]) => {
-      const goalPct = Math.round((scans / DAILY_GOAL) * 100);
-      const color = goalPct >= 100 ? 'green' : goalPct >= 70 ? 'blue' : 'red';
-      const efficiency = goalPct >= 100 ? 'Excelente' : goalPct >= 70 ? 'Regular' : 'Abaixo';
-      return { name, scans, goalPct, color, efficiency };
-    })
-    .sort((a, b) => b.scans - a.scans)
-    .map((r, i) => ({ ...r, pos: i + 1 }));
+    return Array.from(map.values())
+      .map(r => {
+        const goalPct = Math.round((r.total_scans / DAILY_GOAL) * 100);
+        const color = goalPct >= 100 ? 'green' : goalPct >= 70 ? 'blue' : 'red';
+        const efficiency = goalPct >= 100 ? 'Excelente' : goalPct >= 70 ? 'Regular' : 'Abaixo';
+        return { ...r, scans: r.total_scans, goalPct, color, efficiency };
+      })
+      .sort((a, b) => b.scans - a.scans)
+      .map((r, i) => ({ ...r, pos: i + 1 }));
+  }, [rangeProductivity]);
 
   // --- Global KPIs ---
-  const totalScans = filteredInbound.length + filteredOutbound.length + filteredInventory.length;
+  const totalScans = aggregatedRanking.reduce((sum, r) => sum + r.scans, 0);
 
-  const globalEfficiency = ranking.length > 0
-    ? Math.round(ranking.reduce((sum, r) => sum + r.goalPct, 0) / ranking.length)
+  const globalEfficiency = aggregatedRanking.length > 0
+    ? Math.round(aggregatedRanking.reduce((sum, r) => sum + r.goalPct, 0) / aggregatedRanking.length)
     : 0;
 
   const efficiencyColor = globalEfficiency >= 100 ? 'text-green-500' : globalEfficiency >= 70 ? 'text-blue-500' : 'text-red-500';
@@ -70,8 +80,18 @@ const ProductivityView: React.FC = () => {
   const handleExportRanking = () => {
     const dateLabel = startDate === endDate ? startDate : `${startDate}_to_${endDate}`;
     const data = [
-      ['Pos', 'Colaborador', 'Total Scans', 'Meta %', 'Eficiência'],
-      ...ranking.map(r => [r.pos.toString(), r.name, r.scans.toString(), `${r.goalPct}%`, r.efficiency])
+      ['Pos', 'Colaborador', 'Entradas', 'Saídas', 'Inventário', 'RTS', 'Total Scans', 'Meta %', 'Eficiência'],
+      ...aggregatedRanking.map(r => [
+        r.pos.toString(),
+        r.name,
+        r.inbound.toString(),
+        r.outbound.toString(),
+        r.inventory.toString(),
+        r.rts.toString(),
+        r.scans.toString(),
+        `${r.goalPct}%`,
+        r.efficiency
+      ])
     ];
     downloadCSV(`Ranking_Funcionarios_${dateLabel}.csv`, data);
   };
@@ -117,9 +137,11 @@ const ProductivityView: React.FC = () => {
               </div>
               <button
                 onClick={handleExportRanking}
-                className="bg-primary hover:bg-primary/90 text-white px-6 py-2.5 rounded-lg font-bold uppercase text-xs tracking-wider shadow-lg shadow-primary/25 transition-all flex items-center gap-2"
+                disabled={loading}
+                className="bg-primary hover:bg-primary/90 text-white px-6 py-2.5 rounded-lg font-bold uppercase text-xs tracking-wider shadow-lg shadow-primary/25 transition-all flex items-center gap-2 disabled:opacity-50"
               >
-                <span className="material-icons-round text-lg">cloud_download</span> Exportar Ranking
+                <span className="material-icons-round text-lg">{loading ? 'sync' : 'cloud_download'}</span>
+                {loading ? 'Carregando...' : 'Exportar Ranking'}
               </button>
             </div>
           </div>
@@ -131,9 +153,9 @@ const ProductivityView: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         {/* Total Scans */}
         <div className="bg-white dark:bg-card-dark p-5 rounded-xl border-l-4 border-primary shadow-sm">
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Total Scans (Hoje)</p>
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Total Scans (Período)</p>
           <h3 className="text-3xl font-display font-bold text-slate-800 dark:text-white">{totalScans}</h3>
-          <p className="text-[10px] text-slate-400 mt-1">Entrada + Saída + Inventário</p>
+          <p className="text-[10px] text-slate-400 mt-1">Entrada + Saída + Inventário + RTS</p>
         </div>
 
         {/* Eficiência Geral */}
@@ -144,46 +166,49 @@ const ProductivityView: React.FC = () => {
         </div>
 
         {/* 🥇 1º Lugar */}
-        <div className={`bg-gradient-to-b from-yellow-50 to-white dark:from-yellow-900/20 dark:to-card-dark rounded-xl shadow-lg border-2 border-yellow-400 p-5 flex flex-col items-center gap-1 ${ranking.length < 1 ? 'opacity-30' : ''}`}>
+        <div className={`bg-gradient-to-b from-yellow-50 to-white dark:from-yellow-900/20 dark:to-card-dark rounded-xl shadow-lg border-2 border-yellow-400 p-5 flex flex-col items-center gap-1 ${aggregatedRanking.length < 1 ? 'opacity-30' : ''}`}>
           <span className="text-3xl">🥇</span>
           <p className="text-[10px] font-bold uppercase tracking-widest text-yellow-500">1º Lugar</p>
           <div className="w-10 h-10 rounded-full bg-yellow-100 dark:bg-yellow-900/40 border-2 border-yellow-400 flex items-center justify-center text-sm font-bold text-yellow-600">
-            {ranking[0] ? ranking[0].name.substring(0, 2).toUpperCase() : '--'}
+            {aggregatedRanking[0] ? aggregatedRanking[0].name.substring(0, 2).toUpperCase() : '--'}
           </div>
-          <p className="font-bold text-slate-800 dark:text-white text-sm text-center leading-tight">{ranking[0]?.name ?? '—'}</p>
-          <p className="text-2xl font-display font-bold text-yellow-500">{ranking[0]?.scans ?? 0}</p>
-          <p className="text-[10px] text-slate-400">scans hoje</p>
+          <p className="font-bold text-slate-800 dark:text-white text-sm text-center leading-tight">{aggregatedRanking[0]?.name ?? '—'}</p>
+          <p className="text-2xl font-display font-bold text-yellow-500">{aggregatedRanking[0]?.scans ?? 0}</p>
+          <p className="text-[10px] text-slate-400">scans no período</p>
         </div>
 
         {/* 🥈 2º Lugar */}
-        <div className={`bg-white dark:bg-card-dark rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5 flex flex-col items-center gap-1 ${ranking.length < 2 ? 'opacity-30' : ''}`}>
+        <div className={`bg-white dark:bg-card-dark rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5 flex flex-col items-center gap-1 ${aggregatedRanking.length < 2 ? 'opacity-30' : ''}`}>
           <span className="text-3xl">🥈</span>
           <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">2º Lugar</p>
           <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-sm font-bold text-slate-600 dark:text-slate-300">
-            {ranking[1] ? ranking[1].name.substring(0, 2).toUpperCase() : '--'}
+            {aggregatedRanking[1] ? aggregatedRanking[1].name.substring(0, 2).toUpperCase() : '--'}
           </div>
-          <p className="font-bold text-slate-700 dark:text-slate-200 text-sm text-center leading-tight">{ranking[1]?.name ?? '—'}</p>
-          <p className="text-2xl font-display font-bold text-slate-500">{ranking[1]?.scans ?? 0}</p>
-          <p className="text-[10px] text-slate-400">scans hoje</p>
+          <p className="font-bold text-slate-700 dark:text-slate-200 text-sm text-center leading-tight">{aggregatedRanking[1]?.name ?? '—'}</p>
+          <p className="text-2xl font-display font-bold text-slate-500">{aggregatedRanking[1]?.scans ?? 0}</p>
+          <p className="text-[10px] text-slate-400">scans no período</p>
         </div>
 
         {/* 🥉 3º Lugar */}
-        <div className={`bg-white dark:bg-card-dark rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5 flex flex-col items-center gap-1 ${ranking.length < 3 ? 'opacity-30' : ''}`}>
+        <div className={`bg-white dark:bg-card-dark rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5 flex flex-col items-center gap-1 ${aggregatedRanking.length < 3 ? 'opacity-30' : ''}`}>
           <span className="text-3xl">🥉</span>
           <p className="text-[10px] font-bold uppercase tracking-widest text-amber-700">3º Lugar</p>
           <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-sm font-bold text-slate-600 dark:text-slate-300">
-            {ranking[2] ? ranking[2].name.substring(0, 2).toUpperCase() : '--'}
+            {aggregatedRanking[2] ? aggregatedRanking[2].name.substring(0, 2).toUpperCase() : '--'}
           </div>
-          <p className="font-bold text-slate-700 dark:text-slate-200 text-sm text-center leading-tight">{ranking[2]?.name ?? '—'}</p>
-          <p className="text-2xl font-display font-bold text-amber-700">{ranking[2]?.scans ?? 0}</p>
-          <p className="text-[10px] text-slate-400">scans hoje</p>
+          <p className="font-bold text-slate-700 dark:text-slate-200 text-sm text-center leading-tight">{aggregatedRanking[2]?.name ?? '—'}</p>
+          <p className="text-2xl font-display font-bold text-amber-700">{aggregatedRanking[2]?.scans ?? 0}</p>
+          <p className="text-[10px] text-slate-400">scans no período</p>
         </div>
       </div>
 
       {/* Ranking Table */}
       <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm overflow-hidden border border-slate-200 dark:border-slate-700">
         <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
-          <h3 className="font-display font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest text-sm">Ranking de Operadores</h3>
+          <div className="flex items-center gap-4">
+            <h3 className="font-display font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest text-sm">Ranking de Operadores</h3>
+            {loading && <span className="text-xs text-primary animate-pulse font-bold">Atualizando...</span>}
+          </div>
           <span className="text-[10px] text-slate-400 font-mono">Meta diária: {DAILY_GOAL} scans/operador</span>
         </div>
         <div className="overflow-x-auto">
@@ -192,20 +217,21 @@ const ProductivityView: React.FC = () => {
               <tr className="bg-slate-50 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider">
                 <th className="px-6 py-4 font-semibold text-center w-20">Rank</th>
                 <th className="px-6 py-4 font-semibold">Colaborador</th>
-                <th className="px-6 py-4 font-semibold">Meta Diária</th>
-                <th className="px-6 py-4 font-semibold text-right">Total Scans</th>
+                <th className="px-6 py-4 font-semibold">Performance</th>
+                <th className="px-6 py-4 font-semibold text-center w-32">E / S / I / R</th>
+                <th className="px-6 py-4 font-semibold text-right">Total</th>
                 <th className="px-6 py-4 font-semibold text-right">Eficiência</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-              {ranking.length === 0 ? (
+              {aggregatedRanking.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-400 font-mono text-xs">
-                    Nenhuma atividade registrada hoje
+                  <td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-mono text-xs">
+                    {loading ? 'Carregando dados...' : 'Nenhuma atividade registrada no período'}
                   </td>
                 </tr>
               ) : (
-                ranking.map((r, i) => (
+                aggregatedRanking.map((r, i) => (
                   <tr key={r.name} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                     <td className="px-6 py-4 text-center">
                       {i === 0
@@ -224,9 +250,9 @@ const ProductivityView: React.FC = () => {
                     <td className="px-6 py-4">
                       <div className="w-full max-w-[180px]">
                         <div className="flex justify-between text-[10px] mb-1">
-                          <span className="font-medium text-slate-600 dark:text-slate-400">{r.goalPct}% atingida</span>
+                          <span className="font-medium text-slate-600 dark:text-slate-400">{r.goalPct}% da meta</span>
                           <span className={`font-bold uppercase ${r.color === 'green' ? 'text-green-500' : r.color === 'blue' ? 'text-blue-500' : 'text-red-500'}`}>
-                            {r.goalPct >= 100 ? 'Meta OK' : r.goalPct >= 70 ? 'Em Progresso' : 'Abaixo'}
+                            {r.efficiency}
                           </span>
                         </div>
                         <div className="h-1.5 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
@@ -237,7 +263,15 @@ const ProductivityView: React.FC = () => {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-right font-mono text-sm text-slate-700 dark:text-slate-200">{r.scans}</td>
+                    <td className="px-6 py-4 text-center">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <span className="text-[10px] px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded font-bold" title="Inbound">{r.inbound}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 bg-green-50 text-green-600 rounded font-bold" title="Outbound">{r.outbound}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 bg-purple-50 text-purple-600 rounded font-bold" title="Inventory">{r.inventory}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 bg-amber-50 text-amber-600 rounded font-bold" title="RTS">{r.rts}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-right font-mono text-sm text-slate-700 dark:text-slate-200 font-bold">{r.scans}</td>
                     <td className="px-6 py-4 text-right">
                       <span className={`px-2 py-1 text-[10px] font-bold rounded ${r.color === 'green'
                         ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'

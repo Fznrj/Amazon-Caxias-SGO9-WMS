@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { User, Driver, Role, UserStatus, VehicleProfile, View } from '../types';
 import { AuthService } from '../services/authService';
 import { StorageService } from '../services/storageService';
@@ -140,6 +140,7 @@ interface WmsContextData {
     updateExpeditionDelivered: (id: string, delivered: number) => Promise<void>;
     verifyReturn: (tbrId: string, driverName: string) => Promise<{ success: boolean; message: string }>;
     fetchProductivityReport: (startDate: string, endDate: string) => Promise<OperatorProductivity[]>;
+    rtsItems: any[];
 
     // Stats
     adminResetPassword: (userId: string, newPassword: string) => Promise<{ success: boolean; message: string }>;
@@ -339,6 +340,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     // --- Inventory State ---
     const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+    const [rtsItems, setRtsItems] = useState<any[]>([]);
     const [operatorProductivity, setOperatorProductivity] = useState<OperatorProductivity[]>([]);
 
     // --- Drivers State ---
@@ -436,6 +438,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 applyFilter(supabase.from('drivers').select('*')),
                 applyFilter(supabase.from('system_configs').select('expected_inbound')).maybeSingle(),
                 applyFilter(supabase.from('inventory_log').select('*')),
+                applyFilter(supabase.from('rts_log').select('*')),
                 applyFilter(supabase.from('expeditions').select('*')).order('dispatch_date', { ascending: false }),
                 applyFilter(supabase.from('v_dashboard_stats').select('*')).maybeSingle(),
                 applyFilter(supabase.from('mv_weekly_movement').select('*')).order('day_date', { ascending: true }),
@@ -1823,6 +1826,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             activeDriversCount, availableStockCount,
             todayReversaCount,
             operatorProductivity,
+            rtsItems,
             fetchProductivityReport,
             weeklyStats,
             resetTransactions,
