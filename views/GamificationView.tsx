@@ -284,12 +284,16 @@ const GamificationView: React.FC = () => {
 
                 // --- MONTHLY STATS (Gamification Calculation) ---
                 const monthlyDayKeys = Array.from(data.monthlyUniqueDays);
-                const monthlyDiasAcimaMeta = monthlyDayKeys.filter(d =>
-                    (inboundItems.filter(i => i.operator === operatorName && getDateKey(i.createdAt || i.time) === d && !i.error).length +
+                const monthlyDiasAcimaMeta = monthlyDayKeys.filter(d => {
+                    const dayScanCount = (
+                        inboundItems.filter(i => i.operator === operatorName && getDateKey(i.createdAt || i.time) === d && !i.error).length +
                         outboundItems.filter(i => i.operator === operatorName && getDateKey(i.createdAt || i.time) === d).length +
                         inventoryItems.filter(i => i.operator === operatorName && getDateKey(i.createdAt || i.time) === d).length +
-                        rtsItems.filter(i => i.operator === operatorName && getDateKey(i.created_at || i.time) === d).length) >= DAILY_GOAL
-                ).length;
+                        rtsItems.filter(i => i.operator === operatorName && getDateKey(i.created_at || i.time) === d).length +
+                        rtsLogs.filter(i => i.operator === operatorName && getDateKey(i.created_at || i.time) === d).length
+                    );
+                    return dayScanCount >= DAILY_GOAL;
+                }).length;
 
                 const monthlyErrorDayKeys = Object.keys(data.dailyErrors).filter(k => k.split('/').reverse().join('-').substring(0, 7) === getSaoPauloDate(getTodayDate()).substring(0, 7));
                 const monthlyZeroErrorDays = data.monthlyUniqueDays.size - monthlyErrorDayKeys.length;
@@ -301,10 +305,13 @@ const GamificationView: React.FC = () => {
                     return new Date(ya, ma - 1, da).getTime() - new Date(yb, mb - 1, db).getTime();
                 });
                 for (let i = sortedMonthlyDays.length - 1; i >= 0; i--) {
-                    const dayScanCount = (inboundItems.filter(inv => inv.operator === operatorName && getDateKey(inv.createdAt || inv.time) === sortedMonthlyDays[i] && !inv.error).length +
+                    const dayScanCount = (
+                        inboundItems.filter(inv => inv.operator === operatorName && getDateKey(inv.createdAt || inv.time) === sortedMonthlyDays[i] && !inv.error).length +
                         outboundItems.filter(out => out.operator === operatorName && getDateKey(out.createdAt || out.time) === sortedMonthlyDays[i]).length +
                         inventoryItems.filter(inv => inv.operator === operatorName && getDateKey(inv.createdAt || inv.time) === sortedMonthlyDays[i]).length +
-                        rtsItems.filter(rts => rts.operator === operatorName && getDateKey(rts.created_at || rts.time) === sortedMonthlyDays[i]).length);
+                        rtsItems.filter(rts => rts.operator === operatorName && getDateKey(rts.created_at || rts.time) === sortedMonthlyDays[i]).length +
+                        rtsLogs.filter(rl => rl.operator === operatorName && getDateKey(rl.created_at || rl.time) === sortedMonthlyDays[i]).length
+                    );
                     if (dayScanCount >= DAILY_GOAL) {
                         consecutive++;
                     } else break;
@@ -313,10 +320,13 @@ const GamificationView: React.FC = () => {
                 const cumulativeMeta = Math.round((data.monthlyScans / DAILY_GOAL) * 100);
                 const avgMeta = monthlyDayKeys.length > 0
                     ? Math.round(monthlyDayKeys.reduce((sum, d) => {
-                        const dayScanCount = (inboundItems.filter(inv => inv.operator === operatorName && getDateKey(inv.createdAt || inv.time) === d && !inv.error).length +
+                        const dayScanCount = (
+                            inboundItems.filter(inv => inv.operator === operatorName && getDateKey(inv.createdAt || inv.time) === d && !inv.error).length +
                             outboundItems.filter(out => out.operator === operatorName && getDateKey(out.createdAt || out.time) === d).length +
                             inventoryItems.filter(inv => inv.operator === operatorName && getDateKey(inv.createdAt || inv.time) === d).length +
-                            rtsItems.filter(rts => rts.operator === operatorName && getDateKey(rts.created_at || rts.time) === d).length);
+                            rtsItems.filter(rts => rts.operator === operatorName && getDateKey(rts.created_at || rts.time) === d).length +
+                            rtsLogs.filter(rl => rl.operator === operatorName && getDateKey(rl.created_at || rl.time) === d).length
+                        );
                         return sum + (dayScanCount / DAILY_GOAL) * 100;
                     }, 0) / monthlyDayKeys.length)
                     : 0;
@@ -334,7 +344,8 @@ const GamificationView: React.FC = () => {
                     false,
                     consecutive,
                     monthlyZeroErrorDays,
-                    cumulativeMeta, // avgMetaPercent (using cumulative for stability)
+                    cumulativeMeta, // avgMetaPercent
+                    currentUser!,
                     {
                         inventoryParticipations: data.monthlyInventoryDays.size,
                         activeDays: data.monthlyUniqueDays.size,
