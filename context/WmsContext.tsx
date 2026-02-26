@@ -1357,38 +1357,44 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             return { success: false, message: `Já existe uma tratativa ativa (${existingActive.id}) para esta TBR.` };
         }
 
-        const addTreatment = async (item: Omit<TreatmentItem, 'id' | 'time' | 'status'>) => {
-            if (!currentUser) return { success: false, message: 'Não autorizado' };
+        const now = getSaoPauloIso();
+        const id = 'inc-' + Math.random().toString(36).substr(2, 9);
 
-            const now = getSaoPauloIso();
-            const id = 'inc-' + Math.random().toString(36).substr(2, 9);
+        const result = await ApiService.saveIncident({
+            id,
+            tbr_id: itemData.tbrId,
+            type: itemData.type,
+            description: itemData.description,
+            operator: itemData.operator,
+            time: now,
+            status: 'Pendente'
+        }, currentUser);
 
-            const result = await ApiService.saveIncident({
-                id,
-                tbr_id: item.tbrId,
-                type: item.type,
-                description: item.description,
-                operator: item.operator,
-                time: now,
-                status: 'Pendente'
-            }, currentUser);
-
-            if (result.success) {
-                // Se for extravio ou avaria grave, marcar possível perda no estoque
-                if (item.type === 'Extravio') {
-                    await ApiService.updateStockStatus([item.tbrId], 'Possível Perda', currentUser, {
-                        loss_detected_time: now
-                    });
-                }
-                playAudio('success');
-                return { success: true, message: 'Tratativa registrada!' };
-            } else {
-                playAudio('error');
-                return { success: false, message: result.error || 'Erro desconhecido' };
+        if (result.success) {
+            if (itemData.type === 'Extravio') {
+                await ApiService.updateStockStatus([itemData.tbrId], 'Possível Perda', currentUser, {
+                    loss_detected_time: now
+                });
             }
-        };
-        playAudio('success');
-        return { success: true, message: 'Incidente registrado com sucesso.' };
+            playAudio('success');
+            return { success: true, message: 'Tratativa registrada!' };
+        } else {
+            playAudio('error');
+            return { success: false, message: result.error || 'Erro desconhecido' };
+        }
+    };
+
+    const uploadUserAvatar = async (file: File) => {
+        if (!currentUser) return { success: false, message: 'Não logado' };
+        const result = await ApiService.uploadAvatar(file, currentUser);
+        if (result.success) {
+            await refreshProfile();
+            playAudio('success');
+            return { success: true, message: 'Avatar atualizado!' };
+        } else {
+            playAudio('error');
+            return { success: false, message: result.error || 'Erro no upload' };
+        }
     };
 
     const updateTreatmentStatus = async (id: string, status: TreatmentItem['status']) => {

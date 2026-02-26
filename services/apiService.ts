@@ -181,5 +181,46 @@ export const ApiService = {
         if (updateError) return { success: false, error: updateError.message };
 
         return { success: true, data: publicUrl };
+    },
+
+    fetchAppData: async (user: User): Promise<ApiResult<any>> => {
+        const companyId = user.company_id;
+        const role = (user.role || '').toLowerCase();
+        const isSuperAdmin = role === 'superadmin';
+        const todayStr = getSaoPauloDate();
+
+        try {
+            const results = await Promise.all([
+                ApiService.applyScope(supabase.from('drivers').select('*'), user),
+                ApiService.applyScope(supabase.from('system_configs').select('*'), user).single(),
+                ApiService.applyScope(supabase.from('inventory').select('*'), user),
+                ApiService.applyScope(supabase.from('rts_items').select('*'), user),
+                ApiService.applyScope(supabase.from('expeditions').select('*'), user).order('dispatch_date', { ascending: false }),
+                ApiService.applyScope(supabase.from('v_dashboard_stats').select('*').single(), user),
+                ApiService.applyScope(supabase.from('v_weekly_stats').select('*'), user),
+                ApiService.applyScope(supabase.from('inbound_log').select('*').order('created_at', { ascending: false }).limit(100), user),
+                ApiService.applyScope(
+                    supabase.from('outbound_log').select('*', { count: 'exact', head: true })
+                        .gte('created_at', todayStr + 'T00:00:00-03:00')
+                        .lte('created_at', todayStr + 'T23:59:59-03:00')
+                        .not('status', 'ilike', '%reversa%'),
+                    user
+                ),
+                ApiService.applyScope(
+                    supabase.from('outbound_log').select('*', { count: 'exact', head: true })
+                        .gte('created_at', todayStr + 'T00:00:00-03:00')
+                        .lte('created_at', todayStr + 'T23:59:59-03:00')
+                        .ilike('status', '%reversa%'),
+                    user
+                ),
+                ApiService.applyScope(supabase.from('stock_items').select('*'), user),
+                ApiService.applyScope(supabase.from('incidents').select('*').order('created_at', { ascending: false }).limit(50), user),
+                ApiService.applyScope(supabase.from('v_operator_productivity').select('*').eq('scan_date', todayStr), user)
+            ]);
+
+            return { success: true, data: results };
+        } catch (error: any) {
+            return { success: false, error: error.message };
+        }
     }
 };
