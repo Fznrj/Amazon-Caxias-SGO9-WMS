@@ -222,12 +222,12 @@ const OutboundView: React.FC = () => {
                 <div className="bg-slate-50 dark:bg-slate-900/50 rounded-2xl p-6 text-center border border-slate-100 dark:border-slate-800">
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Pacotes Bipados Hoje</p>
                   <div className="relative inline-block">
-                    <p className={`text-7xl font-black font-display transition-all ${isLoadingDriverCount ? 'opacity-20 blur-sm' : 'text-primary'}`}>
+                    <p className={`text-7xl font-black font-display transition-all ${isLoadingDriverCount ? 'opacity-40 blur-[1px]' : 'text-slate-800 dark:text-white'}`}>
                       {sessionDriverCount}
                     </p>
                     {isLoadingDriverCount && (
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="material-icons-round animate-spin text-primary opacity-50">sync</span>
+                      <div className="absolute -top-2 -right-2">
+                        <span className="material-icons-round animate-spin text-primary text-sm">sync</span>
                       </div>
                     )}
                   </div>

@@ -85,6 +85,7 @@ interface WmsContextData {
     expeditions: ExpeditionItem[];
     updateExpeditionDelivered: (id: string, delivered: number) => Promise<void>;
     verifyReturn: (tbrId: string, driverName: string) => Promise<{ success: boolean; message: string }>;
+    fetchDriverTodayCount: (driverId: string) => Promise<number>;
     fetchProductivityReport: (startDate: string, endDate: string) => Promise<OperatorProductivity[]>;
     rtsItems: any[];
 
@@ -768,12 +769,19 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         };
     }, [currentUser]);
 
+    const fetchDriverTodayCount = async (driverId: string) => {
+        if (!currentUser) return 0;
+        const result = await ApiService.fetchDriverTodayCount(driverId, currentUser);
+        return result.data || 0;
+    };
+
     const statsSummary = React.useMemo(() => {
         const dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+        const baseDate = getTodayDate();
+        const todayKey = getSaoPauloDate(baseDate);
 
-        // 1. Criar base de dados para os últimos 7 dias (preenchido com zeros)
+        // 1. Criar base de dados para os últimos 7 dias
         const last7Days = [];
-        const baseDate = getTodayDate(); // Usar getTodayDate para respeitar offsets de debug
         for (let i = 6; i >= 0; i--) {
             const d = new Date(baseDate);
             d.setDate(baseDate.getDate() - i);
@@ -787,7 +795,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             });
         }
 
-        // 2. Mesclar dados vindos do banco (se houver) com os últimos 7 dias
+        // 2. Mesclar dados da view
         let weeklyStats = last7Days.map(emptyDay => {
             const realDay = (weeklyStatsFromView || []).find(d => d.day_date === emptyDay.rawDate);
             return realDay ? {
@@ -799,18 +807,16 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             } : emptyDay;
         });
 
-        // 3. Cálculos locais para o dia de "Hoje" (contagens instantâneas)
-        const realLocalInbound = inboundItems.filter(item => isSameDay(item.time || (item as any).created_at)).length;
-        const localInboundToday = realLocalInbound || dashboardStats?.entradas_hoje || 0;
+        // 3. Contagens instantâneas para "Hoje"
+        const currentInboundCount = inboundItems.filter(item => isSameDay(item.time || (item as any).created_at, baseDate)).length;
+        const localInboundToday = Math.max(currentInboundCount, dashboardStats?.entradas_hoje || 0);
         const localOutboundToday = todayOutboundCount || dashboardStats?.saidas_hoje || 0;
         const localReversaToday = todayReversaCount || dashboardStats?.reversas_hoje || 0;
-        const localEntreguesToday = (expeditions || [])
-            .filter(e => isSameDay(e.dispatch_date))
-            .reduce((sum, e) => sum + (e.delivered_count || 0), 0);
 
-        const todayKey = getSaoPauloDate();
+        const expeditionsToday = (expeditions || []).filter(e => e.dispatch_date === todayKey);
+        const localEntreguesToday = expeditionsToday.reduce((sum, e) => sum + (e.delivered_count || 0), 0);
 
-        // 4. Aplicar contagens locais ao gráfico para o dia atual (mais precisas que a view)
+        // 4. Aplicar ao gráfico
         weeklyStats = weeklyStats.map(d => {
             if (d.rawDate === todayKey) {
                 return {
@@ -824,20 +830,23 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             return d;
         });
 
+        // 5. Regra de Parados: Apenas se entryTime for ANTERIOR a hoje (Meia-noite)
+        const staleItems = stockItems.filter(s =>
+            s.status?.toLowerCase() === 'em estoque' &&
+            s.entryTime &&
+            getSaoPauloDate(parseToDate(s.entryTime)) < todayKey
+        );
+
         return {
             weeklyStats,
             totalInboundToday: localInboundToday,
             totalOutboundToday: localOutboundToday,
             totalReversaToday: localReversaToday,
             totalLossItems: stockItems.filter(s => s.status?.toLowerCase() === 'perda').length,
-            staleItemsCount: stockItems.filter(s =>
-                s.status?.toLowerCase() === 'em estoque' &&
-                s.entryTime &&
-                !isSameDay(s.entryTime, baseDate)
-            ).length,
+            staleItemsCount: staleItems.length,
             totalPossibleLosses: possibleLossItems.length
         };
-    }, [dashboardStats, weeklyStatsFromView, inboundItems, expeditions, stockItems, staleStockItems, possibleLossItems, todayOutboundCount, todayReversaCount]);
+    }, [dashboardStats, weeklyStatsFromView, inboundItems, expeditions, stockItems, possibleLossItems, todayOutboundCount, todayReversaCount]);
 
     // --- Optimized Centralized Data (Zero-Loading) ---
     const todayInboundList = React.useMemo(() =>
@@ -1498,6 +1507,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             broadcastRefresh,
             rtsItems,
             fetchProductivityReport,
+            fetchDriverTodayCount,
             weeklyStats,
             resetTransactions,
             verifyStock,
