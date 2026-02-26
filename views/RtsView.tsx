@@ -146,10 +146,10 @@ const RtsView: React.FC = () => {
                 </div>
 
                 <div className="flex flex-col xl:flex-row gap-4">
-                    <div className="xl:w-1/4 bg-white dark:bg-card-dark p-4 rounded-xl border">
-                        <input type="text" placeholder="Filtro..." value={filter} onChange={(e) => setFilter(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border rounded-lg px-4 py-2 text-sm outline-none" />
+                    <div className="xl:w-1/4 bg-white dark:bg-card-dark p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+                        <input type="text" placeholder="Filtro..." value={filter} onChange={(e) => setFilter(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-4 py-2 text-sm outline-none text-slate-800 dark:text-white" />
                     </div>
-                    <div className="flex-1 bg-white dark:bg-card-dark p-4 rounded-xl border">
+                    <div className="flex-1 bg-white dark:bg-card-dark p-4 rounded-xl border border-slate-200 dark:border-slate-800">
                         <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
                             <select value={selectedExpedition || ''} onChange={(e) => setSelectedExpedition(e.target.value)} className="bg-slate-50 dark:bg-slate-900 border rounded-lg px-3 py-1.5 text-sm outline-none">
                                 <option value="">Selecione o Motorista</option>
@@ -161,12 +161,12 @@ const RtsView: React.FC = () => {
                         </div>
                         <div className="flex flex-col sm:flex-row gap-4">
                             <form onSubmit={handleVerifyScan} className="flex-1 flex gap-2">
-                                <input type="text" placeholder="Devolução..." value={scannerInput} onChange={(e) => setScannerInput(e.target.value)} className="flex-1 bg-slate-50 border rounded-lg px-4 py-2 text-sm outline-none" />
-                                <button type="submit" className="bg-orange-500 text-white px-4 py-2 rounded-lg font-bold text-xs uppercase">DEV</button>
+                                <input type="text" placeholder="Devolução..." value={scannerInput} onChange={(e) => setScannerInput(e.target.value)} className="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-4 py-2 text-sm outline-none text-slate-800 dark:text-white" />
+                                <button type="submit" className="bg-orange-500 text-white px-4 py-2 rounded-lg font-bold text-xs uppercase shadow-lg shadow-orange-500/20 active:scale-95 transition-transform">DEV</button>
                             </form>
                             <form onSubmit={handlePendingScan} className="flex-1 flex gap-2">
-                                <input type="text" placeholder="Pendente..." value={scannerInputPending} onChange={(e) => setScannerInputPending(e.target.value)} className="flex-1 bg-blue-50 border rounded-lg px-4 py-2 text-sm outline-none" />
-                                <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded-lg font-bold text-xs uppercase">PEN</button>
+                                <input type="text" placeholder="Pendente..." value={scannerInputPending} onChange={(e) => setScannerInputPending(e.target.value)} className="flex-1 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/30 rounded-lg px-4 py-2 text-sm outline-none text-slate-800 dark:text-white" />
+                                <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded-lg font-bold text-xs uppercase shadow-lg shadow-blue-500/20 active:scale-95 transition-transform">PEN</button>
                             </form>
                         </div>
                     </div>
@@ -185,20 +185,32 @@ const RtsView: React.FC = () => {
                                     <th className="px-6 py-4 text-center">Pendente</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y">
-                                {filteredExpeditions.map((e) => {
+                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
+                                {filteredExpeditions.length === 0 ? (
+                                    <tr><td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">Nenhuma expedição encontrada</td></tr>
+                                ) : filteredExpeditions.map((e) => {
                                     const pending = (e.total_packages || 0) - ((e.delivered_count || 0) + (e.returned_count || 0));
                                     return (
-                                        <tr key={e.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/30">
-                                            <td className="px-6 py-4 font-bold">{e.driver_name}</td>
-                                            <td className="px-6 py-4 font-mono">{e.plate}</td>
-                                            <td className="px-6 py-4 text-center font-bold">{e.total_packages}</td>
+                                        <tr key={e.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/30 transition-colors">
+                                            <td className="px-6 py-4 font-bold text-slate-800 dark:text-white">{e.driver_name}</td>
+                                            <td className="px-6 py-4 font-mono text-slate-500 dark:text-slate-400">{e.plate}</td>
+                                            <td className="px-6 py-4 text-center font-bold text-slate-800 dark:text-white">{e.total_packages}</td>
                                             <td className="px-6 py-4 text-center">
-                                                <input type="number" value={e.delivered_count} onChange={(ev) => updateExpeditionDelivered(e.id, parseInt(ev.target.value) || 0)} className="w-16 text-center border rounded p-1 font-bold outline-none" />
+                                                <input
+                                                    type="number"
+                                                    defaultValue={e.delivered_count}
+                                                    onBlur={(ev) => {
+                                                        const val = parseInt(ev.target.value) || 0;
+                                                        if (val !== e.delivered_count) updateExpeditionDelivered(e.id, val);
+                                                    }}
+                                                    className="w-16 text-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded p-1 font-bold outline-none text-slate-800 dark:text-white focus:ring-2 focus:ring-primary/20 transition-all"
+                                                />
                                             </td>
                                             <td className="px-6 py-4 text-center font-bold text-orange-600">{e.returned_count}</td>
                                             <td className="px-6 py-4 text-center">
-                                                <span className={`px-2 py-1 rounded font-bold ${pending === 0 ? 'text-emerald-600' : 'text-red-600'}`}>{pending}</span>
+                                                <span className={`px-2 py-1 rounded-full text-[10px] font-black uppercase ${pending <= 0 ? 'bg-emerald-100 dark:bg-emerald-900/20 text-emerald-600' : 'bg-red-100 dark:bg-red-900/20 text-red-600'}`}>
+                                                    {pending <= 0 ? 'Completo' : `${pending} Falta`}
+                                                </span>
                                             </td>
                                         </tr>
                                     );
