@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
-import { User, Driver, Role, UserStatus, VehicleProfile, View } from '../types';
+import { User, Driver, Role, UserStatus, VehicleProfile, View, InboundItem, OutboundItem, StockItem, TreatmentItem, ExpeditionItem } from '../types';
 import { AuthService } from '../services/authService';
 import { StorageService } from '../services/storageService';
 import { gamificationService } from '../services/gamificationService';
@@ -8,62 +8,7 @@ import { ApiService } from '../services/apiService';
 import { isSameDay, parseToDate, getDateKey, getSaoPauloDate, getTodayDate, getSaoPauloIso, formatToLocalTime } from '../utils/dateUtils';
 import { isValidTbr } from '../utils/validation';
 
-interface InboundItem {
-    id: string;
-    status: 'Sucesso' | 'Prefixo Inválido' | 'Duplicado' | 'Perda Definitiva';
-    operator: string;
-    time: string;
-    error: boolean;
-    createdAt?: string;
-}
-
-interface OutboundItem {
-    id: string;
-    driverName: string;
-    vehicle: string;
-    time: string;
-    operator: string;
-    status: 'Saiu com Motorista' | 'Reversa - Saiu com Motorista';
-    palletId?: string;
-    createdAt?: string;
-}
-
-interface InventoryItem {
-    id: string;
-    time: string;
-    operator: string;
-    createdAt?: string;
-}
-
-interface StockItem {
-    id: string;
-    entryTime: string;
-    operator: string;
-    status: 'Em Estoque' | 'Saiu' | 'Possível Perda' | 'Perda';
-    lossDetectedTime?: string; // ISO string when it was marked as missing
-    localizedBy?: string;      // Who found it
-}
-
-interface TreatmentItem {
-    id: string; // Incident unique ID
-    tbrId: string;
-    type: 'Avaria' | 'Extravio' | 'Erro de Sistema' | 'Outros';
-    description: string;
-    status: 'Pendente' | 'Em Análise' | 'Resolvido';
-    operator: string;
-    time: string;
-}
-
-interface ExpeditionItem {
-    id: string;
-    driver_name: string;
-    plate: string;
-    dispatch_date: string;
-    total_packages: number;
-    delivered_count: number;
-    returned_count: number;
-    status: 'EM_ROTA' | 'AGUARDANDO_RETORNO' | 'FINALIZADO';
-}
+// Interfaces moved to types.ts
 
 interface DashboardStats {
     total_em_estoque: number;
@@ -1075,18 +1020,13 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const deleteOutboundItem = async (id: string) => {
         if (!currentUser) return;
-        await supabase.from('outbound_log')
-            .delete()
-            .eq('id', id)
-            .eq('company_id', currentUser.company_id);
+        const result = await ApiService.deleteOutbound(id, currentUser);
+        if (!result.success) {
+            playAudio('error');
+            return;
+        }
 
-        await supabase.from('stock_items')
-            .update({ status: 'Em Estoque' })
-            .eq('id', id)
-            .eq('company_id', currentUser.company_id);
-
-        loadInitialData();
-        syncDetailedLogs('outbound');
+        await ApiService.updateStockStatus([id], 'Em Estoque', currentUser);
         playAudio('success');
     };
 
@@ -1094,21 +1034,16 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const addDriver = async (driverData: Omit<Driver, 'id' | 'lastActivity'>) => {
         if (!currentUser) return;
         const newDriverId = 'dr-' + Math.random().toString(36).substr(2, 9);
-        const now = getSaoPauloIso();
-
-        await supabase.from('drivers').insert({
+        const result = await ApiService.saveDriver({
             id: newDriverId,
-            name: driverData.name,
-            cpf: driverData.cpf,
-            plate: driverData.plate,
-            company: driverData.company,
-            status: driverData.status,
-            vehicle_profile: driverData.vehicleProfile,
-            last_activity: now,
-            company_id: currentUser.company_id
-        });
-        await loadInitialData();
-        playAudio('success');
+            ...driverData
+        }, currentUser);
+
+        if (result.success) {
+            playAudio('success');
+        } else {
+            playAudio('error');
+        }
     };
 
     const bulkAddDrivers = async (driversList: Omit<Driver, 'id' | 'lastActivity'>[]) => {
@@ -1211,13 +1146,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const updateExpeditionDelivered = async (id: string, delivered: number) => {
         if (!currentUser) return;
-        await supabase.from('expeditions')
-            .update({
-                delivered_count: delivered
-            })
-            .eq('id', id)
-            .eq('company_id', currentUser.company_id);
-        loadInitialData();
+        await ApiService.updateExpedition(id, { delivered_count: delivered }, currentUser);
     };
 
     const verifyReturn = async (tbrId: string, driverName: string) => {

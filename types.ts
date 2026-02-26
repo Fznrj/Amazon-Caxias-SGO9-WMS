@@ -59,6 +59,64 @@ export interface Driver {
   lastActivity: string;
 }
 
+export interface InboundItem {
+  id: string;
+  status: 'Sucesso' | 'Prefixo Inválido' | 'Duplicado' | 'Perda Definitiva';
+  operator: string;
+  time: string;
+  error: boolean;
+  createdAt?: string;
+}
+
+export interface OutboundItem {
+  id: string;
+  driverName: string;
+  vehicle: string;
+  time: string;
+  operator: string;
+  status: 'Saiu com Motorista' | 'Reversa - Saiu com Motorista';
+  palletId?: string;
+  createdAt?: string;
+}
+
+export interface InventoryItem {
+  id: string;
+  time: string;
+  operator: string;
+  createdAt?: string;
+}
+
+export interface StockItem {
+  id: string;
+  entryTime: string;
+  operator: string;
+  status: 'Em Estoque' | 'Saiu' | 'Possível Perda' | 'Perda';
+  lossDetectedTime?: string;
+  localizedBy?: string;
+  rackLocation?: string;
+}
+
+export interface TreatmentItem {
+  id: string;
+  tbrId: string;
+  type: 'Avaria' | 'Extravio' | 'Erro de Sistema' | 'Outros';
+  description: string;
+  status: 'Pendente' | 'Em Análise' | 'Resolvido';
+  operator: string;
+  time: string;
+}
+
+export interface ExpeditionItem {
+  id: string;
+  driver_name: string;
+  plate: string;
+  dispatch_date: string;
+  total_packages: number;
+  delivered_count: number;
+  returned_count: number;
+  status: 'EM_ROTA' | 'AGUARDANDO_RETORNO' | 'FINALIZADO';
+}
+
 export interface LoginViewProps {
   onLoginSuccess: () => void;
   onNavigateRegister: () => void;
