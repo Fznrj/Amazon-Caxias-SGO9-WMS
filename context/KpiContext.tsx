@@ -5,17 +5,15 @@
  * (já calculada pelo banco via v_today_operator_productivity)
  * e montar os KPIs do Dashboard.
  *
- * PROIBIDO:
- *  - .filter() / .reduce() sobre log arrays para calcular produtividade
- *  - Qualquer lógica de gamificação (XP, SPR, Ranking)
- *
  * FONTES:
  *  - v_today_operator_productivity (SELECT direto no Supabase)
- *  - useWmsData() para stockItems, expeditions, weeklyStatsFromView
+ *  - Direct queries to inbound_log, outbound_log, inventory_log, rts_log
+ *    for weekly chart volume and historical productivity reports
+ *  - useWmsData() para stockItems, expeditions
  *
  * REATIVIDADE:
  *  - useEffect observa inboundItems, outboundItems, inventoryItems, rtsLogs
- *  - Quando qualquer um muda → SELECT na View SQL → atualiza operatorProductivity
+ *  - Quando qualquer um muda → SELECT na View SQL + fetch weekly volume
  * ─────────────────────────────────────────────────────────────
  */
 
@@ -97,12 +95,12 @@ export const KpiProvider: React.FC<KpiProviderProps> = ({ children, currentUser 
         rtsLogs,
         stockItems,
         expeditions,
-        weeklyStatsFromView,
         todayReversaCount
     } = useWmsData();
 
     // ── State ───────────────────────────────────────────────
     const [operatorProductivity, setOperatorProductivity] = useState<OperatorProductivity[]>([]);
+    const [weeklyVolumeFromDb, setWeeklyVolumeFromDb] = useState<Record<string, { entradas: number; saidas: number; inventario: number; rts: number }>>({});
     const [kpiLoading, setKpiLoading] = useState(false);
 
     // ── Debounce ref to avoid hammering the DB ─────────────
@@ -151,9 +149,67 @@ export const KpiProvider: React.FC<KpiProviderProps> = ({ children, currentUser 
     }, [currentUser]);
 
     // ═══════════════════════════════════════════════════════
+    // FETCH WEEKLY VOLUME — Direct queries to raw log tables
+    // Queries inbound_log, outbound_log, inventory_log, rts_log
+    // for the last 7 days. No dependency on SQL Views.
+    // ═══════════════════════════════════════════════════════
+
+    const fetchWeeklyVolumeData = useCallback(async () => {
+        if (!currentUser) return;
+
+        try {
+            const baseDate = getTodayDate();
+            const sevenDaysAgo = new Date(baseDate);
+            sevenDaysAgo.setDate(baseDate.getDate() - 7);
+            const sinceIso = sevenDaysAgo.toISOString();
+
+            // Parallel queries to all 4 log tables (only need created_at for grouping)
+            const [inbRes, outRes, invRes, rtsRes] = await Promise.all([
+                ApiService.applyScope(
+                    supabase.from('inbound_log').select('created_at').gte('created_at', sinceIso).eq('error', false),
+                    currentUser
+                ),
+                ApiService.applyScope(
+                    supabase.from('outbound_log').select('created_at').gte('created_at', sinceIso),
+                    currentUser
+                ),
+                ApiService.applyScope(
+                    supabase.from('inventory_log').select('created_at').gte('created_at', sinceIso),
+                    currentUser
+                ),
+                ApiService.applyScope(
+                    supabase.from('rts_log').select('created_at').gte('created_at', sinceIso),
+                    currentUser
+                ),
+            ]);
+
+            // Group counts by São Paulo date key (YYYY-MM-DD)
+            const volume: Record<string, { entradas: number; saidas: number; inventario: number; rts: number }> = {};
+
+            const countByDay = (rows: any[] | null, field: 'entradas' | 'saidas' | 'inventario' | 'rts') => {
+                (rows || []).forEach((row: any) => {
+                    if (!row.created_at) return;
+                    const dayKey = getSaoPauloDate(parseToDate(row.created_at));
+                    if (!volume[dayKey]) volume[dayKey] = { entradas: 0, saidas: 0, inventario: 0, rts: 0 };
+                    volume[dayKey][field]++;
+                });
+            };
+
+            countByDay(inbRes?.data, 'entradas');
+            countByDay(outRes?.data, 'saidas');
+            countByDay(invRes?.data, 'inventario');
+            countByDay(rtsRes?.data, 'rts');
+
+            setWeeklyVolumeFromDb(volume);
+        } catch (err) {
+            console.error('KpiContext: Error fetching weekly volume from raw logs:', err);
+        }
+    }, [currentUser]);
+
+    // ═══════════════════════════════════════════════════════
     // REACTIVE TRIGGER — Debounced SELECT on log changes
     // When Realtime pushes new items into WmsDataContext arrays,
-    // this effect fires and re-queries the SQL View.
+    // this effect fires and re-queries the SQL View + weekly volume.
     // ═══════════════════════════════════════════════════════
 
     useEffect(() => {
@@ -164,16 +220,18 @@ export const KpiProvider: React.FC<KpiProviderProps> = ({ children, currentUser 
 
         debounceRef.current = setTimeout(() => {
             fetchTodayProductivity();
+            fetchWeeklyVolumeData();
         }, 500);
 
         return () => {
             if (debounceRef.current) clearTimeout(debounceRef.current);
         };
-    }, [inboundItems, outboundItems, inventoryItems, rtsLogs, currentUser, fetchTodayProductivity]);
+    }, [inboundItems, outboundItems, inventoryItems, rtsLogs, currentUser, fetchTodayProductivity, fetchWeeklyVolumeData]);
 
     // ═══════════════════════════════════════════════════════
     // STATS SUMMARY — Dashboard KPIs
-    // Uses operatorProductivity (from SQL View) for scan counts.
+    // Uses operatorProductivity (from SQL View) for today's scan counts.
+    // Uses weeklyVolumeFromDb (from direct log queries) for weekly chart.
     // Uses stockItems (from WmsDataContext) for stock KPIs.
     // ═══════════════════════════════════════════════════════
 
@@ -194,57 +252,50 @@ export const KpiProvider: React.FC<KpiProviderProps> = ({ children, currentUser 
             });
         }
 
-        // ── 2. Merge with v_weekly_stats view data ──────────
-        let weeklyStats = last7Days.map(emptyDay => {
-            const realDay = (weeklyStatsFromView || []).find((d: any) => d.day_date === emptyDay.rawDate);
-            return realDay ? {
-                ...emptyDay,
-                entradas: Number(realDay.entradas || 0),
-                saidas: Number(realDay.saidas || 0),
-                inventario: Number(realDay.inventario || 0),
-                entregues: Number(realDay.entregues || 0),
-                rts: Number(realDay.rts || 0)
-            } : emptyDay;
+        // ── 2. Merge with DIRECT DB volume data ─────────────
+        const weeklyStats = last7Days.map(emptyDay => {
+            const dbDay = weeklyVolumeFromDb[emptyDay.rawDate];
+            if (dbDay) {
+                return {
+                    ...emptyDay,
+                    entradas: dbDay.entradas || 0,
+                    saidas: dbDay.saidas || 0,
+                    inventario: dbDay.inventario || 0,
+                    rts: dbDay.rts || 0
+                };
+            }
+            return emptyDay;
         });
 
-        // ── 3. Today's counts — SQL View as primary, date-filtered raw arrays as fallback ──
+        // ── 3. Today's counts from operatorProductivity (SQL View) ──
         const todayDate = getTodayDate();
         const totalInboundFromView = operatorProductivity.reduce((sum, op) => sum + op.inbound_scans, 0);
         const totalOutboundFromView = operatorProductivity.reduce((sum, op) => sum + op.outbound_scans, 0);
-        const totalInventoryFromView = operatorProductivity.reduce((sum, op) => sum + op.inventory_scans, 0);
-        const totalRtsFromView = operatorProductivity.reduce((sum, op) => sum + op.rts_scans, 0);
 
         // Fallback: count ONLY items whose created_at is today (São Paulo timezone)
         const inboundTodayCount = inboundItems.filter(i => isSameDay(i.createdAt || i.time, todayDate)).length;
         const outboundTodayCount = outboundItems.filter(i => isSameDay((i as any).createdAt || i.time, todayDate)).length;
-        const inventoryTodayCount = inventoryItems.filter(i => isSameDay(i.createdAt || i.time, todayDate)).length;
-        const rtsTodayCount = rtsLogs.filter(i => isSameDay(i.created_at || (i as any).time, todayDate)).length;
 
-        // Pick the higher of SQL View vs date-filtered array count
-        const totalInboundToday = Math.max(totalInboundFromView, inboundTodayCount);
-        const totalOutboundToday = Math.max(totalOutboundFromView, outboundTodayCount);
-        const totalInventoryToday = Math.max(totalInventoryFromView, inventoryTodayCount);
-        const totalRtsToday = Math.max(totalRtsFromView, rtsTodayCount);
+        // Best available today count
+        const dbToday = weeklyVolumeFromDb[todayKey];
+        const totalInboundToday = Math.max(totalInboundFromView, inboundTodayCount, dbToday?.entradas || 0);
+        const totalOutboundToday = Math.max(totalOutboundFromView, outboundTodayCount, dbToday?.saidas || 0);
         const totalReversaToday = todayReversaCount;
 
         // ── 4. Today's deliveries from expeditions ──────────
         const expeditionsToday = (expeditions || []).filter(e => e.dispatch_date === todayKey);
         const localEntreguesToday = expeditionsToday.reduce((sum, e) => sum + (e.delivered_count || 0), 0);
 
-        // ── 5. Override today's slot in the weekly chart ─────
-        weeklyStats = weeklyStats.map(d => {
-            if (d.rawDate === todayKey) {
-                return {
-                    ...d,
-                    entradas: totalInboundToday,
-                    saidas: totalOutboundToday,
-                    inventario: totalInventoryToday,
-                    entregues: localEntreguesToday,
-                    rts: totalRtsToday
-                };
-            }
-            return d;
-        });
+        // ── 5. Ensure today's slot in chart uses best available data ──
+        const todayIdx = weeklyStats.findIndex(d => d.rawDate === todayKey);
+        if (todayIdx >= 0) {
+            weeklyStats[todayIdx] = {
+                ...weeklyStats[todayIdx],
+                entradas: totalInboundToday,
+                saidas: totalOutboundToday,
+                entregues: localEntreguesToday
+            };
+        }
 
         // ── 6. Stock-based KPIs ─────────────────────────────
         const totalEmEstoque = stockItems.filter(s => s.status?.toLowerCase() === 'em estoque').length;
@@ -269,11 +320,13 @@ export const KpiProvider: React.FC<KpiProviderProps> = ({ children, currentUser 
             totalPossibleLosses,
             totalLossItems
         };
-    }, [operatorProductivity, weeklyStatsFromView, expeditions, stockItems, todayReversaCount, inboundItems, outboundItems, inventoryItems, rtsLogs]);
+    }, [operatorProductivity, weeklyVolumeFromDb, expeditions, stockItems, todayReversaCount, inboundItems, outboundItems]);
 
     // ═══════════════════════════════════════════════════════
-    // FETCH PRODUCTIVITY REPORT (for historical date range)
-    // Used by ProductivityView when the user selects a custom range.
+    // FETCH PRODUCTIVITY REPORT — Direct log table queries
+    // Queries inbound_log, outbound_log, inventory_log, rts_log
+    // for a date range. Groups by operator + scan_date.
+    // Used by GamificationContext for cumulative monthly XP.
     // ═══════════════════════════════════════════════════════
 
     const fetchProductivityReport = useCallback(async (startDate: string, endDate: string): Promise<OperatorProductivity[]> => {
@@ -285,9 +338,66 @@ export const KpiProvider: React.FC<KpiProviderProps> = ({ children, currentUser 
             return operatorProductivity;
         }
 
-        // Otherwise, query the historical view
-        const result = await ApiService.fetchProductivityReport(startDate, endDate, currentUser);
-        return result.success ? (result.data || []) : [];
+        try {
+            // Build ISO range for Supabase queries (São Paulo timezone)
+            const startIso = `${startDate}T00:00:00-03:00`;
+            const endIso = `${endDate}T23:59:59-03:00`;
+
+            // Parallel queries to all 4 log tables
+            const [inbRes, outRes, invRes, rtsRes] = await Promise.all([
+                ApiService.applyScope(
+                    supabase.from('inbound_log').select('operator, created_at, error').gte('created_at', startIso).lte('created_at', endIso),
+                    currentUser
+                ),
+                ApiService.applyScope(
+                    supabase.from('outbound_log').select('operator, created_at').gte('created_at', startIso).lte('created_at', endIso),
+                    currentUser
+                ),
+                ApiService.applyScope(
+                    supabase.from('inventory_log').select('operator, created_at').gte('created_at', startIso).lte('created_at', endIso),
+                    currentUser
+                ),
+                ApiService.applyScope(
+                    supabase.from('rts_log').select('operator, created_at').gte('created_at', startIso).lte('created_at', endIso),
+                    currentUser
+                ),
+            ]);
+
+            // Aggregate per operator per day
+            const byOpDay = new Map<string, OperatorProductivity>();
+
+            const process = (rows: any[] | null, scanType: 'inbound' | 'outbound' | 'inventory' | 'rts') => {
+                (rows || []).forEach((row: any) => {
+                    if (!row.operator || !row.created_at) return;
+                    if (scanType === 'inbound' && row.error) return;
+                    const dayKey = getSaoPauloDate(parseToDate(row.created_at));
+                    const mapKey = `${row.operator}__${dayKey}`;
+                    if (!byOpDay.has(mapKey)) {
+                        byOpDay.set(mapKey, {
+                            operator: row.operator,
+                            scan_date: dayKey,
+                            total_scans: 0, inbound_scans: 0, outbound_scans: 0, inventory_scans: 0, rts_scans: 0
+                        });
+                    }
+                    const entry = byOpDay.get(mapKey)!;
+                    entry.total_scans++;
+                    if (scanType === 'inbound') entry.inbound_scans++;
+                    else if (scanType === 'outbound') entry.outbound_scans++;
+                    else if (scanType === 'inventory') entry.inventory_scans++;
+                    else if (scanType === 'rts') entry.rts_scans++;
+                });
+            };
+
+            process(inbRes?.data, 'inbound');
+            process(outRes?.data, 'outbound');
+            process(invRes?.data, 'inventory');
+            process(rtsRes?.data, 'rts');
+
+            return Array.from(byOpDay.values());
+        } catch (err) {
+            console.error('KpiContext: Error fetching productivity from raw logs:', err);
+            return operatorProductivity; // Fallback to today's data
+        }
     }, [currentUser, operatorProductivity]);
 
     // ═══════════════════════════════════════════════════════
