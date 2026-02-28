@@ -207,11 +207,17 @@ export const KpiProvider: React.FC<KpiProviderProps> = ({ children, currentUser 
             } : emptyDay;
         });
 
-        // ── 3. Today's counts from SQL View (NOT from JS arrays) ──
-        const totalInboundToday = operatorProductivity.reduce((sum, op) => sum + op.inbound_scans, 0);
-        const totalOutboundToday = operatorProductivity.reduce((sum, op) => sum + op.outbound_scans, 0);
-        const totalInventoryToday = operatorProductivity.reduce((sum, op) => sum + op.inventory_scans, 0);
-        const totalRtsToday = operatorProductivity.reduce((sum, op) => sum + op.rts_scans, 0);
+        // ── 3. Today's counts — Use BOTH SQL View + raw arrays for reliability ──
+        const totalInboundFromView = operatorProductivity.reduce((sum, op) => sum + op.inbound_scans, 0);
+        const totalOutboundFromView = operatorProductivity.reduce((sum, op) => sum + op.outbound_scans, 0);
+        const totalInventoryFromView = operatorProductivity.reduce((sum, op) => sum + op.inventory_scans, 0);
+        const totalRtsFromView = operatorProductivity.reduce((sum, op) => sum + op.rts_scans, 0);
+
+        // Fallback: count directly from raw log arrays (always accurate, even before SQL View loads)
+        const totalInboundToday = Math.max(totalInboundFromView, inboundItems.length);
+        const totalOutboundToday = Math.max(totalOutboundFromView, outboundItems.length);
+        const totalInventoryToday = Math.max(totalInventoryFromView, inventoryItems.length);
+        const totalRtsToday = Math.max(totalRtsFromView, rtsLogs.length);
         const totalReversaToday = todayReversaCount;
 
         // ── 4. Today's deliveries from expeditions ──────────
@@ -256,7 +262,7 @@ export const KpiProvider: React.FC<KpiProviderProps> = ({ children, currentUser 
             totalPossibleLosses,
             totalLossItems
         };
-    }, [operatorProductivity, weeklyStatsFromView, expeditions, stockItems, todayReversaCount]);
+    }, [operatorProductivity, weeklyStatsFromView, expeditions, stockItems, todayReversaCount, inboundItems, outboundItems, inventoryItems, rtsLogs]);
 
     // ═══════════════════════════════════════════════════════
     // FETCH PRODUCTIVITY REPORT (for historical date range)

@@ -260,6 +260,8 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
 
     const recalculateAll = useCallback(async () => {
         if (!currentUser || !initialized) return;
+        // Don't recalculate if there's no productivity data at all — prevents zeroing
+        if (operatorProductivity.length === 0) return;
 
         setGamificationLoading(true);
 
@@ -268,21 +270,23 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
             const monthStart = todayKey.substring(0, 8) + '01'; // YYYY-MM-01
 
             // ── Fetch CUMULATIVE monthly productivity ────────────
-            // This includes ALL days from month start to today
-            const monthlyReport = await fetchProductivityReport(monthStart, todayKey);
-
-            // ── Aggregate monthly totals per operator ────────────
+            // Wrapped in try/catch — if historical view doesn't exist, fall back to today's data
             const cumulativeByOperator = new Map<string, { scans: number; inbound: number; outbound: number; inventory: number; rts: number; daysAboveMeta: number }>();
-            monthlyReport.forEach(row => {
-                const prev = cumulativeByOperator.get(row.operator) || { scans: 0, inbound: 0, outbound: 0, inventory: 0, rts: 0, daysAboveMeta: 0 };
-                prev.scans += row.total_scans;
-                prev.inbound += row.inbound_scans;
-                prev.outbound += row.outbound_scans;
-                prev.inventory += row.inventory_scans;
-                prev.rts += row.rts_scans;
-                if (row.total_scans >= DAILY_GOAL) prev.daysAboveMeta++;
-                cumulativeByOperator.set(row.operator, prev);
-            });
+            try {
+                const monthlyReport = await fetchProductivityReport(monthStart, todayKey);
+                monthlyReport.forEach(row => {
+                    const prev = cumulativeByOperator.get(row.operator) || { scans: 0, inbound: 0, outbound: 0, inventory: 0, rts: 0, daysAboveMeta: 0 };
+                    prev.scans += row.total_scans;
+                    prev.inbound += row.inbound_scans;
+                    prev.outbound += row.outbound_scans;
+                    prev.inventory += row.inventory_scans;
+                    prev.rts += row.rts_scans;
+                    if (row.total_scans >= DAILY_GOAL) prev.daysAboveMeta++;
+                    cumulativeByOperator.set(row.operator, prev);
+                });
+            } catch (e) {
+                console.warn('GamificationContext: Could not fetch monthly report, using today data as fallback');
+            }
 
             const profiles: GamificationProfile[] = [];
             const processedOperators = new Set<string>();
@@ -300,11 +304,11 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
 
                 const metrics = operatorMetrics.get(prod.operator);
                 const cumulative = cumulativeByOperator.get(prod.operator);
-                // CUMULATIVE monthly scans (all days this month, not just today)
-                const monthlyScans = cumulative?.scans || prod.total_scans;
+                // Use cumulative monthly scans when available, otherwise fall back to today's scans
+                const monthlyScans = (cumulative?.scans && cumulative.scans > 0) ? cumulative.scans : prod.total_scans;
                 const monthlyErrors = metrics?.monthlyErrors || 0;
                 const monthlyUniqueDays = metrics?.monthlyUniqueDays || new Set<string>();
-                const monthlyDiasAcimaMeta = cumulative?.daysAboveMeta || 0;
+                const monthlyDiasAcimaMeta = cumulative?.daysAboveMeta || (prod.total_scans >= DAILY_GOAL ? 1 : 0);
 
                 // Consecutive days above goal (simplified for today-only data)
                 const consecutive = prod.total_scans >= DAILY_GOAL ? 1 : 0;
