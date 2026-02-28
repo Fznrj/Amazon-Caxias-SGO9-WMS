@@ -57,6 +57,7 @@ interface WeeklyStatDay {
     rawDate: string;
     entradas: number;
     saidas: number;
+    inventario: number;
     entregues: number;
     rts: number;
 }
@@ -189,7 +190,7 @@ export const KpiProvider: React.FC<KpiProviderProps> = ({ children, currentUser 
             last7Days.push({
                 name: dayNames[d.getDay()],
                 rawDate: getSaoPauloDate(d),
-                entradas: 0, saidas: 0, entregues: 0, rts: 0
+                entradas: 0, saidas: 0, inventario: 0, entregues: 0, rts: 0
             });
         }
 
@@ -200,14 +201,17 @@ export const KpiProvider: React.FC<KpiProviderProps> = ({ children, currentUser 
                 ...emptyDay,
                 entradas: Number(realDay.entradas || 0),
                 saidas: Number(realDay.saidas || 0),
+                inventario: Number(realDay.inventario || 0),
                 entregues: Number(realDay.entregues || 0),
-                rts: Number(realDay.reversas || realDay.rts || 0)
+                rts: Number(realDay.rts || 0)
             } : emptyDay;
         });
 
         // ── 3. Today's counts from SQL View (NOT from JS arrays) ──
         const totalInboundToday = operatorProductivity.reduce((sum, op) => sum + op.inbound_scans, 0);
         const totalOutboundToday = operatorProductivity.reduce((sum, op) => sum + op.outbound_scans, 0);
+        const totalInventoryToday = operatorProductivity.reduce((sum, op) => sum + op.inventory_scans, 0);
+        const totalRtsToday = operatorProductivity.reduce((sum, op) => sum + op.rts_scans, 0);
         const totalReversaToday = todayReversaCount;
 
         // ── 4. Today's deliveries from expeditions ──────────
@@ -221,8 +225,9 @@ export const KpiProvider: React.FC<KpiProviderProps> = ({ children, currentUser 
                     ...d,
                     entradas: Math.max(Number(d.entradas || 0), totalInboundToday),
                     saidas: Math.max(Number(d.saidas || 0), totalOutboundToday),
+                    inventario: Math.max(Number(d.inventario || 0), totalInventoryToday),
                     entregues: Math.max(Number(d.entregues || 0), localEntreguesToday),
-                    rts: Math.max(Number(d.rts || 0), totalReversaToday)
+                    rts: Math.max(Number(d.rts || 0), totalRtsToday)
                 };
             }
             return d;
