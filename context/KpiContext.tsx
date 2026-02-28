@@ -24,7 +24,7 @@ import { User } from '../types';
 import { useWmsData } from './WmsDataContext';
 import { supabase } from '../services/supabase';
 import { ApiService } from '../services/apiService';
-import { getSaoPauloDate, getTodayDate, parseToDate } from '../utils/dateUtils';
+import { getSaoPauloDate, getTodayDate, parseToDate, isSameDay } from '../utils/dateUtils';
 
 // ─────────────────────────────────────────────────────────────
 // Types
@@ -207,17 +207,24 @@ export const KpiProvider: React.FC<KpiProviderProps> = ({ children, currentUser 
             } : emptyDay;
         });
 
-        // ── 3. Today's counts — Use BOTH SQL View + raw arrays for reliability ──
+        // ── 3. Today's counts — SQL View as primary, date-filtered raw arrays as fallback ──
+        const todayDate = getTodayDate();
         const totalInboundFromView = operatorProductivity.reduce((sum, op) => sum + op.inbound_scans, 0);
         const totalOutboundFromView = operatorProductivity.reduce((sum, op) => sum + op.outbound_scans, 0);
         const totalInventoryFromView = operatorProductivity.reduce((sum, op) => sum + op.inventory_scans, 0);
         const totalRtsFromView = operatorProductivity.reduce((sum, op) => sum + op.rts_scans, 0);
 
-        // Fallback: count directly from raw log arrays (always accurate, even before SQL View loads)
-        const totalInboundToday = Math.max(totalInboundFromView, inboundItems.length);
-        const totalOutboundToday = Math.max(totalOutboundFromView, outboundItems.length);
-        const totalInventoryToday = Math.max(totalInventoryFromView, inventoryItems.length);
-        const totalRtsToday = Math.max(totalRtsFromView, rtsLogs.length);
+        // Fallback: count ONLY items whose created_at is today (São Paulo timezone)
+        const inboundTodayCount = inboundItems.filter(i => isSameDay(i.createdAt || i.time, todayDate)).length;
+        const outboundTodayCount = outboundItems.filter(i => isSameDay((i as any).createdAt || i.time, todayDate)).length;
+        const inventoryTodayCount = inventoryItems.filter(i => isSameDay(i.createdAt || i.time, todayDate)).length;
+        const rtsTodayCount = rtsLogs.filter(i => isSameDay(i.created_at || (i as any).time, todayDate)).length;
+
+        // Pick the higher of SQL View vs date-filtered array count
+        const totalInboundToday = Math.max(totalInboundFromView, inboundTodayCount);
+        const totalOutboundToday = Math.max(totalOutboundFromView, outboundTodayCount);
+        const totalInventoryToday = Math.max(totalInventoryFromView, inventoryTodayCount);
+        const totalRtsToday = Math.max(totalRtsFromView, rtsTodayCount);
         const totalReversaToday = todayReversaCount;
 
         // ── 4. Today's deliveries from expeditions ──────────
@@ -229,11 +236,11 @@ export const KpiProvider: React.FC<KpiProviderProps> = ({ children, currentUser 
             if (d.rawDate === todayKey) {
                 return {
                     ...d,
-                    entradas: Math.max(Number(d.entradas || 0), totalInboundToday),
-                    saidas: Math.max(Number(d.saidas || 0), totalOutboundToday),
-                    inventario: Math.max(Number(d.inventario || 0), totalInventoryToday),
-                    entregues: Math.max(Number(d.entregues || 0), localEntreguesToday),
-                    rts: Math.max(Number(d.rts || 0), totalRtsToday)
+                    entradas: totalInboundToday,
+                    saidas: totalOutboundToday,
+                    inventario: totalInventoryToday,
+                    entregues: localEntreguesToday,
+                    rts: totalRtsToday
                 };
             }
             return d;

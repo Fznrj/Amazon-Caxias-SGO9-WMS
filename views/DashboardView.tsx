@@ -96,10 +96,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
     },
     {
       label: isComparisonMode ? 'Saídas Período' : 'Saídas Hoje',
-      value: (isComparisonMode ? `${periodStats.saidas + periodStats.reversas}` : `${totalOutboundToday}`),
+      value: isComparisonMode
+        ? `${periodStats.saidas + periodStats.reversas}`
+        : `${totalOutboundToday + totalReversaToday}`,
+      reversas: isComparisonMode ? periodStats.reversas : totalReversaToday,
       icon: 'arrow_downward',
       color: 'orange-500',
-      trend: isComparisonMode ? 'Histórico' : calculateTrend(isComparisonMode ? (periodStats.saidas + periodStats.reversas) : (totalOutboundToday + totalReversaToday), (yesterdayData?.saidas || 0))
+      trend: isComparisonMode ? 'Histórico' : calculateTrend(totalOutboundToday + totalReversaToday, yesterdayData?.saidas || 0)
     },
     { label: 'Parados +1 Dia', value: staleItemsCount.toString(), icon: 'schedule', color: 'yellow-600', trend: 'Audit' },
     { label: 'Possíveis Perdas', value: totalPossibleLosses.toString(), icon: 'warning', color: 'red-500', trend: 'Audit' },
@@ -161,6 +164,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                   <div className="text-lg md:text-2xl font-display font-bold text-slate-800 dark:text-white">
                     {kpi.value}
                   </div>
+                  {(kpi as any).reversas > 0 && (
+                    <span className="text-[9px] font-bold text-red-500 mt-0.5">
+                      ({(kpi as any).reversas} rev)
+                    </span>
+                  )}
                 </div>
               </div>
               <div className="mt-auto">

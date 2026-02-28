@@ -260,8 +260,6 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
 
     const recalculateAll = useCallback(async () => {
         if (!currentUser || !initialized) return;
-        // Don't recalculate if there's no productivity data at all — prevents zeroing
-        if (operatorProductivity.length === 0) return;
 
         setGamificationLoading(true);
 
