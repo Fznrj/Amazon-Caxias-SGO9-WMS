@@ -14,6 +14,7 @@ const RtsView: React.FC = () => {
     } = useWms();
 
     const [filter, setFilter] = useState('');
+    const [dateFilter, setDateFilter] = useState(getSaoPauloDate());
     const [scannerInput, setScannerInput] = useState('');
     const [scannerInputPending, setScannerInputPending] = useState('');
     const [selectedExpedition, setSelectedExpedition] = useState<string | null>(null);
@@ -58,26 +59,32 @@ const RtsView: React.FC = () => {
         return Object.values(groups).filter(g => g.total_packages > 0);
     }, [expeditions, reversaByDriver]);
 
-    const stats = useMemo(() => {
-        const totalSaida = groupedExpeditions.reduce((acc, e) => acc + (e.total_packages || 0), 0);
-        const totalEntregue = groupedExpeditions.reduce((acc, e) => acc + (e.delivered_count || 0), 0);
-        const totalRts = groupedExpeditions.reduce((acc, e) => acc + (e.returned_count || 0), 0);
-        const totalPendente = Math.max(0, totalSaida - (totalEntregue + totalRts));
-        const rtsDrivers = new Set(groupedExpeditions.filter(e => (e.returned_count || 0) > 0).map(e => e.driver_name));
-        return { totalSaida, totalEntregue, totalRts, totalPendente, totalMotoristasRts: rtsDrivers.size };
-    }, [groupedExpeditions]);
-
     const filteredExpeditions = useMemo(() => {
-        const today = getSaoPauloDate();
         return groupedExpeditions.filter(e => {
-            const search = filter.toLowerCase();
-            const nameMatch = (e.driver_name || '').toLowerCase().includes(search);
-            const plateMatch = (e.plate || '').toLowerCase().includes(search);
-            const dateMatch = (e.dispatch_date || '').includes(search);
-            const isToday = e.dispatch_date === today;
-            return search.length > 0 ? (nameMatch || plateMatch || dateMatch) : isToday;
+            // Date filter — only show expeditions matching selected date
+            const dateMatch = e.dispatch_date === dateFilter;
+            if (!dateMatch) return false;
+
+            // Text search within the date-filtered results
+            if (filter.length > 0) {
+                const search = filter.toLowerCase();
+                const nameMatch = (e.driver_name || '').toLowerCase().includes(search);
+                const plateMatch = (e.plate || '').toLowerCase().includes(search);
+                return nameMatch || plateMatch;
+            }
+            return true;
         });
-    }, [groupedExpeditions, filter]);
+    }, [groupedExpeditions, filter, dateFilter]);
+
+    // Stats computed from date-filtered data
+    const stats = useMemo(() => {
+        const totalSaida = filteredExpeditions.reduce((acc, e) => acc + (e.total_packages || 0), 0);
+        const totalEntregue = filteredExpeditions.reduce((acc, e) => acc + (e.delivered_count || 0), 0);
+        const totalRts = filteredExpeditions.reduce((acc, e) => acc + (e.returned_count || 0), 0);
+        const totalPendente = Math.max(0, totalSaida - (totalEntregue + totalRts));
+        const rtsDrivers = new Set(filteredExpeditions.filter(e => (e.returned_count || 0) > 0).map(e => e.driver_name));
+        return { totalSaida, totalEntregue, totalRts, totalPendente, totalMotoristasRts: rtsDrivers.size };
+    }, [filteredExpeditions]);
 
     const selectedExpeditionObj = useMemo(() =>
         groupedExpeditions.find(e => e.id === selectedExpedition),
@@ -163,13 +170,29 @@ const RtsView: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-4">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-800 dark:text-white">RTS Tracking</h1>
                     </div>
-                    <button onClick={handleExport} className="flex items-center gap-2 bg-emerald-500 text-white px-4 py-2 rounded-lg font-bold text-sm">
-                        <span className="material-icons-round">download</span> Exportar
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <input
+                            type="date"
+                            value={dateFilter}
+                            onChange={(e) => setDateFilter(e.target.value)}
+                            className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm outline-none text-slate-800 dark:text-white"
+                        />
+                        {dateFilter !== getSaoPauloDate() && (
+                            <button
+                                onClick={() => setDateFilter(getSaoPauloDate())}
+                                className="flex items-center gap-1 bg-primary/10 text-primary px-3 py-2 rounded-lg text-xs font-bold uppercase hover:bg-primary/20 transition-colors"
+                            >
+                                <span className="material-icons-round text-sm">today</span> Hoje
+                            </button>
+                        )}
+                        <button onClick={handleExport} className="flex items-center gap-2 bg-emerald-500 text-white px-4 py-2 rounded-lg font-bold text-sm">
+                            <span className="material-icons-round">download</span> Exportar
+                        </button>
+                    </div>
                 </div>
 
                 <div className="flex flex-col xl:flex-row gap-4">
