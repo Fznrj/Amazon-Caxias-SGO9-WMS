@@ -7,10 +7,7 @@ import { getSaoPauloDate, parseToDate, getTodayDate } from '../utils/dateUtils';
 const DAILY_GOAL = 350;
 
 const ProductivityView: React.FC = () => {
-  const {
-    operatorProductivity: todayProductivity,
-    fetchProductivityReport
-  } = useKpi();
+  const { fetchProductivityReport } = useKpi();
 
   const [startDate, setStartDate] = React.useState<string>(getSaoPauloDate(getTodayDate()));
   const [endDate, setEndDate] = React.useState<string>(getSaoPauloDate(getTodayDate()));
@@ -19,18 +16,16 @@ const ProductivityView: React.FC = () => {
 
   // Load report when date range changes
   React.useEffect(() => {
+    let active = true;
     const loadReport = async () => {
       setLoading(true);
-      if (startDate === getSaoPauloDate() && endDate === getSaoPauloDate()) {
-        setRangeProductivity(todayProductivity);
-      } else {
-        const data = await fetchProductivityReport(startDate, endDate);
-        setRangeProductivity(data);
-      }
-      setLoading(false);
+      const data = await fetchProductivityReport(startDate, endDate);
+      if (active) setRangeProductivity(data);
+      if (active) setLoading(false);
     };
     loadReport();
-  }, [startDate, endDate, todayProductivity, fetchProductivityReport]);
+    return () => { active = false; };
+  }, [startDate, endDate, fetchProductivityReport]);
 
   // --- Aggregate data by operator (in case there are multiple entries per operator in range) ---
   const aggregatedRanking = React.useMemo(() => {

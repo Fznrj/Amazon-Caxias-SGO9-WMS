@@ -292,14 +292,22 @@ export const KpiProvider: React.FC<KpiProviderProps> = ({ children, currentUser 
         const baseDate = getTodayDate();
         const todayKey = getSaoPauloDate(baseDate);
 
-        // ── 1. Build 7-day skeleton ─────────────────────────
+        // ── 1. Build 7-day skeleton strictly in SP Timezone ──
         const last7Days: WeeklyStatDay[] = [];
+        // spTime is an exact timestamp aligned to SP
+        const spTime = parseToDate(getSaoPauloIso());
         for (let i = 6; i >= 0; i--) {
-            const d = new Date(baseDate);
-            d.setDate(baseDate.getDate() - i);
+            const d = new Date(spTime.getTime());
+            d.setDate(spTime.getDate() - i);
+            const raw = getSaoPauloDate(d);
+            
+            // To get the exact SP day of week safely, parse the raw YYYY-MM-DD back
+            const [y, m, day] = raw.split('-');
+            const safeObj = new Date(parseInt(y), parseInt(m)-1, parseInt(day), 12, 0, 0);
+            
             last7Days.push({
-                name: dayNames[d.getDay()],
-                rawDate: getSaoPauloDate(d),
+                name: dayNames[safeObj.getDay()],
+                rawDate: raw,
                 entradas: 0, saidas: 0, inventario: 0, entregues: 0, rts: 0
             });
         }
@@ -323,9 +331,9 @@ export const KpiProvider: React.FC<KpiProviderProps> = ({ children, currentUser 
         const totalInboundFromView = operatorProductivity.reduce((sum, op) => sum + op.inbound_scans, 0);
         const totalOutboundFromView = operatorProductivity.reduce((sum, op) => sum + op.outbound_scans, 0);
 
-        // Fallback: count ONLY items whose created_at is today (São Paulo timezone)
-        const inboundTodayCount = inboundItems.filter(i => isSameDay(i.createdAt || i.time)).length;
-        const outboundTodayCount = outboundItems.filter(i => isSameDay((i as any).createdAt || i.time)).length;
+        // Fallback: strict SP string comparison
+        const inboundTodayCount = inboundItems.filter(i => getSaoPauloDate(parseToDate(i.createdAt || i.time)) === todayKey).length;
+        const outboundTodayCount = outboundItems.filter(i => getSaoPauloDate(parseToDate((i as any).createdAt || i.time)) === todayKey).length;
 
         // Best available today count
         const dbToday = weeklyVolumeFromDb[todayKey];
