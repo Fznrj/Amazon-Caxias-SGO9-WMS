@@ -22,7 +22,7 @@ import { User } from '../types';
 import { useWmsData } from './WmsDataContext';
 import { supabase } from '../services/supabase';
 import { ApiService } from '../services/apiService';
-import { getSaoPauloDate, getTodayDate, parseToDate, isSameDay, getSaoPauloIso } from '../utils/dateUtils';
+import { getSaoPauloDate, getTodayDate, parseToDate, isSameDay, getSaoPauloIso, getSaoPauloDateString } from '../utils/dateUtils';
 
 // ─────────────────────────────────────────────────────────────
 // Types
@@ -295,8 +295,9 @@ export const KpiProvider: React.FC<KpiProviderProps> = ({ children, currentUser 
         const totalOutboundFromView = operatorProductivity.reduce((sum, op) => sum + op.outbound_scans, 0);
 
         // Today's exact count directly from the SQL views (length of strictly filtered array)
-        const inboundTodayCount = inboundItems.length;
-        const outboundTodayCount = outboundItems.length;
+        const BR_TODAY = getSaoPauloDateString(new Date());
+        const inboundTodayCount = inboundItems.filter(i => getSaoPauloDateString(i.createdAt || i.time) === BR_TODAY).length;
+        const outboundTodayCount = outboundItems.filter(i => getSaoPauloDateString(i.createdAt || i.time) === BR_TODAY).length;
 
         // Best available today count
         const dbToday = weeklyVolumeFromDb[todayKey];
