@@ -84,8 +84,8 @@ interface GamificationProviderProps {
 
 export const GamificationProvider: React.FC<GamificationProviderProps> = ({ children, currentUser }) => {
 
-    // ── Consume KPI Context (scan counts from SQL View) ─────
-    const { operatorProductivity, fetchProductivityReport } = useKpi();
+    // ── Consume KPI Context (fetchProductivityReport for monthly data) ─────
+    const { fetchProductivityReport } = useKpi();
 
     // ── Consume WmsData Context (for errors & achievement metrics ONLY) ──
     const {
@@ -100,6 +100,7 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
 
     // ── State ───────────────────────────────────────────────
     const [allProfiles, setAllProfiles] = useState<GamificationProfile[]>([]);
+    const [monthlyReports, setMonthlyReports] = useState<OperatorProductivity[]>([]);
     const [gamificationLoading, setGamificationLoading] = useState(true);
     const [initialized, setInitialized] = useState(false);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -271,8 +272,13 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
             // ── Fetch CUMULATIVE monthly productivity ────────────
             // Wrapped in try/catch — if historical view doesn't exist, fall back to today's data
             const cumulativeByOperator = new Map<string, { scans: number; inbound: number; outbound: number; inventory: number; rts: number; daysAboveMeta: number }>();
+            let currentMonthlyReport: OperatorProductivity[] = [];
+            
             try {
                 const monthlyReport = await fetchProductivityReport(monthStart, todayKey);
+                currentMonthlyReport = monthlyReport;
+                setMonthlyReports(monthlyReport);
+                
                 monthlyReport.forEach(row => {
                     if (!row.operator) return;
                     const opKey = row.operator.toUpperCase().trim();
@@ -293,7 +299,8 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
             const processedOperators = new Set<string>();
 
             // Sorted by today's total_scans descending (for daily ranking), errors ascending (tiebreaker)
-            const sortedProductivity = [...operatorProductivity].sort((a, b) => {
+            const todayReports = currentMonthlyReport.filter(r => r.scan_date === todayKey);
+            const sortedProductivity = [...todayReports].sort((a, b) => {
                 if (b.total_scans !== a.total_scans) return b.total_scans - a.total_scans;
                 const errA = operatorMetrics.get(a.operator)?.errors || 0;
                 const errB = operatorMetrics.get(b.operator)?.errors || 0;
@@ -402,7 +409,7 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
         } finally {
             setGamificationLoading(false);
         }
-    }, [currentUser, initialized, operatorProductivity, operatorMetrics, fetchProductivityReport]);
+    }, [currentUser, initialized, operatorMetrics, fetchProductivityReport]);
 
     // ═══════════════════════════════════════════════════════
     // REACTIVE TRIGGER — Debounced on productivity changes
@@ -420,7 +427,7 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
         return () => {
             if (debounceRef.current) clearTimeout(debounceRef.current);
         };
-    }, [operatorProductivity, initialized, currentUser, recalculateAll]);
+    }, [inboundItems, outboundItems, inventoryItems, rtsItems, rtsLogs, initialized, currentUser, recalculateAll]);
 
     // ═══════════════════════════════════════════════════════
     // DERIVED STATE — Ranking, User profile, Level
@@ -429,7 +436,7 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
     const ranking: RankingEntry[] = useMemo(() => {
         const todayKey = getSaoPauloDate();
         return allProfiles.map((profile, idx) => {
-            const prod = operatorProductivity.find(p => p.operator === profile.userName);
+            const prod = monthlyReports.find(p => p.operator === profile.userName && p.scan_date === todayKey);
             const metrics = operatorMetrics.get(profile.userName);
 
             // GamificationService doesn't native store monthly scans on the profile,
@@ -449,7 +456,7 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
                 profile
             };
         });
-    }, [allProfiles, operatorProductivity, operatorMetrics]);
+    }, [allProfiles, monthlyReports, operatorMetrics]);
 
     const myProfile = useMemo(() => {
         if (!currentUser) return null;
