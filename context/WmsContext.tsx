@@ -329,9 +329,19 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const addInboundItem = async (item: InboundItem) => {
         if (!currentUser) return;
         const now = getSaoPauloIso();
-        if (item.status === 'Sucesso') await gamificationService.registerScan(currentUser.id, currentUser.name, currentUser);
-        const result = await ApiService.logInbound({ ...item, time: now }, currentUser);
+        const enriched = { ...item, time: now };
+
+        // Log to database even if it is an error (so KPIs and Gamification can track it)
+        const result = await ApiService.logInbound(enriched, currentUser);
         if (!result.success) { playAudio('error'); return; }
+
+        if (item.error) {
+            playAudio('error');
+            // Do not update stock or trigger success scan for errors
+            return;
+        }
+
+        await gamificationService.registerScan(currentUser.id, currentUser.name, currentUser);
         await ApiService.upsertStockItem(item.id, item.operator, 'Em Estoque', currentUser);
         playAudio('success');
     };
