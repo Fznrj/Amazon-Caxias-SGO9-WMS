@@ -316,10 +316,12 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
                 const cumulative = cumulativeByOperator.get(opKey);
 
                 // Use cumulative monthly scans when available, otherwise fall back to today's scans
-                const monthlyScans = (cumulative?.scans && cumulative.scans > 0) ? cumulative.scans : todayScans;
-                const monthlyErrors = metrics?.monthlyErrors || 0;
+                // Force reset on the 1st day of the month
+                const isFirstDay = todayKey === monthStart;
+                const monthlyScans = isFirstDay ? todayScans : ((cumulative?.scans && cumulative.scans > 0) ? cumulative.scans : todayScans);
+                const monthlyErrors = isFirstDay ? (metrics?.dailyErrors[todayKey] || 0) : (metrics?.monthlyErrors || 0);
                 const monthlyUniqueDays = metrics?.monthlyUniqueDays || new Set<string>();
-                const monthlyDiasAcimaMeta = cumulative?.daysAboveMeta || (todayScans >= DAILY_GOAL ? 1 : 0);
+                const monthlyDiasAcimaMeta = isFirstDay ? (todayScans >= DAILY_GOAL ? 1 : 0) : (cumulative?.daysAboveMeta || (todayScans >= DAILY_GOAL ? 1 : 0));
 
                 // Consecutive days above goal (simplified for today-only data)
                 const consecutive = todayScans >= DAILY_GOAL ? 1 : 0;
