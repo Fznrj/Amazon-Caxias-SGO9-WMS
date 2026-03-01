@@ -149,28 +149,31 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             >
               <div className="flex justify-between items-start w-full">
                 <span className={`material-icons-round text-${kpi.color === 'primary' ? 'primary' : kpi.color} opacity-80 text-lg md:text-xl`}>{kpi.icon}</span>
-                <div className="flex flex-col items-end">
-                  <div className="text-lg md:text-2xl font-display font-bold text-slate-800 dark:text-white">
-                    {kpi.value}
+                <div className="bg-white dark:bg-card-dark p-3 md:p-5 rounded border-l-4 shadow-sm flex flex-col justify-between h-24 md:h-32 transition-transform hover:scale-[1.02]"
+                  style={{ borderLeftColor: colorMap[kpi.color] || '#087f8c' }}
+                >
+                  <div className="flex justify-between items-start w-full">
+                    <span className={`material-icons-round text-${kpi.color === 'primary' ? 'primary' : kpi.color} opacity-80 text-lg md:text-xl`}>{kpi.icon}</span>
+                    <div className="flex flex-col items-end">
+                      <div className="text-lg md:text-2xl font-display font-bold text-slate-800 dark:text-white">
+                        {kpi.value}
+                      </div>
+                      {(kpi as any).reversas > 0 && (
+                        <span className="text-sm font-bold text-red-500 mt-0.5" title="REVERSA">
+                          ({(kpi as any).reversas})
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  {(kpi as any).reversas > 0 && (
-                    <span className="text-sm font-bold text-red-500 mt-0.5" title="REVERSA">
-                      ({(kpi as any).reversas})
-                    </span>
-                  )}
+                  <div className="mt-auto">
+                    <span className="text-[8px] md:text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest block truncate">{kpi.label}</span>
+                  </div>
                 </div>
-              </div>
-              <div className="mt-auto">
-                <span className="text-[8px] md:text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest block truncate">{kpi.label}</span>
+    ))}
               </div>
             </div>
-          ))}
-        </div>
-
-        </div>
-      </div>
-    </PullToRefresh>
-  );
+</PullToRefresh>
+        );
 };
 
-export default DashboardView;
+        export default DashboardView;
