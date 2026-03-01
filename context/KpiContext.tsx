@@ -64,7 +64,8 @@ interface KpiContextValue {
     operatorProductivity: OperatorProductivity[];
     statsSummary: StatsSummary;
     kpiLoading: boolean;
-    refreshKpis: () => Promise<void>;
+    fetchWeeklyVolumeData: () => Promise<void>;
+    fetchDashboardPeriodStats: (startDate: string, endDate: string) => Promise<{ entradas: number; saidas: number; reversas: number }>;
     fetchProductivityReport: (startDate: string, endDate: string) => Promise<OperatorProductivity[]>;
 }
 
@@ -147,6 +148,57 @@ export const KpiProvider: React.FC<KpiProviderProps> = ({ children, currentUser 
             setKpiLoading(false);
         }
     }, [currentUser]);
+
+    // ═══════════════════════════════════════════════════════
+    // FETCH DASHBOARD PERIOD STATS — Queries historical events
+    // ═══════════════════════════════════════════════════════
+    const fetchDashboardPeriodStats = async (startDate: string, endDate: string) => {
+        if (!currentUser) return { entradas: 0, saidas: 0, reversas: 0 };
+        try {
+            // Need to cover the whole exact day in America/Sao_Paulo
+            // Assuming startDate and endDate are 'YYYY-MM-DD'
+            const startIso = `${startDate}T00:00:00.000-03:00`;
+            const endIso = `${endDate}T23:59:59.999-03:00`;
+
+            const [inbRes, outRes] = await Promise.all([
+                ApiService.applyScope(
+                    supabase.from('inbound_log')
+                        .select('id', { count: 'exact' })
+                        .gte('created_at', startIso)
+                        .lte('created_at', endIso)
+                        .eq('error', false),
+                    currentUser
+                ),
+                ApiService.applyScope(
+                    supabase.from('outbound_log')
+                        .select('status')
+                        .gte('created_at', startIso)
+                        .lte('created_at', endIso),
+                    currentUser
+                )
+            ]);
+
+            const entradas = inbRes.count || 0;
+            let saidas = 0;
+            let reversas = 0;
+
+            if (outRes.data) {
+                outRes.data.forEach(row => {
+                    const st = row.status?.toLowerCase() || '';
+                    if (st.includes('reversa')) {
+                        reversas++;
+                    } else {
+                        saidas++;
+                    }
+                });
+            }
+
+            return { entradas, saidas, reversas };
+        } catch (error) {
+            console.error('API Error in fetchDashboardPeriodStats:', error);
+            return { entradas: 0, saidas: 0, reversas: 0 };
+        }
+    };
 
     // ═══════════════════════════════════════════════════════
     // FETCH WEEKLY VOLUME — Direct queries to raw log tables
@@ -408,7 +460,8 @@ export const KpiProvider: React.FC<KpiProviderProps> = ({ children, currentUser 
         operatorProductivity,
         statsSummary,
         kpiLoading,
-        refreshKpis: fetchTodayProductivity,
+        fetchWeeklyVolumeData,
+        fetchDashboardPeriodStats,
         fetchProductivityReport
     };
 
