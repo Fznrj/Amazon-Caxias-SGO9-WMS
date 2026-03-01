@@ -1,4 +1,4 @@
-﻿/**
+/**
  * GamificationView.tsx — DUMB COMPONENT
  * ─────────────────────────────────────────────────────────────
  * Zero lógica de cálculo. Consumo exclusivo de useGamification().
@@ -188,8 +188,8 @@ const GamificationView: React.FC = () => {
                                 <tr><td colSpan={7} className="px-6 py-12 text-center text-slate-400 font-mono text-xs">Nenhuma atividade registrada</td></tr>
                             ) : (
                                 ranking.map((entry) => {
-                                    const lv = getLevelInfo(entry.profile.currentLevel);
-                                    const meta = Math.round((entry.totalScans / DAILY_GOAL) * 100);
+                                    const lv = getLevelInfo(entry.profile?.currentLevel || 'Novato');
+                                    const meta = Math.round(((entry.todayScans || 0) / DAILY_GOAL) * 100);
                                     return (
                                         <tr key={entry.operator} className={`hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors ${entry.operator === currentUser?.name ? 'bg-primary/5 dark:bg-primary/10' : ''}`}>
                                             <td className="px-6 py-4 text-center">
