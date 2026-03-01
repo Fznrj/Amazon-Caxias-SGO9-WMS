@@ -322,7 +322,7 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
                 const activeDays = Math.max(1, monthlyUniqueDays.size);
                 const monthlyMetaPercent = Math.round((monthlyScans / (DAILY_GOAL * activeDays)) * 100);
 
-                return await gamificationService.recalculate(
+                const profile = await gamificationService.recalculate(
                     operatorName,     // userId
                     operatorName,     // userName
                     currentUser.company_id,
@@ -349,6 +349,12 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
                     },
                     operatorName !== currentUser.name // skipSave for others
                 );
+
+                // Inject raw metrics for badges/ranking table
+                (profile as any)._monthlyScans = monthlyScans;
+                (profile as any)._monthlyRts = cumulative?.rts || 0;
+
+                return profile;
             };
 
             for (const prod of sortedProductivity) {
@@ -424,10 +430,14 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
             const prod = operatorProductivity.find(p => p.operator === profile.userName);
             const metrics = operatorMetrics.get(profile.userName);
 
+            // GamificationService doesn't native store monthly scans on the profile,
+            // but we can estimate it closely using XP, or better: we injected it via processOperator
+            const monthlyScans = (profile as any)._monthlyScans || prod?.total_scans || 0;
+
             return {
                 operator: profile.userName,
                 position: idx + 1,
-                totalScans: prod?.total_scans || 0,
+                totalScans: monthlyScans,
                 inboundScans: prod?.inbound_scans || 0,
                 outboundScans: prod?.outbound_scans || 0,
                 inventoryScans: prod?.inventory_scans || 0,
@@ -465,11 +475,13 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
     // ═══════════════════════════════════════════════════════
 
     const achievementsProgress: Record<string, AchievementProgress> = useMemo(() => {
-        if (!currentUser) return {};
+        if (!currentUser || !myProfile) return {};
 
         const metrics = operatorMetrics.get(currentUser.name);
-        const prod = operatorProductivity.find(p => p.operator === currentUser.name);
-        const totalScans = prod?.total_scans || 0;
+
+        // Read cumulative metrics injected into profile!
+        const totalScans = (myProfile as any)._monthlyScans || 0;
+        const totalRts = (myProfile as any)._monthlyRts || 0;
 
         const activeDays = metrics?.monthlyUniqueDays.size || 0;
         const errorDayCount = metrics ? Object.keys(metrics.dailyErrors).length : 0;
@@ -483,7 +495,7 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
             streak_10: { current: 0, goal: 10 }, // consecutive days — not tracked here, leave 0
             zero_errors_30: { current: zeroErrorDays, goal: 30 },
             top3_weekly: { current: ranking.find(r => r.operator === currentUser.name)?.position || 0, goal: 3 },
-            avg_110: { current: Math.round((totalScans / Math.max(DAILY_GOAL, 1)) * 100), goal: 110 },
+            avg_110: { current: Math.round((totalScans / Math.max(DAILY_GOAL * activeDays, 1)) * 100), goal: 110 },
             dr_inventario: { current: metrics?.monthlyInventoryDays.size || 0, goal: 12 },
             participacao_ativa: { current: activeDays, goal: 24 },
             protetor_pacotes: { current: metrics?.monthlyTreatmentCount || 0, goal: 50 },
@@ -491,7 +503,7 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
             expedidor_mestre: { current: metrics?.monthlyDriversExpedited.size || 0, goal: 120 },
             proativo: { current: metrics?.monthlyMixedActivityDays || 0, goal: 20 },
             mestre_ps: { current: metrics?.monthlyIncidentsCount || 0, goal: 100 },
-            mestre_reversa: { current: metrics?.monthlyReversaPallets.size || 0, goal: 20 },
+            mestre_reversa: { current: totalRts, goal: 500 },
         };
 
         // Convert to { current, goal, percent }
