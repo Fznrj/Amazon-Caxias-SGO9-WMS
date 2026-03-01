@@ -379,6 +379,16 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
                 profiles.push(await processOperator(currentUser.name, 0));
             }
 
+            // --- HARD RESET FOR 1ST OF MONTH ---
+            if (todayKey.endsWith('-01')) {
+                profiles.forEach(p => {
+                    p.xpMonthly = 0;
+                    p.sprMonthly = 0;
+                    p.currentLevel = 'Ferro';
+                    p.badges.forEach(b => b.unlocked = false);
+                });
+            }
+
             // Sort by SPR for final ranking
             profiles.sort((a, b) => b.sprMonthly - a.sprMonthly);
 
