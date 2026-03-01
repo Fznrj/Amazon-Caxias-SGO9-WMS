@@ -13,7 +13,6 @@ interface DashboardViewProps {
 
 const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
   // KPIs from the SQL View (via KpiContext)
-  const { statsSummary } = useKpi();
   const { statsSummary, fetchDashboardPeriodStats } = useKpi();
   const {
     totalInboundToday, totalOutboundToday, totalReversaToday,
