@@ -273,14 +273,16 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
             try {
                 const monthlyReport = await fetchProductivityReport(monthStart, todayKey);
                 monthlyReport.forEach(row => {
-                    const prev = cumulativeByOperator.get(row.operator) || { scans: 0, inbound: 0, outbound: 0, inventory: 0, rts: 0, daysAboveMeta: 0 };
+                    if (!row.operator) return;
+                    const opKey = row.operator.toUpperCase().trim();
+                    const prev = cumulativeByOperator.get(opKey) || { scans: 0, inbound: 0, outbound: 0, inventory: 0, rts: 0, daysAboveMeta: 0 };
                     prev.scans += row.total_scans;
                     prev.inbound += row.inbound_scans;
                     prev.outbound += row.outbound_scans;
                     prev.inventory += row.inventory_scans;
                     prev.rts += row.rts_scans;
                     if (row.total_scans >= DAILY_GOAL) prev.daysAboveMeta++;
-                    cumulativeByOperator.set(row.operator, prev);
+                    cumulativeByOperator.set(opKey, prev);
                 });
             } catch (e) {
                 console.warn('GamificationContext: Could not fetch monthly report, using today data as fallback');
@@ -297,19 +299,20 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
                 return errA - errB;
             });
 
-            for (const prod of sortedProductivity) {
-                processedOperators.add(prod.operator);
+            // Helper to process any operator's gamification based on monthly cumulative + today's scans
+            const processOperator = async (operatorName: string, todayScans: number) => {
+                const opKey = operatorName.toUpperCase().trim();
+                const metrics = operatorMetrics.get(operatorName);
+                const cumulative = cumulativeByOperator.get(opKey);
 
-                const metrics = operatorMetrics.get(prod.operator);
-                const cumulative = cumulativeByOperator.get(prod.operator);
                 // Use cumulative monthly scans when available, otherwise fall back to today's scans
-                const monthlyScans = (cumulative?.scans && cumulative.scans > 0) ? cumulative.scans : prod.total_scans;
+                const monthlyScans = (cumulative?.scans && cumulative.scans > 0) ? cumulative.scans : todayScans;
                 const monthlyErrors = metrics?.monthlyErrors || 0;
                 const monthlyUniqueDays = metrics?.monthlyUniqueDays || new Set<string>();
-                const monthlyDiasAcimaMeta = cumulative?.daysAboveMeta || (prod.total_scans >= DAILY_GOAL ? 1 : 0);
+                const monthlyDiasAcimaMeta = cumulative?.daysAboveMeta || (todayScans >= DAILY_GOAL ? 1 : 0);
 
                 // Consecutive days above goal (simplified for today-only data)
-                const consecutive = prod.total_scans >= DAILY_GOAL ? 1 : 0;
+                const consecutive = todayScans >= DAILY_GOAL ? 1 : 0;
 
                 // Zero error days
                 const errorDayCount = metrics ? Object.keys(metrics.dailyErrors).length : 0;
@@ -319,11 +322,11 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
                 const activeDays = Math.max(1, monthlyUniqueDays.size);
                 const monthlyMetaPercent = Math.round((monthlyScans / (DAILY_GOAL * activeDays)) * 100);
 
-                const profile = await gamificationService.recalculate(
-                    prod.operator,     // userId
-                    prod.operator,     // userName
+                return await gamificationService.recalculate(
+                    operatorName,     // userId
+                    operatorName,     // userName
                     currentUser.company_id,
-                    prod.total_scans,  // periodScans (today — for daily ranking)
+                    todayScans,       // periodScans (today — for daily ranking)
                     monthlyMetaPercent, // metaPercent (cumulative)
                     monthlyDiasAcimaMeta,
                     monthlyErrors,
@@ -344,20 +347,18 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
                         incidentsLogged: metrics?.monthlyIncidentsCount || 0,
                         reversaPallets: metrics?.monthlyReversaPallets.size || 0
                     },
-                    prod.operator !== currentUser.name // skipSave for others
+                    operatorName !== currentUser.name // skipSave for others
                 );
+            };
 
-                profiles.push(profile);
+            for (const prod of sortedProductivity) {
+                processedOperators.add(prod.operator.toUpperCase().trim());
+                profiles.push(await processOperator(prod.operator, prod.total_scans));
             }
 
-            // Ensure current user appears even with 0 scans
-            if (currentUser && !processedOperators.has(currentUser.name)) {
-                const profile = await gamificationService.recalculate(
-                    currentUser.id, currentUser.name, currentUser.company_id,
-                    0, 0, 0, 0, 0, false, false, 0, 0, 0,
-                    currentUser, undefined, true
-                );
-                profiles.push(profile);
+            // Ensure current user appears even with 0 scans today, computing their profile from cumulative history
+            if (currentUser && !processedOperators.has(currentUser.name.toUpperCase().trim())) {
+                profiles.push(await processOperator(currentUser.name, 0));
             }
 
             // Sort by SPR for final ranking
