@@ -195,7 +195,7 @@ export const KpiProvider: React.FC<KpiProviderProps> = ({ children, currentUser 
             for (let i = 0; i <= 6; i++) {
                 const d = new Date(spTime.getTime());
                 d.setDate(spTime.getDate() - i);
-                daysToFetch.push(getSaoPauloDate(d));
+                daysToFetch.push(getSaoPauloDateString(d));
             }
 
             await Promise.all(daysToFetch.map(async (dayKey) => {
@@ -253,7 +253,7 @@ export const KpiProvider: React.FC<KpiProviderProps> = ({ children, currentUser 
     const statsSummary: StatsSummary = useMemo(() => {
         const dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
         const baseDate = getTodayDate();
-        const todayKey = getSaoPauloDate(baseDate);
+        const todayKey = getSaoPauloDateString(baseDate);
 
         // ── 1. Build 7-day skeleton strictly in SP Timezone ──
         const last7Days: WeeklyStatDay[] = [];
@@ -262,7 +262,7 @@ export const KpiProvider: React.FC<KpiProviderProps> = ({ children, currentUser 
         for (let i = 6; i >= 0; i--) {
             const d = new Date(spTime.getTime());
             d.setDate(spTime.getDate() - i);
-            const raw = getSaoPauloDate(d);
+            const raw = getSaoPauloDateString(d);
             
             // To get the exact SP day of week safely, parse the raw YYYY-MM-DD back
             const [y, m, day] = raw.split('-');

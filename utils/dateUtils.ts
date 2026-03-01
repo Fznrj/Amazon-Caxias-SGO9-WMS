@@ -42,11 +42,12 @@ export const getSaoPauloDate = (date: Date = getTodayDate()): string => {
  * Convenience alias for getting a strict YYYY-MM-DD string in SP timezone
  * Accepts either a Date object or a string to parse.
  */
-export const getSaoPauloDateString = (dateVal: Date | string): string => {
+export const getSaoPauloDateString = (dateVal: Date | string | null | undefined): string => {
     try {
         if (!dateVal) return '';
-        const d = typeof dateVal === 'string' ? parseToDate(dateVal) : dateVal;
-        return getSaoPauloDate(d);
+        const d = new Date(dateVal);
+        d.setHours(d.getHours() - 3); // Força o recuo para o dia civil de Brasília
+        return d.toISOString().split('T')[0];
     } catch (e) {
         return '';
     }
