@@ -179,13 +179,43 @@ export class GamificationService {
         return this.profiles.get(userName)!;
     }
 
-    calculateSPR(totalScans: number, metaPercent: number, diasAcimaMeta: number, erros: number): number {
-        const raw = (totalScans * 0.5) + (metaPercent * 5) + (diasAcimaMeta * 20) - (erros * 30);
+    calculateSPR(totalScans: number, metaPercent: number, diasAcimaMeta: number, erros: number, timestamps: number[] = []): number {
+        const baseBonus = (metaPercent * 5) + (diasAcimaMeta * 20) - (erros * 30);
+        let projectedScansPerHour = totalScans * 0.5; // fallback
+
+        if (timestamps && timestamps.length > 0) {
+            const sorted = [...timestamps].sort((a, b) => a - b);
+
+            if (sorted.length === 1) {
+                // "1 bipe isolado deve calcular a projeção de SPR baseada no tempo"
+                // For a single scan, project a reasonable baseline velocity (e.g., 1 scan per 30s = 120 SPH)
+                projectedScansPerHour = 120;
+            } else {
+                let totalDiff = 0;
+                let diffCount = 0;
+                for (let i = 1; i < sorted.length; i++) {
+                    const diff = (sorted[i] - sorted[i - 1]) / 1000; // secs
+                    if (diff > 0 && diff < 1800) { // max 30 mins gap
+                        totalDiff += diff;
+                        diffCount++;
+                    }
+                }
+                if (diffCount > 0) {
+                    const avgSecs = totalDiff / diffCount;
+                    projectedScansPerHour = 3600 / Math.max(avgSecs, 1);
+                }
+            }
+        }
+
+        const raw = projectedScansPerHour + baseBonus;
         return Math.max(0, Math.round(raw));
     }
 
-    calculateXP(spr: number): number {
-        return Math.round(spr * 1.2);
+    calculateXP(spr: number, totalScans: number): number {
+        // Flat rate + velocity bonus
+        const baseXP = totalScans * 2;
+        const speedBonus = Math.round(spr * 0.5);
+        return baseXP + speedBonus;
     }
 
     getLevel(xp: number): GamificationLevel {
@@ -223,8 +253,8 @@ export class GamificationService {
     ): Promise<GamificationProfile> {
         const profile = this.ensureProfile(userId, userName);
 
-        const spr = this.calculateSPR(monthlyTotalScans, metaPercent, diasAcimaMeta, erros);
-        const xp = this.calculateXP(spr);
+        const spr = this.calculateSPR(monthlyTotalScans, metaPercent, diasAcimaMeta, erros, extraMetrics?.todayTimestamps);
+        const xp = this.calculateXP(spr, monthlyTotalScans);
 
         profile.sprMonthly = spr;
         profile.xpMonthly = xp;
