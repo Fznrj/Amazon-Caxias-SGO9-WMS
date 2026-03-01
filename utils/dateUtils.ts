@@ -39,6 +39,20 @@ export const getSaoPauloDate = (date: Date = getTodayDate()): string => {
 };
 
 /**
+ * Convenience alias for getting a strict YYYY-MM-DD string in SP timezone
+ * Accepts either a Date object or a string to parse.
+ */
+export const getSaoPauloDateString = (dateVal: Date | string): string => {
+    try {
+        if (!dateVal) return '';
+        const d = typeof dateVal === 'string' ? parseToDate(dateVal) : dateVal;
+        return getSaoPauloDate(d);
+    } catch (e) {
+        return '';
+    }
+};
+
+/**
  * Robustly parses a date string that might be in ISO format or a localized pt-BR string.
  */
 export const parseToDate = (dateStr: string): Date => {
