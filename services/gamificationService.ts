@@ -163,7 +163,7 @@ export class GamificationService {
                 userName,
                 xpMonthly: 0,
                 xpTotal: 0,
-                currentLevel: 'Ferro',
+                currentLevel: 'Ferro I',
                 sprMonthly: 0,
                 badges: DEFAULT_ACHIEVEMENTS.map(a => ({ ...a })),
                 fraudFlag: false,
@@ -264,7 +264,7 @@ export class GamificationService {
 
         let level = this.getLevel(xp);
         if (level.name === 'Desafiante' && !isTop1) {
-            level = LEVELS[8]; // Grão-Mestre
+            level = LEVELS.find(l => l.name === 'Grão-Mestre III') || LEVELS[LEVELS.length - 2];
         }
         profile.currentLevel = level.name;
 
