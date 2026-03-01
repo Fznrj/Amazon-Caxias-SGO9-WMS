@@ -254,9 +254,9 @@ export const WmsDataProvider: React.FC<WmsDataProviderProps> = ({ children, curr
             // ── Inbound (Today — already date-filtered by fetchAppData) ──
             if (tie) console.error('WmsDataContext: Inbound error:', tie);
             else if (allInbound) {
-                setInboundItems(allInbound.map((i: any) => ({
-                    id: i.id, status: i.status || 'Sucesso', operator: i.operator,
-                    time: i.time, error: i.error || false, createdAt: i.created_at
+                setInboundItems(allInbound.filter((i: any) => isSameDay(i.created_at || i.time)).map((i: any) => ({
+                    id: i.tbr_id || i.id, status: i.status || 'Sucesso', operator: i.operator,
+                    time: formatToLocalTime(i.created_at || i.time), error: i.error || false, createdAt: i.created_at
                 })));
             }
 
@@ -264,15 +264,15 @@ export const WmsDataProvider: React.FC<WmsDataProviderProps> = ({ children, curr
             if (toeError) console.error('WmsDataContext: Outbound error:', toeError);
             else {
                 // Normal outbound items
-                const normalItems = (toeNormal as any[] || []).map((i: any) => ({
-                    id: i.id, driverName: i.driver_name, vehicle: i.vehicle,
-                    time: i.time, operator: i.operator, status: i.status,
+                const normalItems = (toeNormal as any[] || []).filter((i: any) => isSameDay(i.created_at || i.time)).map((i: any) => ({
+                    id: i.tbr_id || i.id, driverName: i.driver_name, vehicle: i.vehicle,
+                    time: formatToLocalTime(i.created_at || i.time), operator: i.operator, status: i.status,
                     palletId: i.pallet_id, createdAt: i.created_at
                 }));
                 // Reversa outbound items
-                const reversaItems = (toeReversa as any[] || []).map((i: any) => ({
-                    id: i.id, driverName: i.driver_name, vehicle: i.vehicle,
-                    time: i.time, operator: i.operator, status: i.status,
+                const reversaItems = (toeReversa as any[] || []).filter((i: any) => isSameDay(i.created_at || i.time)).map((i: any) => ({
+                    id: i.tbr_id || i.id, driverName: i.driver_name, vehicle: i.vehicle,
+                    time: formatToLocalTime(i.created_at || i.time), operator: i.operator, status: i.status,
                     palletId: i.pallet_id, createdAt: i.created_at
                 }));
                 setOutboundItems([...normalItems, ...reversaItems]);
