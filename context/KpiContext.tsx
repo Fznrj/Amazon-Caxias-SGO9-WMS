@@ -382,7 +382,7 @@ export const KpiProvider: React.FC<KpiProviderProps> = ({ children, currentUser 
     // ═══════════════════════════════════════════════════════
 
     const fetchProductivityReport = useCallback(async (startDate: string, endDate: string): Promise<OperatorProductivity[]> => {
-        if (!currentUser) return [];
+        if (!currentUser || !startDate || !endDate) return [];
 
         try {
             // Build ISO range for Supabase queries (São Paulo timezone)

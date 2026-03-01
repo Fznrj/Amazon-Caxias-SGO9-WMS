@@ -299,11 +299,13 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
             const processedOperators = new Set<string>();
 
             // Sorted by today's total_scans descending (for daily ranking), errors ascending (tiebreaker)
-            const todayReports = currentMonthlyReport.filter(r => r.scan_date === todayKey);
+            const todayReports = (currentMonthlyReport || []).filter(r => r?.scan_date === todayKey);
             const sortedProductivity = [...todayReports].sort((a, b) => {
-                if (b.total_scans !== a.total_scans) return b.total_scans - a.total_scans;
-                const errA = operatorMetrics.get(a.operator)?.errors || 0;
-                const errB = operatorMetrics.get(b.operator)?.errors || 0;
+                const totalA = a?.total_scans || 0;
+                const totalB = b?.total_scans || 0;
+                if (totalB !== totalA) return totalB - totalA;
+                const errA = operatorMetrics.get(a?.operator)?.errors || 0;
+                const errB = operatorMetrics.get(b?.operator)?.errors || 0;
                 return errA - errB;
             });
 
@@ -435,16 +437,16 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
 
     const ranking: RankingEntry[] = useMemo(() => {
         const todayKey = getSaoPauloDate();
-        return allProfiles.map((profile, idx) => {
-            const prod = monthlyReports.find(p => p.operator === profile.userName && p.scan_date === todayKey);
-            const metrics = operatorMetrics.get(profile.userName);
+        return (allProfiles || []).map((profile, idx) => {
+            const prod = (monthlyReports || []).find(p => p?.operator === profile?.userName && p?.scan_date === todayKey);
+            const metrics = operatorMetrics.get(profile?.userName);
 
             // GamificationService doesn't native store monthly scans on the profile,
             // but we can estimate it closely using XP, or better: we injected it via processOperator
-            const monthlyScans = (profile as any)._monthlyScans || prod?.total_scans || 0;
+            const monthlyScans = (profile as any)?._monthlyScans || prod?.total_scans || 0;
 
             return {
-                operator: profile.userName,
+                operator: profile?.userName || 'Desconhecido',
                 position: idx + 1,
                 totalScans: monthlyScans,
                 todayScans: prod?.total_scans || 0,
