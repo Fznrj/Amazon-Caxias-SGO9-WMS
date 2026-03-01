@@ -449,6 +449,7 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
 
     const ranking: RankingEntry[] = useMemo(() => {
         const todayKey = getSaoPauloDateString(new Date());
+        const isFirstDay = todayKey.endsWith('-01');
         return (allProfiles || []).map((profile, idx) => {
             const prod = operatorProductivity.find(p => p?.operator === profile?.userName);
             const metrics = operatorMetrics.get(profile?.userName);
@@ -460,13 +461,13 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
             return {
                 operator: profile?.userName || 'Desconhecido',
                 position: idx + 1,
-                totalScans: monthlyScans,
-                todayScans: prod?.total_scans || 0,
-                inboundScans: prod?.inbound_scans || 0,
-                outboundScans: prod?.outbound_scans || 0,
-                inventoryScans: prod?.inventory_scans || 0,
-                rtsScans: prod?.rts_scans || 0,
-                errors: metrics?.dailyErrors[todayKey] || 0,
+                totalScans: isFirstDay ? 0 : monthlyScans,
+                todayScans: isFirstDay ? 0 : (prod?.total_scans || 0),
+                inboundScans: isFirstDay ? 0 : (prod?.inbound_scans || 0),
+                outboundScans: isFirstDay ? 0 : (prod?.outbound_scans || 0),
+                inventoryScans: isFirstDay ? 0 : (prod?.inventory_scans || 0),
+                rtsScans: isFirstDay ? 0 : (prod?.rts_scans || 0),
+                errors: isFirstDay ? 0 : (metrics?.dailyErrors[todayKey] || 0),
                 profile
             };
         });

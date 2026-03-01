@@ -1,5 +1,4 @@
 import React from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useKpi } from '../context/KpiContext';
 import { useWmsData } from '../context/WmsDataContext';
 import { useWms } from '../context/WmsContext';
@@ -168,30 +167,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           ))}
         </div>
 
-        <div className="bg-white dark:bg-card-dark p-4 md:p-6 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm mt-4">
-          <h3 className="font-display text-sm md:text-lg tracking-widest uppercase mb-4 md:mb-6">Volume Semanal</h3>
-          <div className="h-[200px] md:h-[250px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              {weeklyStats && weeklyStats.length > 0 ? (
-                <BarChart data={weeklyStats}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#374151" opacity={0.1} />
-                  <XAxis dataKey="name" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} />
-                  <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => Math.round(val).toString()} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '12px' }}
-                    itemStyle={{ color: '#087f8c' }}
-                    formatter={(value: any, name: string) => [value, name]}
-                  />
-                  <Bar dataKey="entradas" name="Entr." fill="#087f8c" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="saidas" name="Saíd." fill="#f3a847" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              ) : (
-                <div className="h-full flex items-center justify-center text-slate-400 text-xs italic">
-                  Carregando dados estatísticos...
-                </div>
-              )}
-            </ResponsiveContainer>
-          </div>
         </div>
       </div>
     </PullToRefresh>
