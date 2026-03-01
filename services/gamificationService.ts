@@ -59,43 +59,43 @@ export const DAILY_GOAL = 350;
 
 export const LEVELS: GamificationLevel[] = [
     // Ferro (Iron)
-    { name: 'Ferro I', minXP: 0, color: 'text-slate-400', bgColor: 'bg-slate-700', borderColor: 'border-slate-500', icon: 'diamond' },
-    { name: 'Ferro II', minXP: 300, color: 'text-slate-400', bgColor: 'bg-slate-700', borderColor: 'border-slate-500', icon: 'diamond' },
-    { name: 'Ferro III', minXP: 600, color: 'text-slate-400', bgColor: 'bg-slate-700', borderColor: 'border-slate-500', icon: 'diamond' },
+    { name: 'Ferro III', minXP: 0, color: 'text-slate-400', bgColor: 'bg-slate-700', borderColor: 'border-slate-500', icon: 'diamond' },
+    { name: 'Ferro II', minXP: 1000, color: 'text-slate-400', bgColor: 'bg-slate-700', borderColor: 'border-slate-500', icon: 'diamond' },
+    { name: 'Ferro I', minXP: 2500, color: 'text-slate-400', bgColor: 'bg-slate-700', borderColor: 'border-slate-500', icon: 'diamond' },
     // Bronze
-    { name: 'Bronze I', minXP: 1000, color: 'text-amber-700', bgColor: 'bg-amber-900/30', borderColor: 'border-amber-700', icon: 'workspace_premium' },
-    { name: 'Bronze II', minXP: 1400, color: 'text-amber-700', bgColor: 'bg-amber-900/30', borderColor: 'border-amber-700', icon: 'workspace_premium' },
-    { name: 'Bronze III', minXP: 1800, color: 'text-amber-700', bgColor: 'bg-amber-900/30', borderColor: 'border-amber-700', icon: 'workspace_premium' },
+    { name: 'Bronze III', minXP: 4500, color: 'text-amber-700', bgColor: 'bg-amber-900/30', borderColor: 'border-amber-700', icon: 'workspace_premium' },
+    { name: 'Bronze II', minXP: 7000, color: 'text-amber-700', bgColor: 'bg-amber-900/30', borderColor: 'border-amber-700', icon: 'workspace_premium' },
+    { name: 'Bronze I', minXP: 10000, color: 'text-amber-700', bgColor: 'bg-amber-900/30', borderColor: 'border-amber-700', icon: 'workspace_premium' },
     // Prata (Silver)
-    { name: 'Prata I', minXP: 2400, color: 'text-slate-300', bgColor: 'bg-slate-400/20', borderColor: 'border-slate-300', icon: 'workspace_premium' },
-    { name: 'Prata II', minXP: 3000, color: 'text-slate-300', bgColor: 'bg-slate-400/20', borderColor: 'border-slate-300', icon: 'workspace_premium' },
-    { name: 'Prata III', minXP: 3600, color: 'text-slate-300', bgColor: 'bg-slate-400/20', borderColor: 'border-slate-300', icon: 'workspace_premium' },
+    { name: 'Prata III', minXP: 14000, color: 'text-slate-300', bgColor: 'bg-slate-400/20', borderColor: 'border-slate-300', icon: 'workspace_premium' },
+    { name: 'Prata II', minXP: 18000, color: 'text-slate-300', bgColor: 'bg-slate-400/20', borderColor: 'border-slate-300', icon: 'workspace_premium' },
+    { name: 'Prata I', minXP: 23000, color: 'text-slate-300', bgColor: 'bg-slate-400/20', borderColor: 'border-slate-300', icon: 'workspace_premium' },
     // Ouro (Gold)
-    { name: 'Ouro I', minXP: 4400, color: 'text-yellow-400', bgColor: 'bg-yellow-500/20', borderColor: 'border-yellow-400', icon: 'workspace_premium' },
-    { name: 'Ouro II', minXP: 5200, color: 'text-yellow-400', bgColor: 'bg-yellow-500/20', borderColor: 'border-yellow-400', icon: 'workspace_premium' },
-    { name: 'Ouro III', minXP: 6000, color: 'text-yellow-400', bgColor: 'bg-yellow-500/20', borderColor: 'border-yellow-400', icon: 'workspace_premium' },
+    { name: 'Ouro III', minXP: 29000, color: 'text-yellow-400', bgColor: 'bg-yellow-500/20', borderColor: 'border-yellow-400', icon: 'workspace_premium' },
+    { name: 'Ouro II', minXP: 35000, color: 'text-yellow-400', bgColor: 'bg-yellow-500/20', borderColor: 'border-yellow-400', icon: 'workspace_premium' },
+    { name: 'Ouro I', minXP: 42000, color: 'text-yellow-400', bgColor: 'bg-yellow-500/20', borderColor: 'border-yellow-400', icon: 'workspace_premium' },
     // Platina (Platinum)
-    { name: 'Platina I', minXP: 7000, color: 'text-cyan-400', bgColor: 'bg-cyan-500/20', borderColor: 'border-cyan-400', icon: 'auto_awesome' },
-    { name: 'Platina II', minXP: 8200, color: 'text-cyan-400', bgColor: 'bg-cyan-500/20', borderColor: 'border-cyan-400', icon: 'auto_awesome' },
-    { name: 'Platina III', minXP: 9500, color: 'text-cyan-400', bgColor: 'bg-cyan-500/20', borderColor: 'border-cyan-400', icon: 'auto_awesome' },
+    { name: 'Platina III', minXP: 50000, color: 'text-cyan-400', bgColor: 'bg-cyan-500/20', borderColor: 'border-cyan-400', icon: 'auto_awesome' },
+    { name: 'Platina II', minXP: 58000, color: 'text-cyan-400', bgColor: 'bg-cyan-500/20', borderColor: 'border-cyan-400', icon: 'auto_awesome' },
+    { name: 'Platina I', minXP: 67000, color: 'text-cyan-400', bgColor: 'bg-cyan-500/20', borderColor: 'border-cyan-400', icon: 'auto_awesome' },
     // Esmeralda (Emerald)
-    { name: 'Esmeralda I', minXP: 11000, color: 'text-emerald-400', bgColor: 'bg-emerald-500/20', borderColor: 'border-emerald-400', icon: 'verified' },
-    { name: 'Esmeralda II', minXP: 12500, color: 'text-emerald-400', bgColor: 'bg-emerald-500/20', borderColor: 'border-emerald-400', icon: 'verified' },
-    { name: 'Esmeralda III', minXP: 14000, color: 'text-emerald-400', bgColor: 'bg-emerald-500/20', borderColor: 'border-emerald-400', icon: 'verified' },
+    { name: 'Esmeralda III', minXP: 77000, color: 'text-emerald-400', bgColor: 'bg-emerald-500/20', borderColor: 'border-emerald-400', icon: 'verified' },
+    { name: 'Esmeralda II', minXP: 87000, color: 'text-emerald-400', bgColor: 'bg-emerald-500/20', borderColor: 'border-emerald-400', icon: 'verified' },
+    { name: 'Esmeralda I', minXP: 98000, color: 'text-emerald-400', bgColor: 'bg-emerald-500/20', borderColor: 'border-emerald-400', icon: 'verified' },
     // Diamante (Diamond)
-    { name: 'Diamante I', minXP: 16000, color: 'text-blue-400', bgColor: 'bg-blue-500/20', borderColor: 'border-blue-400', icon: 'diamond' },
-    { name: 'Diamante II', minXP: 18500, color: 'text-blue-400', bgColor: 'bg-blue-500/20', borderColor: 'border-blue-400', icon: 'diamond' },
-    { name: 'Diamante III', minXP: 21000, color: 'text-blue-400', bgColor: 'bg-blue-500/20', borderColor: 'border-blue-400', icon: 'diamond' },
+    { name: 'Diamante III', minXP: 110000, color: 'text-blue-400', bgColor: 'bg-blue-500/20', borderColor: 'border-blue-400', icon: 'diamond' },
+    { name: 'Diamante II', minXP: 115000, color: 'text-blue-400', bgColor: 'bg-blue-500/20', borderColor: 'border-blue-400', icon: 'diamond' },
+    { name: 'Diamante I', minXP: 120000, color: 'text-blue-400', bgColor: 'bg-blue-500/20', borderColor: 'border-blue-400', icon: 'diamond' },
     // Mestre (Master)
-    { name: 'Mestre I', minXP: 24000, color: 'text-purple-400', bgColor: 'bg-purple-500/20', borderColor: 'border-purple-400', icon: 'stars' },
-    { name: 'Mestre II', minXP: 27000, color: 'text-purple-400', bgColor: 'bg-purple-500/20', borderColor: 'border-purple-400', icon: 'stars' },
-    { name: 'Mestre III', minXP: 30000, color: 'text-purple-400', bgColor: 'bg-purple-500/20', borderColor: 'border-purple-400', icon: 'stars' },
+    { name: 'Mestre III', minXP: 125000, color: 'text-purple-400', bgColor: 'bg-purple-500/20', borderColor: 'border-purple-400', icon: 'stars' },
+    { name: 'Mestre II', minXP: 130000, color: 'text-purple-400', bgColor: 'bg-purple-500/20', borderColor: 'border-purple-400', icon: 'stars' },
+    { name: 'Mestre I', minXP: 135000, color: 'text-purple-400', bgColor: 'bg-purple-500/20', borderColor: 'border-purple-400', icon: 'stars' },
     // Grão-Mestre (Grandmaster)
-    { name: 'Grão-Mestre I', minXP: 34000, color: 'text-red-400', bgColor: 'bg-red-500/20', borderColor: 'border-red-400', icon: 'local_fire_department' },
-    { name: 'Grão-Mestre II', minXP: 38000, color: 'text-red-400', bgColor: 'bg-red-500/20', borderColor: 'border-red-400', icon: 'local_fire_department' },
-    { name: 'Grão-Mestre III', minXP: 42000, color: 'text-red-400', bgColor: 'bg-red-500/20', borderColor: 'border-red-400', icon: 'local_fire_department' },
+    { name: 'Grão-Mestre III', minXP: 140000, color: 'text-red-400', bgColor: 'bg-red-500/20', borderColor: 'border-red-400', icon: 'local_fire_department' },
+    { name: 'Grão-Mestre II', minXP: 143000, color: 'text-red-400', bgColor: 'bg-red-500/20', borderColor: 'border-red-400', icon: 'local_fire_department' },
+    { name: 'Grão-Mestre I', minXP: 146000, color: 'text-red-400', bgColor: 'bg-red-500/20', borderColor: 'border-red-400', icon: 'local_fire_department' },
     // Desafiante (Challenger)
-    { name: 'Desafiante', minXP: 46000, color: 'text-yellow-300', bgColor: 'bg-gradient-to-r from-black to-yellow-900/40', borderColor: 'border-yellow-400', icon: 'military_tech' },
+    { name: 'Desafiante', minXP: 150000, color: 'text-yellow-300', bgColor: 'bg-gradient-to-r from-black to-yellow-900/40', borderColor: 'border-yellow-400', icon: 'military_tech' },
 ];
 
 const DEFAULT_ACHIEVEMENTS: Achievement[] = [
@@ -191,7 +191,7 @@ export class GamificationService {
                 userName,
                 xpMonthly: 0,
                 xpTotal: 0,
-                currentLevel: 'Ferro I',
+                currentLevel: 'Ferro III',
                 sprMonthly: 0,
                 badges: DEFAULT_ACHIEVEMENTS.map(a => ({ ...a })),
                 fraudFlag: false,
@@ -292,7 +292,7 @@ export class GamificationService {
 
         let level = this.getLevel(xp);
         if (level.name === 'Desafiante' && !isTop1) {
-            level = LEVELS.find(l => l.name === 'Grão-Mestre III') || LEVELS[LEVELS.length - 2];
+            level = LEVELS.find(l => l.name === 'Grão-Mestre I') || LEVELS[LEVELS.length - 2];
         }
         profile.currentLevel = level.name;
 
