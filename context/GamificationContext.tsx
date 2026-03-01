@@ -530,7 +530,7 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
             }
         }
         return result;
-    }, [currentUser, operatorMetrics, operatorProductivity, ranking]);
+    }, [currentUser, operatorMetrics, ranking]);
 
     // ═══════════════════════════════════════════════════════
     // PROVIDER VALUE
