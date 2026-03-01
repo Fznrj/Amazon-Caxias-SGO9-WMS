@@ -234,9 +234,9 @@ const RtsView: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
-                                {filteredExpeditions.filter(e => ((e.total_packages || 0) - ((e.delivered_count || 0) + (e.returned_count || 0))) > 0).length === 0 ? (
-                                    <tr><td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">Nenhuma pendência encontrada</td></tr>
-                                ) : filteredExpeditions.filter(e => ((e.total_packages || 0) - ((e.delivered_count || 0) + (e.returned_count || 0))) > 0).map((e) => {
+                                {filteredExpeditions.length === 0 ? (
+                                    <tr><td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">Nenhuma expedição encontrada</td></tr>
+                                ) : filteredExpeditions.map((e) => {
                                     const pending = (e.total_packages || 0) - ((e.delivered_count || 0) + (e.returned_count || 0));
                                     return (
                                         <tr key={e.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/30 transition-colors">
