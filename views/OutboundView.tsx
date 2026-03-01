@@ -28,15 +28,20 @@ const OutboundView: React.FC = () => {
     const loadDriverCount = async () => {
       if (selectedDriverId) {
         setIsLoadingDriverCount(true);
-        const count = await fetchDriverTodayCount(selectedDriverId);
-        setSessionDriverCount(count);
+        const driver = drivers.find(d => d.id === selectedDriverId);
+        if (driver) {
+          const count = await fetchDriverTodayCount(driver.name);
+          setSessionDriverCount(count);
+        } else {
+          setSessionDriverCount(0);
+        }
         setIsLoadingDriverCount(false);
       } else {
         setSessionDriverCount(0);
       }
     };
     loadDriverCount();
-  }, [selectedDriverId, fetchDriverTodayCount]);
+  }, [selectedDriverId, fetchDriverTodayCount, drivers]);
 
   const processOutbound = async () => {
     if (!tbrInput.trim()) return;
@@ -214,7 +219,7 @@ const OutboundView: React.FC = () => {
           <div className="bg-white dark:bg-card-dark rounded-xl border-2 border-primary/20 p-6 shadow-xl sticky top-8">
             <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary mb-6 flex items-center gap-2">
               <span className="material-icons-round text-sm">assignment_ind</span>
-              Resumo da Sessão
+              Resumo do Dia do Motorista
             </h3>
 
             {selectedDriver ? (
