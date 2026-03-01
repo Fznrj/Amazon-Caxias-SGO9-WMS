@@ -356,9 +356,15 @@ export const KpiProvider: React.FC<KpiProviderProps> = ({ children, currentUser 
         if (!currentUser || !startDate || !endDate) return [];
 
         try {
-            // Build ISO range for Supabase queries (São Paulo timezone)
-            const startIso = `${startDate}T00:00:00-03:00`;
-            const endIso = `${endDate}T23:59:59-03:00`;
+            // Build ISO range explicitly shifting 3 hours forward to get strict UTC
+            // Ex: 2026-03-01 in BRT starts at 2026-03-01T03:00:00.000Z
+            const startIso = `${startDate}T03:00:00.000Z`;
+
+            // For endDate, we advance 1 day to build 2026-03-02T02:59:59.999Z
+            const endObj = new Date(`${endDate}T00:00:00Z`);
+            endObj.setUTCDate(endObj.getUTCDate() + 1);
+            const nextDayStr = endObj.toISOString().split('T')[0];
+            const endIso = `${nextDayStr}T02:59:59.999Z`;
 
             // Parallel queries to all 4 log tables
             const [inbRes, outRes, invRes, rtsRes] = await Promise.all([
