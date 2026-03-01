@@ -265,30 +265,24 @@ export const ApiService = {
             const results = await Promise.all([
                 ApiService.applyScope(supabase.from('drivers').select('*'), user),
                 ApiService.applyScope(supabase.from('system_configs').select('*'), user).single(),
-                ApiService.applyScope(supabase.from('inventory').select('*').gte('time', todayStr + 'T00:00:00-03:00').lte('time', todayStr + 'T23:59:59-03:00'), user),
-                ApiService.applyScope(supabase.from('rts_items').select('*').gte('created_at', todayStr + 'T00:00:00-03:00').lte('created_at', todayStr + 'T23:59:59-03:00'), user),
+                ApiService.applyScope(supabase.from('v_today_inventory').select('*'), user),
+                ApiService.applyScope(supabase.from('v_today_rts_items').select('*'), user),
                 ApiService.applyScope(supabase.from('expeditions').select('*').order('dispatch_date', { ascending: false }), user),
                 ApiService.applyScope(supabase.from('v_dashboard_stats').select('*').single(), user),
                 ApiService.applyScope(supabase.from('v_weekly_stats').select('*'), user),
                 ApiService.applyScope(
-                    supabase.from('inbound_log').select('*')
-                        .gte('created_at', todayStr + 'T00:00:00-03:00')
-                        .lte('created_at', todayStr + 'T23:59:59-03:00')
+                    supabase.from('v_today_inbound_log').select('*')
                         .order('created_at', { ascending: false }).limit(500),
                     user
                 ),
                 ApiService.applyScope(
-                    supabase.from('outbound_log').select('*')
-                        .gte('created_at', todayStr + 'T00:00:00-03:00')
-                        .lte('created_at', todayStr + 'T23:59:59-03:00')
+                    supabase.from('v_today_outbound_log').select('*')
                         .not('status', 'ilike', '%reversa%')
                         .limit(500),
                     user
                 ),
                 ApiService.applyScope(
-                    supabase.from('outbound_log').select('*')
-                        .gte('created_at', todayStr + 'T00:00:00-03:00')
-                        .lte('created_at', todayStr + 'T23:59:59-03:00')
+                    supabase.from('v_today_outbound_log').select('*')
                         .ilike('status', '%reversa%')
                         .limit(500),
                     user
@@ -296,11 +290,9 @@ export const ApiService = {
                 ApiService.applyScope(supabase.from('stock_items').select('*'), user),
                 // incidents are historically mixed, keep a reasonable limit or apply today if required, but user prefers them to stay if +1 day:
                 ApiService.applyScope(supabase.from('incidents').select('*').order('created_at', { ascending: false }).limit(150), user),
-                ApiService.applyScope(supabase.from('v_operator_productivity').select('*').eq('scan_date', todayStr), user),
+                ApiService.applyScope(supabase.from('v_today_operator_productivity').select('*'), user),
                 ApiService.applyScope(
-                    supabase.from('rts_log').select('*')
-                        .gte('time', todayStr + 'T00:00:00-03:00')
-                        .lte('time', todayStr + 'T23:59:59-03:00'),
+                    supabase.from('v_today_rts_log').select('*'),
                     user
                 )
             ]);
@@ -342,11 +334,9 @@ export const ApiService = {
     },
 
     fetchDriverTodayCount: async (driverId: string, user: User): Promise<ApiResult<number>> => {
-        const todayStr = getSaoPauloDate();
-        const query = supabase.from('outbound_log')
+        const query = supabase.from('v_today_outbound_log')
             .select('id', { count: 'exact', head: true })
-            .eq('driver_id', driverId)
-            .gte('created_at', todayStr + 'T00:00:00-03:00');
+            .eq('driver_id', driverId);
 
         const { count, error } = await ApiService.applyScope(query, user);
         if (error) return { success: false, error: error.message };
