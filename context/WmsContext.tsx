@@ -603,7 +603,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             // Item 'Em Estoque' cuja última movimentação foi antes de threshold72h
             const toPossibleLoss = stockItems.filter(item => {
                 if (item.status?.toLowerCase() !== 'em estoque') return false;
-                const dateStr = item.entryTime || item.time || (item as any).created_at;
+                const dateStr = item.entryTime || (item as any).time || (item as any).created_at;
                 if (!dateStr) return false;
                 return new Date(dateStr) < threshold72h;
             });

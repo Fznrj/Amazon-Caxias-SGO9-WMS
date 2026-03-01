@@ -23,7 +23,7 @@ import {
 } from '../types';
 import { supabase } from '../services/supabase';
 import { ApiService } from '../services/apiService';
-import { getSaoPauloDate, getSaoPauloIso } from '../utils/dateUtils';
+import { getSaoPauloDate, getSaoPauloIso, formatToLocalTime } from '../utils/dateUtils';
 
 // ─────────────────────────────────────────────────────────────
 // Types
