@@ -14,6 +14,7 @@ const InboundView: React.FC = () => {
 
   const { currentUser } = useAuth();
   const { inboundItems, stockItems } = useWmsData();
+  const BR_TODAY = getSaoPauloDateString(new Date());
   const {
     addInboundItem, playAudio, expectedInboundList, setExpectedInboundList,
     clearInboundManifest, todayInboundList, inboundReconciliation, refreshData
@@ -204,12 +205,7 @@ const InboundView: React.FC = () => {
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500">
               Histórico de Scans <span className="ml-2 bg-slate-100 dark:bg-slate-900 px-2 py-0.5 rounded text-primary">
-                {inboundItems.filter(item => {
-                  const itemDate = new Date(item.time || (item as any).created_at);
-                  const isToday = isSameDay(item.time || (item as any).created_at);
-                  const isRecent = (Date.now() - itemDate.getTime()) < 12 * 60 * 60 * 1000;
-                  return isToday || isRecent;
-                }).length}
+                {inboundItems.filter(item => getSaoPauloDateString(item.time || (item as any).created_at) === BR_TODAY).length}
               </span>
             </h3>
           </div>
@@ -223,20 +219,10 @@ const InboundView: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
-                {inboundItems.filter(item => {
-                  const itemDate = new Date(item.time || (item as any).created_at);
-                  const isToday = isSameDay(item.time || (item as any).created_at);
-                  const isRecent = (Date.now() - itemDate.getTime()) < 12 * 60 * 60 * 1000;
-                  return isToday || isRecent;
-                }).length === 0 ? (
+                {inboundItems.filter(item => getSaoPauloDateString(item.time || (item as any).created_at) === BR_TODAY).length === 0 ? (
                   <tr><td colSpan={3} className="px-6 py-8 text-center text-xs text-slate-400">Nenhum bipe recente encontrado.</td></tr>
                 ) : (
-                  inboundItems.filter(item => {
-                    const itemDate = new Date(item.time || (item as any).created_at);
-                    const isToday = isSameDay(item.time || (item as any).created_at);
-                    const isRecent = (Date.now() - itemDate.getTime()) < 12 * 60 * 60 * 1000;
-                    return isToday || isRecent;
-                  }).map((scan, i) => (
+                  inboundItems.filter(item => getSaoPauloDateString(item.time || (item as any).created_at) === BR_TODAY).map((scan, i) => (
                     <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors">
                       <td className="px-6 py-3">
                         <div className={`flex items-center gap-2 ${scan.error ? 'text-red-500' : 'text-green-500'}`}>
