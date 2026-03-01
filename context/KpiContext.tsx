@@ -320,13 +320,12 @@ export const KpiProvider: React.FC<KpiProviderProps> = ({ children, currentUser 
         });
 
         // ── 3. Today's counts from operatorProductivity (SQL View) ──
-        const todayDate = getTodayDate();
         const totalInboundFromView = operatorProductivity.reduce((sum, op) => sum + op.inbound_scans, 0);
         const totalOutboundFromView = operatorProductivity.reduce((sum, op) => sum + op.outbound_scans, 0);
 
         // Fallback: count ONLY items whose created_at is today (São Paulo timezone)
-        const inboundTodayCount = inboundItems.filter(i => isSameDay(i.createdAt || i.time, todayDate)).length;
-        const outboundTodayCount = outboundItems.filter(i => isSameDay((i as any).createdAt || i.time, todayDate)).length;
+        const inboundTodayCount = inboundItems.filter(i => isSameDay(i.createdAt || i.time)).length;
+        const outboundTodayCount = outboundItems.filter(i => isSameDay((i as any).createdAt || i.time)).length;
 
         // Best available today count
         const dbToday = weeklyVolumeFromDb[todayKey];
