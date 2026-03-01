@@ -311,7 +311,7 @@ export const KpiProvider: React.FC<KpiProviderProps> = ({ children, currentUser 
                 return {
                     ...emptyDay,
                     entradas: dbDay.entradas || 0,
-                    saidas: dbDay.saidas || 0,
+                    saidas: (dbDay.saidas || 0) + (dbDay.rts || 0),
                     inventario: dbDay.inventario || 0,
                     rts: dbDay.rts || 0
                 };
@@ -344,7 +344,7 @@ export const KpiProvider: React.FC<KpiProviderProps> = ({ children, currentUser 
             weeklyStats[todayIdx] = {
                 ...weeklyStats[todayIdx],
                 entradas: totalInboundToday,
-                saidas: totalOutboundToday,
+                saidas: totalOutboundToday + totalReversaToday,
                 entregues: localEntreguesToday
             };
         }

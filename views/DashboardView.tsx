@@ -155,8 +155,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                     {kpi.value}
                   </div>
                   {(kpi as any).reversas > 0 && (
-                    <span className="text-[9px] font-bold text-red-500 mt-0.5">
-                      ({(kpi as any).reversas} rev)
+                    <span className="text-sm font-bold text-red-500 mt-0.5" title="REVERSA">
+                      ({(kpi as any).reversas})
                     </span>
                   )}
                 </div>
