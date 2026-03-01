@@ -307,43 +307,57 @@ const GamificationView: React.FC = () => {
                         }, {} as Record<string, typeof LEVELS>)
                     ).map(([baseName, subLevels]) => {
                         const hasReachedBase = subLevels.some(l => (myProfile?.xpMonthly || 0) >= l.minXP);
+                        const isCurrentBase = myProfile?.currentLevel.startsWith(baseName);
+                        const isFerro = baseName === 'Ferro';
+                        const baseConfig = subLevels[0];
 
                         return (
-                            <div key={baseName} className="flex flex-col gap-2 p-2 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700">
-                                <div className="flex items-center gap-1 justify-center mb-1">
-                                    <span className={`material-icons-round text-sm ${hasReachedBase ? subLevels[0].color : 'text-slate-500'}`}>
-                                        {subLevels[0].icon}
-                                    </span>
-                                    <span className={`font-bold text-xs uppercase tracking-wider ${hasReachedBase ? subLevels[0].color : 'text-slate-500'}`}>
-                                        {baseName}
-                                    </span>
-                                </div>
-                                <div className="space-y-1.5 flex-1 flex flex-col justify-end">
-                                    {subLevels.map((level, idx) => {
-                                        const isCurrentLevel = myProfile?.currentLevel === level.name;
-                                        const isReached = (myProfile?.xpMonthly || 0) >= level.minXP;
-                                        const subTier = level.name.split(' ')[1] || 'Único';
+                            <div
+                                key={baseName}
+                                className={`p-4 rounded-xl border flex flex-col items-center justify-between transition-all ${isCurrentBase
+                                    ? `${baseConfig.bgColor} ${baseConfig.borderColor} border-2 shadow-lg ring-2 ring-offset-2 ring-offset-slate-800 ring-${baseConfig.borderColor.replace('border-', '')}`
+                                    : hasReachedBase
+                                        ? `${baseConfig.bgColor} ${baseConfig.borderColor} border opacity-70`
+                                        : isFerro
+                                            ? 'bg-slate-100 dark:bg-slate-900/30 border-slate-200 dark:border-slate-700 opacity-20'
+                                            : `${baseConfig.bgColor} ${baseConfig.borderColor} border opacity-40 grayscale-[0.3]`
+                                    }`}
+                            >
+                                <span className={`material-icons-round text-3xl block mb-1 ${hasReachedBase || isCurrentBase || !isFerro ? baseConfig.color : 'text-slate-500'}`}>
+                                    {baseConfig.icon}
+                                </span>
+                                <p className={`font-bold text-sm text-center ${hasReachedBase || isCurrentBase || !isFerro ? baseConfig.color : 'text-slate-500'}`}>
+                                    {baseName}
+                                </p>
 
-                                        return (
-                                            <div
-                                                key={level.name}
-                                                className={`flex justify-between items-center p-1.5 px-2 rounded text-[10px] transition-all ${isCurrentLevel
-                                                    ? `${level.bgColor} ${level.borderColor} border shadow-inner font-bold ring-1 ring-${level.borderColor.replace('border-', '')} scale-[1.02]`
-                                                    : isReached
-                                                        ? `${level.bgColor} opacity-60`
-                                                        : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 opacity-40 grayscale-[0.5]'
-                                                    }`}
-                                            >
-                                                <span className={`${isCurrentLevel || isReached ? level.color : 'text-slate-500'} font-bold`}>
+                                {baseName !== 'Desafiante' ? (
+                                    <div className="flex items-center justify-center gap-1.5 mt-3 w-full">
+                                        {subLevels.map((level) => {
+                                            const subTier = level.name.split(' ')[1];
+                                            const isSubReached = (myProfile?.xpMonthly || 0) >= level.minXP;
+                                            const isSubCurrent = myProfile?.currentLevel === level.name;
+
+                                            return (
+                                                <div
+                                                    key={level.name}
+                                                    title={`${level.name} - ${level.minXP.toLocaleString()} XP`}
+                                                    className={`flex-1 flex justify-center items-center py-0.5 rounded text-[9px] font-bold transition-all ${isSubCurrent
+                                                        ? `${baseConfig.bgColor} ${baseConfig.borderColor} border shadow-inner ring-1 ring-${baseConfig.borderColor.replace('border-', '')} scale-110 animate-pulse ${baseConfig.color}`
+                                                        : isSubReached
+                                                            ? `${baseConfig.bgColor} ${baseConfig.color} opacity-90 border border-transparent`
+                                                            : 'bg-slate-200 dark:bg-slate-800/50 text-slate-400 opacity-40 border border-transparent'
+                                                        }`}
+                                                >
                                                     {subTier}
-                                                </span>
-                                                <span className={`${isCurrentLevel || isReached ? level.color : 'text-slate-400 font-mono'} tracking-tighter`}>
-                                                    {level.minXP >= 1000 ? `${(level.minXP / 1000).toFixed(level.minXP % 1000 === 0 ? 0 : 1)}k` : level.minXP}
-                                                </span>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                ) : (
+                                    <div className="mt-3 text-[9px] font-bold text-yellow-300 opacity-80 uppercase tracking-widest text-center w-full">
+                                        Absoluto
+                                    </div>
+                                )}
                             </div>
                         );
                     })}
