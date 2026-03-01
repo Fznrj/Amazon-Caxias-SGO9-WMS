@@ -279,7 +279,9 @@ export class GamificationService {
         if (monthlyScans >= 1000) await unlock('scans_1000');
         if (zeroErrorDays >= 30) await unlock('zero_errors_30');
         if (isTop3Weekly) await unlock('top3_weekly');
-        if (avgMetaPercent >= 110) await unlock('avg_110');
+
+        // Desativar badge "Superação" no primeiro dia do mês; só calcular se tiver histórico consolidado
+        if (avgMetaPercent >= 110 && extra?.activeDays > 1) await unlock('avg_110');
 
         if (extra) {
             if (extra.inventoryParticipations >= 12) await unlock('dr_inventario');

@@ -28,7 +28,7 @@ import {
     type GamificationProfile,
     type GamificationLevel
 } from '../services/gamificationService';
-import { getDateKey, getSaoPauloDate, getSaoPauloIso, getTodayDate } from '../utils/dateUtils';
+import { getDateKey, getSaoPauloDate, getSaoPauloIso, getTodayDate, getSaoPauloDateString } from '../utils/dateUtils';
 
 // ─────────────────────────────────────────────────────────────
 // Types
@@ -266,7 +266,7 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
         setGamificationLoading(true);
 
         try {
-            const todayKey = getSaoPauloDate();
+            const todayKey = getSaoPauloDateString(new Date());
             const monthStart = todayKey.substring(0, 8) + '01'; // YYYY-MM-01
 
             // ── Fetch CUMULATIVE monthly productivity ────────────
@@ -436,7 +436,7 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
     // ═══════════════════════════════════════════════════════
 
     const ranking: RankingEntry[] = useMemo(() => {
-        const todayKey = getSaoPauloDate();
+        const todayKey = getSaoPauloDateString(new Date());
         return (allProfiles || []).map((profile, idx) => {
             const prod = operatorProductivity.find(p => p?.operator === profile?.userName);
             const metrics = operatorMetrics.get(profile?.userName);
