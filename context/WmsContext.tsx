@@ -593,12 +593,12 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (!currentUser || stockItems.length === 0) return;
         const nowMs = Date.now();
         // Run max once per minute to avoid re-render loops on Dashboard
-        if (nowMs - lastSlaRunRef.current < 60000) return; 
+        if (nowMs - lastSlaRunRef.current < 60000) return;
         lastSlaRunRef.current = nowMs;
 
         try {
             const threshold72h = new Date(nowMs - (72 * 60 * 60 * 1000));
-            
+
             // Regra 1: Parado -> Possível Perda
             // Item 'Em Estoque' cuja última movimentação foi antes de threshold72h
             const toPossibleLoss = stockItems.filter(item => {
@@ -607,7 +607,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 if (!dateStr) return false;
                 return new Date(dateStr) < threshold72h;
             });
-            
+
             if (toPossibleLoss.length > 0) {
                 const ids = toPossibleLoss.map(i => i.id);
                 await supabase.from('stock_items')
@@ -615,15 +615,15 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     .in('id', ids)
                     .eq('company_id', currentUser.company_id);
             }
-            
+
             // Regra 2: Possível Perda -> Perda Definitiva!
             // Item 'Possível Perda' cujo registro do limite foi estourado há mais de 72h
             const toLoss = stockItems.filter(item => {
                 if (item.status?.toLowerCase() !== 'possível perda') return false;
-                if (!item.loss_detected_time) return false;
-                return new Date(item.loss_detected_time) < threshold72h;
+                if (!item.lossDetectedTime) return false;
+                return new Date(item.lossDetectedTime) < threshold72h;
             });
-            
+
             if (toLoss.length > 0) {
                 const ids = toLoss.map(i => i.id);
                 await supabase.from('stock_items')
@@ -631,7 +631,7 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     .in('id', ids)
                     .eq('company_id', currentUser.company_id);
             }
-            
+
             if (toPossibleLoss.length > 0 || toLoss.length > 0) {
                 console.log(`[SLA Enforcer] Movidos: ${toPossibleLoss.length} para Possível Perda | ${toLoss.length} para Perda.`);
                 broadcastRefresh(); // Force realtime UI update globally
