@@ -36,6 +36,8 @@ const RtsView: React.FC = () => {
     const groupedExpeditions = useMemo(() => {
         const groups: Record<string, any> = {};
         expeditions.forEach(e => {
+            if (e.dispatch_date !== dateFilter) return; // Strict Date Filter
+
             const key = `${(e.driver_name || '').trim()}-${e.dispatch_date}`;
             if (!groups[key]) {
                 const cleanPlate = (e.plate || '').replace(/\)+$/, '').trim();
@@ -57,14 +59,10 @@ const RtsView: React.FC = () => {
         });
         // Filter out drivers that have ZERO regular packages (reversa-only drivers)
         return Object.values(groups).filter(g => g.total_packages > 0);
-    }, [expeditions, reversaByDriver]);
+    }, [expeditions, reversaByDriver, dateFilter]);
 
     const filteredExpeditions = useMemo(() => {
         return groupedExpeditions.filter(e => {
-            // Date filter — only show expeditions matching selected date
-            const dateMatch = e.dispatch_date === dateFilter;
-            if (!dateMatch) return false;
-
             // Text search within the date-filtered results
             if (filter.length > 0) {
                 const search = filter.toLowerCase();
@@ -74,7 +72,7 @@ const RtsView: React.FC = () => {
             }
             return true;
         });
-    }, [groupedExpeditions, filter, dateFilter]);
+    }, [groupedExpeditions, filter]);
 
     // Stats computed from date-filtered data
     const stats = useMemo(() => {
@@ -236,9 +234,9 @@ const RtsView: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
-                                {filteredExpeditions.length === 0 ? (
-                                    <tr><td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">Nenhuma expedição encontrada</td></tr>
-                                ) : filteredExpeditions.map((e) => {
+                                {filteredExpeditions.filter(e => ((e.total_packages || 0) - ((e.delivered_count || 0) + (e.returned_count || 0))) > 0).length === 0 ? (
+                                    <tr><td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">Nenhuma pendência encontrada</td></tr>
+                                ) : filteredExpeditions.filter(e => ((e.total_packages || 0) - ((e.delivered_count || 0) + (e.returned_count || 0))) > 0).map((e) => {
                                     const pending = (e.total_packages || 0) - ((e.delivered_count || 0) + (e.returned_count || 0));
                                     return (
                                         <tr key={e.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/30 transition-colors">
