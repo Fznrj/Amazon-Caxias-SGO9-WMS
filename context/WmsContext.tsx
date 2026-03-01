@@ -410,12 +410,23 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const addInventoryItem = async (item: InventoryItem) => {
         if (!currentUser) return;
         const currentId = item.id.trim().toUpperCase();
-        if (inventoryItems.some(i => i.id === currentId)) { playAudio('error'); return; }
-        const enriched = { ...item, id: currentId, time: getSaoPauloIso(), operator: currentUser.name };
+
+        let isError = false;
+        if (inventoryItems.some(i => i.id === currentId)) {
+            isError = true;
+            playAudio('error');
+            // Continue below to log the error, then exit early
+        }
+
+        const enriched = { ...item, id: currentId, time: getSaoPauloIso(), operator: currentUser.name, error: isError };
+
+        const { error } = await supabase.from('inventory_log').insert({ ...enriched, company_id: currentUser.company_id });
+        if (error) { playAudio('error'); return; }
+
+        if (isError) return; // Stop here if it was a duplicate
+
         setInventoryItems(prev => [enriched, ...prev]); // Optimistic
         await gamificationService.registerScan(currentUser.id, currentUser.name, currentUser);
-        const { error } = await supabase.from('inventory_log').insert({ ...enriched, company_id: currentUser.company_id });
-        if (error) { setInventoryItems(prev => prev.filter(i => i.id !== currentId)); playAudio('error'); return; }
         playAudio('success');
     };
 
@@ -446,11 +457,25 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const v = isValidTbr(id);
         if (!v.isValid) return { success: false, message: v.message! };
         const cid = id.trim().toUpperCase();
+
         const active = treatmentItems.find(t => t.tbrId === cid && t.status !== 'Resolvido');
-        if (active) return { success: false, message: `BLOQUEADO: tratativa ativa (${active.id}).` };
+        if (active) {
+            // Log as outbound error so gamification penalizes
+            if (currentUser) {
+                await ApiService.logOutbound({ id: cid, driverName: 'ERRO_BIPE', operator: currentUser.name, time: getSaoPauloIso(), error: true } as any, currentUser);
+            }
+            return { success: false, message: `BLOQUEADO: tratativa ativa (${active.id}).` };
+        }
+
         const item = stockItems.find(s => s.id === cid);
-        if (!item) return { success: false, message: `TBR ${cid} não encontrada.` };
-        if (item.status?.toLowerCase() !== 'em estoque') return { success: false, message: `Status: ${item.status}.` };
+        if (!item || item.status?.toLowerCase() !== 'em estoque') {
+            if (currentUser) {
+                await ApiService.logOutbound({ id: cid, driverName: 'ERRO_BIPE', operator: currentUser.name, time: getSaoPauloIso(), error: true } as any, currentUser);
+            }
+            if (!item) return { success: false, message: `TBR ${cid} não encontrada.` };
+            return { success: false, message: `Status: ${item.status}.` };
+        }
+
         return { success: true, message: 'Validado.' };
     };
 
