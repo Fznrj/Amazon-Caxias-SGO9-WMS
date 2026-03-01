@@ -88,7 +88,7 @@ interface WmsContextData {
     updateExpeditionDelivered: (id: string, delivered: number) => Promise<void>;
     verifyReturn: (tbrId: string, driverName: string) => Promise<{ success: boolean; message: string }>;
     addRtsPendingItem: (tbrId: string, driverName: string) => Promise<{ success: boolean; message: string }>;
-    fetchDriverTodayCount: (driverId: string) => Promise<number>;
+    fetchDriverTodayCount: (driverName: string) => Promise<number>;
     fetchProductivityReport: (startDate: string, endDate: string) => Promise<OperatorProductivity[]>;
     rtsItems: any[];
     rtsLogs: any[];
@@ -656,9 +656,9 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         } else playAudio('error');
     };
 
-    const fetchDriverTodayCount = useCallback(async (driverId: string) => {
+    const fetchDriverTodayCount = useCallback(async (driverName: string) => {
         if (!currentUser) return 0;
-        const r = await ApiService.fetchDriverTodayCount(driverId, currentUser);
+        const r = await ApiService.fetchDriverTodayCount(driverName, currentUser);
         return r.success ? r.data || 0 : 0;
     }, [currentUser]);
 

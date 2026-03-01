@@ -333,10 +333,12 @@ export const ApiService = {
         return { success: true, data };
     },
 
-    fetchDriverTodayCount: async (driverId: string, user: User): Promise<ApiResult<number>> => {
-        const query = supabase.from('v_today_outbound_log')
+    fetchDriverTodayCount: async (driverName: string, user: User): Promise<ApiResult<number>> => {
+        const todayStr = getSaoPauloDate();
+        const query = supabase.from('outbound_log')
             .select('id', { count: 'exact', head: true })
-            .eq('driver_id', driverId);
+            .eq('driver_name', driverName)
+            .like('time', `${todayStr}%`);
 
         const { count, error } = await ApiService.applyScope(query, user);
         if (error) return { success: false, error: error.message };
