@@ -16,7 +16,7 @@
  * ─────────────────────────────────────────────────────────────
  */
 
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef, ReactNode } from 'react';
 import { User, Driver, Role, UserStatus, View, InboundItem, OutboundItem, StockItem, TreatmentItem, InventoryItem, ExpeditionItem } from '../types';
 import { AuthService } from '../services/authService';
 import { StorageService } from '../services/storageService';
@@ -584,8 +584,68 @@ export const WmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
 
     // ═══════════════════════════════════════════════════════
-    // MISC
+    // MISC & SLA ENFORCER
     // ═══════════════════════════════════════════════════════
+
+    const lastSlaRunRef = useRef<number>(0);
+
+    const enforceSlaTimeouts = useCallback(async () => {
+        if (!currentUser || stockItems.length === 0) return;
+        const nowMs = Date.now();
+        // Run max once per minute to avoid re-render loops on Dashboard
+        if (nowMs - lastSlaRunRef.current < 60000) return; 
+        lastSlaRunRef.current = nowMs;
+
+        try {
+            const threshold72h = new Date(nowMs - (72 * 60 * 60 * 1000));
+            
+            // Regra 1: Parado -> Possível Perda
+            // Item 'Em Estoque' cuja última movimentação foi antes de threshold72h
+            const toPossibleLoss = stockItems.filter(item => {
+                if (item.status?.toLowerCase() !== 'em estoque') return false;
+                const dateStr = item.entryTime || item.time || (item as any).created_at;
+                if (!dateStr) return false;
+                return new Date(dateStr) < threshold72h;
+            });
+            
+            if (toPossibleLoss.length > 0) {
+                const ids = toPossibleLoss.map(i => i.id);
+                await supabase.from('stock_items')
+                    .update({ status: 'Possível Perda', loss_detected_time: getSaoPauloIso() })
+                    .in('id', ids)
+                    .eq('company_id', currentUser.company_id);
+            }
+            
+            // Regra 2: Possível Perda -> Perda Definitiva!
+            // Item 'Possível Perda' cujo registro do limite foi estourado há mais de 72h
+            const toLoss = stockItems.filter(item => {
+                if (item.status?.toLowerCase() !== 'possível perda') return false;
+                if (!item.loss_detected_time) return false;
+                return new Date(item.loss_detected_time) < threshold72h;
+            });
+            
+            if (toLoss.length > 0) {
+                const ids = toLoss.map(i => i.id);
+                await supabase.from('stock_items')
+                    .update({ status: 'Perda' })
+                    .in('id', ids)
+                    .eq('company_id', currentUser.company_id);
+            }
+            
+            if (toPossibleLoss.length > 0 || toLoss.length > 0) {
+                console.log(`[SLA Enforcer] Movidos: ${toPossibleLoss.length} para Possível Perda | ${toLoss.length} para Perda.`);
+                broadcastRefresh(); // Force realtime UI update globally
+            }
+        } catch (err) {
+            console.error('Error enforcing SLA timeouts:', err);
+        }
+    }, [currentUser, stockItems, broadcastRefresh]);
+
+    useEffect(() => {
+        if (currentUser && currentView === View.DASHBOARD) {
+            enforceSlaTimeouts();
+        }
+    }, [currentUser, currentView, stockItems, enforceSlaTimeouts]);
 
     const resetTransactions = async () => {
         if (!currentUser) return;
