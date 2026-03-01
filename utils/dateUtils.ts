@@ -29,7 +29,13 @@ export const getTodayDate = (): Date => {
  * Returns the date (YYYY-MM-DD) in America/Sao_Paulo timezone.
  */
 export const getSaoPauloDate = (date: Date = getTodayDate()): string => {
-    return date.toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+    try {
+        if (!date || isNaN(date.getTime())) return '';
+        return date.toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+    } catch (e) {
+        console.error('dateUtils: Error in getSaoPauloDate', e);
+        return '';
+    }
 };
 
 /**
@@ -74,37 +80,54 @@ export const parseToDate = (dateStr: string): Date => {
  * correctly forcing America/Sao_Paulo comparison.
  */
 export const isSameDay = (dateStr: string, referenceDate: Date = getTodayDate()): boolean => {
-    const date = parseToDate(dateStr);
-    const spDate = getSaoPauloDate(date);
-    const spRef = getSaoPauloDate(referenceDate);
-    return spDate === spRef;
+    try {
+        if (!dateStr) return false;
+        const date = parseToDate(dateStr);
+        if (!date || isNaN(date.getTime()) || !referenceDate || isNaN(referenceDate.getTime())) return false;
+        
+        const spDate = getSaoPauloDate(date);
+        const spRef = getSaoPauloDate(referenceDate);
+        return spDate === spRef && spDate !== '';
+    } catch (e) {
+        return false;
+    }
 };
 
 /**
  * Formats an ISO string or localized string to HH:mm (America/Sao_Paulo Time)
  */
 export const formatToLocalTime = (dateStr: string): string => {
-    const date = parseToDate(dateStr);
-    if (isNaN(date.getTime())) return '--:--';
+    try {
+        if (!dateStr) return '--:--';
+        const date = parseToDate(dateStr);
+        if (!date || isNaN(date.getTime())) return '--:--';
 
-    return date.toLocaleTimeString('pt-BR', {
-        timeZone: 'America/Sao_Paulo',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-    });
+        return date.toLocaleTimeString('pt-BR', {
+            timeZone: 'America/Sao_Paulo',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        });
+    } catch (e) {
+        return '--:--';
+    }
 };
 
 /**
  * Formats an ISO string or localized string to DD/MM/YYYY (America/Sao_Paulo Time)
  */
 export const formatToLocalDate = (dateStr: string): string => {
-    const date = parseToDate(dateStr);
-    if (isNaN(date.getTime())) return '--/--/----';
+    try {
+        if (!dateStr) return '--/--/----';
+        const date = parseToDate(dateStr);
+        if (!date || isNaN(date.getTime())) return '--/--/----';
 
-    return date.toLocaleDateString('pt-BR', {
-        timeZone: 'America/Sao_Paulo'
-    });
+        return date.toLocaleDateString('pt-BR', {
+            timeZone: 'America/Sao_Paulo'
+        });
+    } catch (e) {
+        return '--/--/----';
+    }
 };
 
 /**
@@ -112,13 +135,19 @@ export const formatToLocalDate = (dateStr: string): string => {
  * always relative to America/Sao_Paulo.
  */
 export const getDateKey = (dateStr: string): string => {
-    const date = parseToDate(dateStr);
-    if (isNaN(date.getTime())) return 'invalid';
+    try {
+        if (!dateStr) return 'invalid';
+        const date = parseToDate(dateStr);
+        if (!date || isNaN(date.getTime())) return 'invalid';
 
-    const spDate = getSaoPauloDate(date); // YYYY-MM-DD
-    const [y, m, d] = spDate.split('-');
-
-    return `${d}/${m}/${y}`;
+        const spDate = getSaoPauloDate(date); // YYYY-MM-DD
+        if (!spDate) return 'invalid';
+        
+        const [y, m, d] = spDate.split('-');
+        return `${d}/${m}/${y}`;
+    } catch (e) {
+        return 'invalid';
+    }
 };
 
 /**
@@ -126,26 +155,33 @@ export const getDateKey = (dateStr: string): string => {
  * Example: "2026-02-21T19:30:00-03:00"
  */
 export const getSaoPauloIso = (date: Date = getTodayDate()): string => {
-    // We use a trick to get the parts in SP timezone
-    const formatter = new Intl.DateTimeFormat('sv-SE', {
-        timeZone: 'America/Sao_Paulo',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-    });
+    try {
+        if (!date || isNaN(date.getTime())) return '';
+        
+        // We use a trick to get the parts in SP timezone
+        const formatter = new Intl.DateTimeFormat('sv-SE', {
+            timeZone: 'America/Sao_Paulo',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+        });
 
-    const parts = formatter.formatToParts(date);
-    const getPart = (type: string) => parts.find(p => p.type === type)?.value;
+        const parts = formatter.formatToParts(date);
+        const getPart = (type: string) => parts.find(p => p.type === type)?.value || '00';
 
-    const y = getPart('year');
-    const m = getPart('month');
-    const d = getPart('day');
-    const h = getPart('hour');
-    const min = getPart('minute');
-    const s = getPart('second');
+        const y = getPart('year');
+        const m = getPart('month');
+        const d = getPart('day');
+        const h = getPart('hour');
+        const min = getPart('minute');
+        const s = getPart('second');
 
-    return `${y}-${m}-${d}T${h}:${min}:${s}-03:00`;
+        return `${y}-${m}-${d}T${h}:${min}:${s}-03:00`;
+    } catch (e) {
+        console.error('dateUtils: Error in getSaoPauloIso', e);
+        return '';
+    }
 };
