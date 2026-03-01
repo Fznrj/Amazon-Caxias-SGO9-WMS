@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useWmsData } from '../context/WmsDataContext';
 import { useWms } from '../context/WmsContext';
 import * as XLSX from 'xlsx';
-import { isSameDay, getTodayDate, formatToLocalTime, getSaoPauloIso } from '../utils/dateUtils';
+import { isSameDay, getTodayDate, formatToLocalTime, getSaoPauloIso, getSaoPauloDateString } from '../utils/dateUtils';
 import PullToRefresh from '../components/PullToRefresh';
 import { isValidTbr } from '../utils/validation';
 
