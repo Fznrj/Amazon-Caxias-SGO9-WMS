@@ -3,7 +3,7 @@ import { useKpi } from '../context/KpiContext';
 import { useWmsData } from '../context/WmsDataContext';
 import { useWms } from '../context/WmsContext';
 import { View } from '../types';
-import { getSaoPauloDate, parseToDate, getTodayDate } from '../utils/dateUtils';
+import { getSaoPauloDate, getTodayDate } from '../utils/dateUtils';
 import PullToRefresh from '../components/PullToRefresh';
 
 interface DashboardViewProps {
@@ -19,7 +19,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
   } = statsSummary;
 
   // Raw data for comparison mode only (via WmsDataContext)
-  const { inboundItems, outboundItems, stockItems, drivers, users } = useWmsData();
+  const { stockItems } = useWmsData();
 
   // Refresh action only (via WmsContext)
   const { refreshData } = useWms();
