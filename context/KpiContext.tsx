@@ -22,7 +22,7 @@ import { User } from '../types';
 import { useWmsData } from './WmsDataContext';
 import { supabase } from '../services/supabase';
 import { ApiService } from '../services/apiService';
-import { getSaoPauloDate, getTodayDate, parseToDate, isSameDay } from '../utils/dateUtils';
+import { getSaoPauloDate, getTodayDate, parseToDate, isSameDay, getSaoPauloIso } from '../utils/dateUtils';
 
 // ─────────────────────────────────────────────────────────────
 // Types
