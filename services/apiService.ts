@@ -265,12 +265,18 @@ export const ApiService = {
             const results = await Promise.all([
                 ApiService.applyScope(supabase.from('drivers').select('*'), user),
                 ApiService.applyScope(supabase.from('system_configs').select('*'), user).single(),
-                ApiService.applyScope(supabase.from('inventory').select('*'), user),
-                ApiService.applyScope(supabase.from('rts_items').select('*'), user),
-                ApiService.applyScope(supabase.from('expeditions').select('*'), user).order('dispatch_date', { ascending: false }),
+                ApiService.applyScope(supabase.from('inventory').select('*').gte('time', todayStr + 'T00:00:00-03:00').lte('time', todayStr + 'T23:59:59-03:00'), user),
+                ApiService.applyScope(supabase.from('rts_items').select('*').gte('created_at', todayStr + 'T00:00:00-03:00').lte('created_at', todayStr + 'T23:59:59-03:00'), user),
+                ApiService.applyScope(supabase.from('expeditions').select('*').order('dispatch_date', { ascending: false }), user),
                 ApiService.applyScope(supabase.from('v_dashboard_stats').select('*').single(), user),
                 ApiService.applyScope(supabase.from('v_weekly_stats').select('*'), user),
-                ApiService.applyScope(supabase.from('inbound_log').select('*').order('created_at', { ascending: false }).limit(100), user),
+                ApiService.applyScope(
+                    supabase.from('inbound_log').select('*')
+                        .gte('created_at', todayStr + 'T00:00:00-03:00')
+                        .lte('created_at', todayStr + 'T23:59:59-03:00')
+                        .order('created_at', { ascending: false }).limit(500),
+                    user
+                ),
                 ApiService.applyScope(
                     supabase.from('outbound_log').select('*')
                         .gte('created_at', todayStr + 'T00:00:00-03:00')
@@ -288,7 +294,8 @@ export const ApiService = {
                     user
                 ),
                 ApiService.applyScope(supabase.from('stock_items').select('*'), user),
-                ApiService.applyScope(supabase.from('incidents').select('*').order('created_at', { ascending: false }).limit(50), user),
+                // incidents are historically mixed, keep a reasonable limit or apply today if required, but user prefers them to stay if +1 day:
+                ApiService.applyScope(supabase.from('incidents').select('*').order('created_at', { ascending: false }).limit(150), user),
                 ApiService.applyScope(supabase.from('v_operator_productivity').select('*').eq('scan_date', todayStr), user),
                 ApiService.applyScope(
                     supabase.from('rts_log').select('*')

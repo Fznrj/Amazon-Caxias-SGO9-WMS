@@ -157,8 +157,8 @@ export const KpiProvider: React.FC<KpiProviderProps> = ({ children, currentUser 
         try {
             // Need to cover the whole exact day in America/Sao_Paulo
             // Assuming startDate and endDate are 'YYYY-MM-DD'
-            const startIso = `${startDate}T00:00:00.000-03:00`;
-            const endIso = `${endDate}T23:59:59.999-03:00`;
+            const startIso = `${startDate}T00:00:00-03:00`;
+            const endIso = `${endDate}T23:59:59-03:00`;
 
             const [inbRes, outRes] = await Promise.all([
                 ApiService.applyScope(
@@ -210,10 +210,10 @@ export const KpiProvider: React.FC<KpiProviderProps> = ({ children, currentUser 
         if (!currentUser) return;
 
         try {
-            const baseDate = getTodayDate();
-            const sevenDaysAgo = new Date(baseDate);
+            const baseDate = parseToDate(getSaoPauloIso());
+            const sevenDaysAgo = new Date(baseDate.getTime());
             sevenDaysAgo.setDate(baseDate.getDate() - 7);
-            const sinceIso = sevenDaysAgo.toISOString();
+            const sinceIso = `${getSaoPauloDate(sevenDaysAgo)}T00:00:00-03:00`;
 
             // Parallel queries to all 4 log tables (only need created_at for grouping)
             const [inbRes, outRes, invRes, rtsRes] = await Promise.all([
