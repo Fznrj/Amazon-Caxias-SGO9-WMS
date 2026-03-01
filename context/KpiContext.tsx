@@ -384,12 +384,6 @@ export const KpiProvider: React.FC<KpiProviderProps> = ({ children, currentUser 
     const fetchProductivityReport = useCallback(async (startDate: string, endDate: string): Promise<OperatorProductivity[]> => {
         if (!currentUser) return [];
 
-        // If requesting today only, return the in-memory state
-        const todayStr = getSaoPauloDate();
-        if (startDate === todayStr && endDate === todayStr) {
-            return operatorProductivity;
-        }
-
         try {
             // Build ISO range for Supabase queries (São Paulo timezone)
             const startIso = `${startDate}T00:00:00-03:00`;
