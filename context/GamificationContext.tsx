@@ -37,7 +37,8 @@ import { getDateKey, getSaoPauloDate, getSaoPauloIso, getTodayDate } from '../ut
 export interface RankingEntry {
     operator: string;
     position: number;
-    totalScans: number;
+    totalScans: number;    // Cumulative monthly scans
+    todayScans: number;    // Exactly today's scans
     inboundScans: number;
     outboundScans: number;
     inventoryScans: number;
@@ -426,6 +427,7 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
     // ═══════════════════════════════════════════════════════
 
     const ranking: RankingEntry[] = useMemo(() => {
+        const todayKey = getSaoPauloDate();
         return allProfiles.map((profile, idx) => {
             const prod = operatorProductivity.find(p => p.operator === profile.userName);
             const metrics = operatorMetrics.get(profile.userName);
@@ -438,11 +440,12 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
                 operator: profile.userName,
                 position: idx + 1,
                 totalScans: monthlyScans,
+                todayScans: prod?.total_scans || 0,
                 inboundScans: prod?.inbound_scans || 0,
                 outboundScans: prod?.outbound_scans || 0,
                 inventoryScans: prod?.inventory_scans || 0,
                 rtsScans: prod?.rts_scans || 0,
-                errors: metrics?.errors || 0,
+                errors: metrics?.dailyErrors[todayKey] || 0,
                 profile
             };
         });

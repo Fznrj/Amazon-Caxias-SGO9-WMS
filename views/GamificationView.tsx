@@ -32,7 +32,8 @@ const GamificationView: React.FC = () => {
 
     // ── Derived from context (zero calculation) ──────────────
     const myEntry = ranking.find(r => r.operator === currentUser?.name);
-    const scansPeriod = myEntry?.totalScans || 0;
+    // Use todayScans explicitly for daily cards, not totalScans (which is monthly cumulative)
+    const scansPeriod = myEntry?.todayScans || 0;
     const metaPeriod = Math.round((scansPeriod / DAILY_GOAL) * 100);
     const errorsPeriod = myEntry?.errors || 0;
 
