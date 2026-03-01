@@ -273,12 +273,12 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
             // Wrapped in try/catch — if historical view doesn't exist, fall back to today's data
             const cumulativeByOperator = new Map<string, { scans: number; inbound: number; outbound: number; inventory: number; rts: number; daysAboveMeta: number }>();
             let currentMonthlyReport: OperatorProductivity[] = [];
-            
+
             try {
                 const monthlyReport = await fetchProductivityReport(monthStart, todayKey);
                 currentMonthlyReport = monthlyReport;
                 setMonthlyReports(monthlyReport);
-                
+
                 monthlyReport.forEach(row => {
                     if (!row.operator) return;
                     const opKey = row.operator.toUpperCase().trim();
@@ -379,13 +379,16 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
                 profiles.push(await processOperator(currentUser.name, 0));
             }
 
-            // --- HARD RESET FOR 1ST OF MONTH ---
+            // --- CONDITIONAL RESET FOR 1ST OF MONTH ---
             if (todayKey.endsWith('-01')) {
                 profiles.forEach(p => {
-                    p.xpMonthly = 0;
-                    p.sprMonthly = 0;
-                    p.currentLevel = 'Ferro';
-                    p.badges.forEach(b => b.unlocked = false);
+                    // Only reset if the operator has absolutely 0 scans today, preventing manual or valid scans from being erased
+                    if ((p as any)._monthlyScans === 0) {
+                        p.xpMonthly = 0;
+                        p.sprMonthly = 0;
+                        p.currentLevel = 'Ferro';
+                        p.badges.forEach(b => b.unlocked = false);
+                    }
                 });
             }
 
@@ -511,7 +514,7 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
         const activeDays = metrics?.monthlyUniqueDays.size || 0;
         const errorDayCount = metrics ? Object.keys(metrics.dailyErrors).length : 0;
         const zeroErrorDays = Math.max(0, activeDays - errorDayCount);
-        
+
         const isFirstDay = getSaoPauloDateString(new Date()).endsWith('-01');
 
         // Build a map: badge_id -> { current, goal }
