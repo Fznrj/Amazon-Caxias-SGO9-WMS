@@ -1,7 +1,7 @@
 import React from 'react';
 import { useKpi } from '../context/KpiContext';
 import { downloadCSV } from '../utils/download';
-import { getSaoPauloDate, parseToDate, getTodayDate } from '../utils/dateUtils';
+import { getSaoPauloDate, parseToDate, getTodayDate, getSaoPauloDateString } from '../utils/dateUtils';
 
 // Daily scan goal per operator
 const DAILY_GOAL = 350;
@@ -9,8 +9,9 @@ const DAILY_GOAL = 350;
 const ProductivityView: React.FC = () => {
   const { fetchProductivityReport } = useKpi();
 
-  const [startDate, setStartDate] = React.useState<string>(getSaoPauloDate(getTodayDate()));
-  const [endDate, setEndDate] = React.useState<string>(getSaoPauloDate(getTodayDate()));
+  const BR_TODAY = getSaoPauloDateString(new Date());
+  const [startDate, setStartDate] = React.useState<string>(BR_TODAY);
+  const [endDate, setEndDate] = React.useState<string>(BR_TODAY);
   const [rangeProductivity, setRangeProductivity] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(false);
 
@@ -19,6 +20,7 @@ const ProductivityView: React.FC = () => {
     let active = true;
     const loadReport = async () => {
       setLoading(true);
+      setRangeProductivity([]); // Cache flush para garantir que "fantasmas" sumam instantaneamente
       const data = await fetchProductivityReport(startDate, endDate);
       if (active) setRangeProductivity(data);
       if (active) setLoading(false);
