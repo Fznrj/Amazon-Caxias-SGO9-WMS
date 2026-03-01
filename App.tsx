@@ -24,6 +24,7 @@ import { GamificationProvider } from './context/GamificationContext';
 import { DateProvider } from './context/DateContext';
 import { WmsProvider, useWms } from './context/WmsContext';
 import { Capacitor } from '@capacitor/core';
+import { App as CapacitorApp } from '@capacitor/app';
 import { StatusBar } from '@capacitor/status-bar';
 
 // ─────────────────────────────────────────────────────────────
@@ -31,7 +32,7 @@ import { StatusBar } from '@capacitor/status-bar';
 // ─────────────────────────────────────────────────────────────
 
 const AppContent: React.FC = () => {
-  const { currentUser, logout, currentView, setCurrentView } = useWms();
+  const { currentUser, logout, currentView, setCurrentView, refreshData } = useWms();
 
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [isOffline, setIsOffline] = useState(false);
@@ -40,8 +41,19 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     if (Capacitor.isNativePlatform()) {
       StatusBar.hide().catch(err => console.warn('Capacitor: StatusBar hide failed', err));
+
+      const sub = CapacitorApp.addListener('appStateChange', ({ isActive }) => {
+        if (isActive) {
+          console.log('[Capacitor] App resumed, refreshing WMS data...');
+          refreshData();
+        }
+      });
+
+      return () => {
+        sub.then(listener => listener.remove());
+      };
     }
-  }, []);
+  }, [refreshData]);
 
   useEffect(() => { setIsMenuOpen(false); }, [currentView]);
 
