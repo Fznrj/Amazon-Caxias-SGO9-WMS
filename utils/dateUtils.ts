@@ -46,7 +46,8 @@ export const getSaoPauloDateString = (dateVal: Date | string | null | undefined)
     try {
         if (!dateVal) return '';
         const d = new Date(dateVal);
-        d.setHours(d.getHours() - 3); // Força o recuo para o dia civil de Brasília
+        // Aplicação rigorosa da matemática: subtraia 3 horas do tempo UTC para garantir Brasilia Time (UTC-3)
+        d.setUTCHours(d.getUTCHours() - 3);
         return d.toISOString().split('T')[0];
     } catch (e) {
         return '';
@@ -99,7 +100,7 @@ export const isSameDay = (dateStr: string, referenceDate: Date = getTodayDate())
         if (!dateStr) return false;
         const date = parseToDate(dateStr);
         if (!date || isNaN(date.getTime()) || !referenceDate || isNaN(referenceDate.getTime())) return false;
-        
+
         const spDate = getSaoPauloDate(date);
         const spRef = getSaoPauloDate(referenceDate);
         return spDate === spRef && spDate !== '';
@@ -157,7 +158,7 @@ export const getDateKey = (dateStr: string): string => {
 
         const spDate = getSaoPauloDate(date); // YYYY-MM-DD
         if (!spDate) return 'invalid';
-        
+
         const [y, m, d] = spDate.split('-');
         return `${d}/${m}/${y}`;
     } catch (e) {
@@ -172,7 +173,7 @@ export const getDateKey = (dateStr: string): string => {
 export const getSaoPauloIso = (date: Date = getTodayDate()): string => {
     try {
         if (!date || isNaN(date.getTime())) return '';
-        
+
         // We use a trick to get the parts in SP timezone
         const formatter = new Intl.DateTimeFormat('sv-SE', {
             timeZone: 'America/Sao_Paulo',

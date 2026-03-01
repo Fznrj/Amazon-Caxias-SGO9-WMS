@@ -123,7 +123,7 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
     // ═══════════════════════════════════════════════════════
 
     const operatorMetrics = useMemo(() => {
-        const todayKey = getSaoPauloDate();
+        const todayKey = getSaoPauloDateString(new Date());
         const currentMonth = todayKey.substring(0, 7);
 
         const metrics = new Map<string, {
@@ -159,9 +159,8 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
         inboundItems.forEach(item => {
             const op = item.operator;
             const data = ensureOp(op);
-            const dateKey = getDateKey(item.createdAt || item.time);
-            const isoCheck = dateKey.split('/').reverse().join('-');
-            const isThisMonth = isoCheck.substring(0, 7) === currentMonth;
+            const dateKey = getSaoPauloDateString(item.createdAt || item.time);
+            const isThisMonth = dateKey.substring(0, 7) === currentMonth;
 
             if (item.error) {
                 data.errors++;
@@ -180,9 +179,8 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
         outboundItems.forEach(item => {
             const op = item.operator;
             const data = ensureOp(op);
-            const dateKey = getDateKey(item.createdAt || item.time);
-            const isoCheck = dateKey.split('/').reverse().join('-');
-            const isThisMonth = isoCheck.substring(0, 7) === currentMonth;
+            const dateKey = getSaoPauloDateString(item.createdAt || item.time);
+            const isThisMonth = dateKey.substring(0, 7) === currentMonth;
 
             if (isThisMonth) {
                 data.monthlyUniqueDays.add(dateKey);
@@ -200,9 +198,8 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
         // ── Inventory activities ─────────────────────────────
         inventoryItems.forEach(item => {
             const data = ensureOp(item.operator);
-            const dateKey = getDateKey(item.createdAt || item.time);
-            const isoCheck = dateKey.split('/').reverse().join('-');
-            if (isoCheck.substring(0, 7) === currentMonth) {
+            const dateKey = getSaoPauloDateString(item.createdAt || item.time);
+            if (dateKey.substring(0, 7) === currentMonth) {
                 data.monthlyInventoryDays.add(dateKey);
                 data.monthlyUniqueDays.add(dateKey);
                 if (!data.dailyActivities[dateKey]) data.dailyActivities[dateKey] = new Set();
@@ -214,8 +211,8 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
         [...rtsItems, ...rtsLogs].forEach(item => {
             if (!item.operator) return;
             const data = ensureOp(item.operator);
-            const dateKey = getDateKey(item.created_at || item.time);
-            if (dateKey.split('/').reverse().join('-').substring(0, 7) === currentMonth) {
+            const dateKey = getSaoPauloDateString(item.created_at || item.time);
+            if (dateKey.substring(0, 7) === currentMonth) {
                 data.monthlyUniqueDays.add(dateKey);
                 if (!data.dailyActivities[dateKey]) data.dailyActivities[dateKey] = new Set();
                 data.dailyActivities[dateKey].add('RTS');
@@ -225,9 +222,8 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
         // ── Treatments & Incidents ───────────────────────────
         treatmentItems.forEach(item => {
             const data = ensureOp(item.operator);
-            const dateKey = getDateKey(item.time || (item as any).created_at);
-            const isoCheck = dateKey.split('/').reverse().join('-');
-            if (isoCheck.substring(0, 7) === currentMonth) {
+            const dateKey = getSaoPauloDateString(item.time || (item as any).created_at);
+            if (dateKey.substring(0, 7) === currentMonth) {
                 data.monthlyTreatmentCount++;
                 data.monthlyIncidentsCount++;
             }

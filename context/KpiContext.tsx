@@ -188,10 +188,10 @@ export const KpiProvider: React.FC<KpiProviderProps> = ({ children, currentUser 
         try {
             const baseDate = parseToDate(getSaoPauloIso());
             const spTime = new Date(baseDate.getTime());
-            
+
             const volume: Record<string, { entradas: number; saidas: number; inventario: number; rts: number }> = {};
             const daysToFetch = [];
-            
+
             for (let i = 0; i <= 6; i++) {
                 const d = new Date(spTime.getTime());
                 d.setDate(spTime.getDate() - i);
@@ -204,7 +204,7 @@ export const KpiProvider: React.FC<KpiProviderProps> = ({ children, currentUser 
                     start_date: dayKey,
                     end_date: dayKey
                 });
-                
+
                 if (!error && data) {
                     volume[dayKey] = {
                         entradas: data.entradas || 0,
@@ -263,11 +263,11 @@ export const KpiProvider: React.FC<KpiProviderProps> = ({ children, currentUser 
             const d = new Date(spTime.getTime());
             d.setDate(spTime.getDate() - i);
             const raw = getSaoPauloDateString(d);
-            
+
             // To get the exact SP day of week safely, parse the raw YYYY-MM-DD back
             const [y, m, day] = raw.split('-');
-            const safeObj = new Date(parseInt(y), parseInt(m)-1, parseInt(day), 12, 0, 0);
-            
+            const safeObj = new Date(parseInt(y), parseInt(m) - 1, parseInt(day), 12, 0, 0);
+
             last7Days.push({
                 name: dayNames[safeObj.getDay()],
                 rawDate: raw,
@@ -387,7 +387,7 @@ export const KpiProvider: React.FC<KpiProviderProps> = ({ children, currentUser 
                 (rows || []).forEach((row: any) => {
                     if (!row.operator || !row.created_at) return;
                     if (scanType === 'inbound' && row.error) return;
-                    const dayKey = getSaoPauloDate(parseToDate(row.created_at));
+                    const dayKey = getSaoPauloDateString(row.created_at);
                     const mapKey = `${row.operator}__${dayKey}`;
                     if (!byOpDay.has(mapKey)) {
                         byOpDay.set(mapKey, {
