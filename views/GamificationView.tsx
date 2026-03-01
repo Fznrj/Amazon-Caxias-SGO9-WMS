@@ -176,6 +176,7 @@ const GamificationView: React.FC = () => {
                                 <th className="px-6 py-4 font-semibold text-center w-16">Rank</th>
                                 <th className="px-6 py-4 font-semibold">Colaborador</th>
                                 <th className="px-6 py-4 font-semibold text-center">Nível</th>
+                                <th className="px-6 py-4 font-semibold text-center">Total Scans</th>
                                 <th className="px-6 py-4 font-semibold text-right">SPR</th>
                                 <th className="px-6 py-4 font-semibold text-right">XP</th>
                                 <th className="px-6 py-4 font-semibold text-right">Eficiência</th>
@@ -183,7 +184,7 @@ const GamificationView: React.FC = () => {
                         </thead>
                         <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                             {ranking.length === 0 ? (
-                                <tr><td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-mono text-xs">Nenhuma atividade registrada</td></tr>
+                                <tr><td colSpan={7} className="px-6 py-12 text-center text-slate-400 font-mono text-xs">Nenhuma atividade registrada</td></tr>
                             ) : (
                                 ranking.map((entry) => {
                                     const lv = getLevelInfo(entry.profile.currentLevel);
@@ -211,6 +212,9 @@ const GamificationView: React.FC = () => {
                                                 <span className={`flex items-center justify-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold uppercase ${lv.bgColor} ${lv.color} ${lv.borderColor} border`}>
                                                     <span className="material-icons-round text-sm">{lv.icon}</span> {lv.name}
                                                 </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-center font-mono text-sm font-bold text-slate-600 dark:text-slate-300">
+                                                {(entry as any).totalScans?.toLocaleString() || '0'}
                                             </td>
                                             <td className="px-6 py-4 text-right font-mono text-sm font-bold text-slate-700 dark:text-slate-200">{entry.profile.sprMonthly.toLocaleString()}</td>
                                             <td className="px-6 py-4 text-right font-mono text-sm text-slate-500">{entry.profile.xpMonthly.toLocaleString()}</td>
@@ -256,12 +260,12 @@ const GamificationView: React.FC = () => {
                                         <div className="h-2 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
                                             <div
                                                 className={`h-full rounded-full transition-all duration-700 ease-out ${badge.unlocked
-                                                        ? 'bg-gradient-to-r from-yellow-400 to-yellow-500'
-                                                        : progress.percent >= 70
-                                                            ? 'bg-gradient-to-r from-green-400 to-emerald-500'
-                                                            : progress.percent >= 40
-                                                                ? 'bg-gradient-to-r from-blue-400 to-blue-500'
-                                                                : 'bg-gradient-to-r from-slate-400 to-slate-500'
+                                                    ? 'bg-gradient-to-r from-yellow-400 to-yellow-500'
+                                                    : progress.percent >= 70
+                                                        ? 'bg-gradient-to-r from-green-400 to-emerald-500'
+                                                        : progress.percent >= 40
+                                                            ? 'bg-gradient-to-r from-blue-400 to-blue-500'
+                                                            : 'bg-gradient-to-r from-slate-400 to-slate-500'
                                                     }`}
                                                 style={{ width: `${Math.max(progress.percent, 2)}%` }}
                                             />
