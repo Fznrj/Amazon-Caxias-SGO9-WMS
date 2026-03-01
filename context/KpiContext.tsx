@@ -116,6 +116,8 @@ export const KpiProvider: React.FC<KpiProviderProps> = ({ children, currentUser 
         if (!currentUser) return;
 
         try {
+            // Force a zero-state flush to prevent stale UI memory between loads
+            setOperatorProductivity([]);
             setKpiLoading(true);
 
             const query = supabase

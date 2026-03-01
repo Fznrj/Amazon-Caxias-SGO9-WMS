@@ -144,6 +144,13 @@ export const WmsDataProvider: React.FC<WmsDataProviderProps> = ({ children, curr
 
         console.log(`WmsDataContext: Loading data for ${todayStr}. Role: ${userRole}`);
 
+        // Force a zero-state flush before hitting the db to prevent memory bleed
+        setInboundItems([]);
+        setOutboundItems([]);
+        setInventoryItems([]);
+        setRtsLogs([]);
+        setTodayReversaCount(0);
+
         try {
             // ── 1. Users ────────────────────────────────────
             let { data: usersData, error: usersErr } = await (

@@ -265,7 +265,7 @@ export const ApiService = {
             const results = await Promise.all([
                 ApiService.applyScope(supabase.from('drivers').select('*'), user),
                 ApiService.applyScope(supabase.from('system_configs').select('*'), user).single(),
-                ApiService.applyScope(supabase.from('v_today_inventory').select('*'), user),
+                ApiService.applyScope(supabase.from('v_today_inventory_log').select('*'), user),
                 ApiService.applyScope(supabase.from('v_today_rts_items').select('*'), user),
                 ApiService.applyScope(supabase.from('expeditions').select('*').order('dispatch_date', { ascending: false }), user),
                 ApiService.applyScope(supabase.from('v_dashboard_stats').select('*').single(), user),
