@@ -185,50 +185,37 @@ export const KpiProvider: React.FC<KpiProviderProps> = ({ children, currentUser 
 
         try {
             const baseDate = parseToDate(getSaoPauloIso());
-            const sevenDaysAgo = new Date(baseDate.getTime());
-            sevenDaysAgo.setDate(baseDate.getDate() - 7);
-            const sinceIso = `${getSaoPauloDate(sevenDaysAgo)}T00:00:00-03:00`;
-
-            // Parallel queries to all 4 log tables (only need created_at for grouping)
-            const [inbRes, outRes, invRes, rtsRes] = await Promise.all([
-                ApiService.applyScope(
-                    supabase.from('inbound_log').select('created_at').gte('created_at', sinceIso).eq('error', false),
-                    currentUser
-                ),
-                ApiService.applyScope(
-                    supabase.from('outbound_log').select('created_at').gte('created_at', sinceIso),
-                    currentUser
-                ),
-                ApiService.applyScope(
-                    supabase.from('inventory_log').select('created_at').gte('created_at', sinceIso),
-                    currentUser
-                ),
-                ApiService.applyScope(
-                    supabase.from('rts_log').select('created_at').gte('created_at', sinceIso),
-                    currentUser
-                ),
-            ]);
-
-            // Group counts by São Paulo date key (YYYY-MM-DD)
+            const spTime = new Date(baseDate.getTime());
+            
             const volume: Record<string, { entradas: number; saidas: number; inventario: number; rts: number }> = {};
+            const daysToFetch = [];
+            
+            for (let i = 0; i <= 6; i++) {
+                const d = new Date(spTime.getTime());
+                d.setDate(spTime.getDate() - i);
+                daysToFetch.push(getSaoPauloDate(d));
+            }
 
-            const countByDay = (rows: any[] | null, field: 'entradas' | 'saidas' | 'inventario' | 'rts') => {
-                (rows || []).forEach((row: any) => {
-                    if (!row.created_at) return;
-                    const dayKey = getSaoPauloDate(parseToDate(row.created_at));
-                    if (!volume[dayKey]) volume[dayKey] = { entradas: 0, saidas: 0, inventario: 0, rts: 0 };
-                    volume[dayKey][field]++;
+            await Promise.all(daysToFetch.map(async (dayKey) => {
+                const { data, error } = await supabase.rpc('get_dashboard_period_stats', {
+                    company_id_param: currentUser.company_id,
+                    start_date: dayKey,
+                    end_date: dayKey
                 });
-            };
-
-            countByDay(inbRes?.data, 'entradas');
-            countByDay(outRes?.data, 'saidas');
-            countByDay(invRes?.data, 'inventario');
-            countByDay(rtsRes?.data, 'rts');
+                
+                if (!error && data) {
+                    volume[dayKey] = {
+                        entradas: data.entradas || 0,
+                        saidas: data.saidas || 0,
+                        inventario: 0,
+                        rts: 0
+                    };
+                }
+            }));
 
             setWeeklyVolumeFromDb(volume);
         } catch (err) {
-            console.error('KpiContext: Error fetching weekly volume from raw logs:', err);
+            console.error('KpiContext: Error fetching weekly volume from RPC:', err);
         }
     }, [currentUser]);
 
