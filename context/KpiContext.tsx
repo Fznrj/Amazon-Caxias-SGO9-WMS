@@ -120,30 +120,13 @@ export const KpiProvider: React.FC<KpiProviderProps> = ({ children, currentUser 
             setOperatorProductivity([]);
             setKpiLoading(true);
 
-            const query = supabase
-                .from('v_today_operator_productivity')
-                .select('*');
-
-            const { data, error } = await ApiService.applyScope(query, currentUser);
-
-            if (error) {
-                console.error('KpiContext: Error fetching v_today_operator_productivity:', error);
-                return;
-            }
-
-            if (data) {
-                const mapped: OperatorProductivity[] = data.map((row: any) => ({
-                    operator: row.operator,
-                    company_id: row.company_id,
-                    scan_date: row.scan_date,
-                    total_scans: Number(row.total_scans || 0),
-                    inbound_scans: Number(row.inbound_scans || 0),
-                    outbound_scans: Number(row.outbound_scans || 0),
-                    inventory_scans: Number(row.inventory_scans || 0),
-                    rts_scans: Number(row.rts_scans || 0)
-                }));
-                setOperatorProductivity(mapped);
-            }
+            // We align ALL dashboards and Gamification with the Productivity tab
+            // by using the strict UTC-bounded fetchProductivityReport route instead 
+            // of the SQL view (which leaks UTC time by using CURRENT_DATE).
+            const brTodayIso = getSaoPauloIso();
+            const brTodayStr = getSaoPauloDateString(brTodayIso);
+            const data = await fetchProductivityReport(brTodayStr, brTodayStr);
+            setOperatorProductivity(data);
         } catch (err) {
             console.error('KpiContext: Unexpected error fetching productivity:', err);
         } finally {
