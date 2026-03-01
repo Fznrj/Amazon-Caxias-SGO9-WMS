@@ -155,45 +155,19 @@ export const KpiProvider: React.FC<KpiProviderProps> = ({ children, currentUser 
     const fetchDashboardPeriodStats = async (startDate: string, endDate: string) => {
         if (!currentUser) return { entradas: 0, saidas: 0, reversas: 0 };
         try {
-            // Need to cover the whole exact day in America/Sao_Paulo
-            // Assuming startDate and endDate are 'YYYY-MM-DD'
-            const startIso = `${startDate}T00:00:00-03:00`;
-            const endIso = `${endDate}T23:59:59-03:00`;
+            const { data, error } = await supabase.rpc('get_dashboard_period_stats', {
+                company_id_param: currentUser.company_id,
+                start_date: startDate,
+                end_date: endDate
+            });
 
-            const [inbRes, outRes] = await Promise.all([
-                ApiService.applyScope(
-                    supabase.from('inbound_log')
-                        .select('id', { count: 'exact' })
-                        .gte('created_at', startIso)
-                        .lte('created_at', endIso)
-                        .eq('error', false),
-                    currentUser
-                ),
-                ApiService.applyScope(
-                    supabase.from('outbound_log')
-                        .select('status')
-                        .gte('created_at', startIso)
-                        .lte('created_at', endIso),
-                    currentUser
-                )
-            ]);
+            if (error) throw error;
 
-            const entradas = inbRes.count || 0;
-            let saidas = 0;
-            let reversas = 0;
-
-            if (outRes.data) {
-                outRes.data.forEach(row => {
-                    const st = row.status?.toLowerCase() || '';
-                    if (st.includes('reversa')) {
-                        reversas++;
-                    } else {
-                        saidas++;
-                    }
-                });
-            }
-
-            return { entradas, saidas, reversas };
+            return {
+                entradas: data?.entradas || 0,
+                saidas: data?.saidas || 0,
+                reversas: data?.reversas || 0
+            };
         } catch (error) {
             console.error('API Error in fetchDashboardPeriodStats:', error);
             return { entradas: 0, saidas: 0, reversas: 0 };
@@ -331,9 +305,9 @@ export const KpiProvider: React.FC<KpiProviderProps> = ({ children, currentUser 
         const totalInboundFromView = operatorProductivity.reduce((sum, op) => sum + op.inbound_scans, 0);
         const totalOutboundFromView = operatorProductivity.reduce((sum, op) => sum + op.outbound_scans, 0);
 
-        // Fallback: strict SP string comparison
-        const inboundTodayCount = inboundItems.filter(i => getSaoPauloDate(parseToDate(i.createdAt || i.time)) === todayKey).length;
-        const outboundTodayCount = outboundItems.filter(i => getSaoPauloDate(parseToDate((i as any).createdAt || i.time)) === todayKey).length;
+        // Today's exact count directly from the SQL views (length of strictly filtered array)
+        const inboundTodayCount = inboundItems.length;
+        const outboundTodayCount = outboundItems.length;
 
         // Best available today count
         const dbToday = weeklyVolumeFromDb[todayKey];
