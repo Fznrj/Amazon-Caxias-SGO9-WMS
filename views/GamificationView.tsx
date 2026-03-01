@@ -1,4 +1,4 @@
-/**
+﻿/**
  * GamificationView.tsx — DUMB COMPONENT
  * ─────────────────────────────────────────────────────────────
  * Zero lógica de cálculo. Consumo exclusivo de useGamification().
@@ -298,27 +298,52 @@ const GamificationView: React.FC = () => {
                     📊 Progressão de Níveis
                 </h3>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                    {LEVELS.map(level => {
-                        const isCurrentLevel = myProfile?.currentLevel === level.name;
-                        const isReached = (myProfile?.xpMonthly || 0) >= level.minXP;
-                        const isFerro = level.name === 'Ferro';
+                    {Object.entries(
+                        LEVELS.reduce((acc, level) => {
+                            const baseName = level.name.split(' ')[0];
+                            if (!acc[baseName]) acc[baseName] = [];
+                            acc[baseName].push(level);
+                            return acc;
+                        }, {} as Record<string, typeof LEVELS>)
+                    ).map(([baseName, subLevels]) => {
+                        const hasReachedBase = subLevels.some(l => (myProfile?.xpMonthly || 0) >= l.minXP);
+
                         return (
-                            <div
-                                key={level.name}
-                                className={`p-3 rounded-lg border text-center transition-all ${isCurrentLevel
-                                    ? `${level.bgColor} ${level.borderColor} border-2 shadow-lg ring-2 ring-offset-2 ring-offset-slate-800 ring-${level.borderColor.replace('border-', '')}`
-                                    : isReached
-                                        ? `${level.bgColor} ${level.borderColor} border opacity-70`
-                                        : isFerro
-                                            ? 'bg-slate-100 dark:bg-slate-900/30 border-slate-200 dark:border-slate-700 opacity-20'
-                                            : `${level.bgColor} ${level.borderColor} border opacity-40 grayscale-[0.3]`
-                                    }`}
-                            >
-                                <span className={`material-icons-round text-2xl block ${isReached || isCurrentLevel || !isFerro ? level.color : 'text-slate-500'}`}>
-                                    {level.icon}
-                                </span>
-                                <p className={`font-bold text-xs mt-1 ${isReached || isCurrentLevel || !isFerro ? level.color : 'text-slate-500'}`}>{level.name}</p>
-                                <p className="text-[9px] text-slate-400 mt-0.5">{level.minXP.toLocaleString()} XP</p>
+                            <div key={baseName} className="flex flex-col gap-2 p-2 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700">
+                                <div className="flex items-center gap-1 justify-center mb-1">
+                                    <span className={`material-icons-round text-sm ${hasReachedBase ? subLevels[0].color : 'text-slate-500'}`}>
+                                        {subLevels[0].icon}
+                                    </span>
+                                    <span className={`font-bold text-xs uppercase tracking-wider ${hasReachedBase ? subLevels[0].color : 'text-slate-500'}`}>
+                                        {baseName}
+                                    </span>
+                                </div>
+                                <div className="space-y-1.5 flex-1 flex flex-col justify-end">
+                                    {subLevels.map((level, idx) => {
+                                        const isCurrentLevel = myProfile?.currentLevel === level.name;
+                                        const isReached = (myProfile?.xpMonthly || 0) >= level.minXP;
+                                        const subTier = level.name.split(' ')[1] || 'Único';
+
+                                        return (
+                                            <div
+                                                key={level.name}
+                                                className={`flex justify-between items-center p-1.5 px-2 rounded text-[10px] transition-all ${isCurrentLevel
+                                                    ? `${level.bgColor} ${level.borderColor} border shadow-inner font-bold ring-1 ring-${level.borderColor.replace('border-', '')} scale-[1.02]`
+                                                    : isReached
+                                                        ? `${level.bgColor} opacity-60`
+                                                        : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 opacity-40 grayscale-[0.5]'
+                                                    }`}
+                                            >
+                                                <span className={`${isCurrentLevel || isReached ? level.color : 'text-slate-500'} font-bold`}>
+                                                    {subTier}
+                                                </span>
+                                                <span className={`${isCurrentLevel || isReached ? level.color : 'text-slate-400 font-mono'} tracking-tighter`}>
+                                                    {level.minXP >= 1000 ? `${(level.minXP / 1000).toFixed(level.minXP % 1000 === 0 ? 0 : 1)}k` : level.minXP}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         );
                     })}
