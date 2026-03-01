@@ -6,6 +6,8 @@ interface DateContextValue {
     brMonth: string; // YYYY-MM
     brYear: string;  // YYYY
     isSameDay: (dateString: string | Date | null | undefined) => boolean;
+    getIsoNow: () => string;
+    getBrTimeFromDate: (dateString: string | Date | null | undefined) => string;
 }
 
 const DateContext = createContext<DateContextValue>({} as DateContextValue);
@@ -34,8 +36,18 @@ export const DateProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return spDate === brToday;
     };
 
+    const getIsoNow = () => {
+        const d = new Date();
+        d.setUTCHours(d.getUTCHours() - 3);
+        return d.toISOString().replace('Z', '-03:00');
+    };
+
+    const getBrTimeFromDate = (dateString: string | Date | null | undefined) => {
+        return getSaoPauloDateString(dateString);
+    };
+
     return (
-        <DateContext.Provider value={{ brToday, brMonth, brYear, isSameDay }}>
+        <DateContext.Provider value={{ brToday, brMonth, brYear, isSameDay, getIsoNow, getBrTimeFromDate }}>
             {children}
         </DateContext.Provider>
     );
