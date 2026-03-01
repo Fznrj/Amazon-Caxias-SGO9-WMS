@@ -14,13 +14,14 @@ interface DashboardViewProps {
 const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
   // KPIs from the SQL View (via KpiContext)
   const { statsSummary } = useKpi();
+  const { statsSummary, fetchDashboardPeriodStats } = useKpi();
   const {
     totalInboundToday, totalOutboundToday, totalReversaToday,
     staleItemsCount, totalLossItems, totalPossibleLosses, weeklyStats
   } = statsSummary;
 
   // Raw data for comparison mode only (via WmsDataContext)
-  const { inboundItems, outboundItems, stockItems } = useWmsData();
+  const { inboundItems, outboundItems, stockItems, drivers, users } = useWmsData();
 
   // Refresh action only (via WmsContext)
   const { refreshData } = useWms();
@@ -35,32 +36,22 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
   const [endDate, setEndDate] = React.useState(getSaoPauloDate(getTodayDate()));
   const [isComparisonMode, setIsComparisonMode] = React.useState(false);
 
-  // Calculate stats for the selected period
-  const periodStats = React.useMemo(() => {
+  const [periodStats, setPeriodStats] = React.useState({ entradas: 0, saidas: 0, reversas: 0 });
+
+  React.useEffect(() => {
     const isToday = startDate === getSaoPauloDate(getTodayDate()) && endDate === getSaoPauloDate(getTodayDate());
-    if (isToday) return { entradas: totalInboundToday, saidas: totalOutboundToday, reversas: totalReversaToday };
+    if (isToday) {
+      setPeriodStats({ entradas: totalInboundToday, saidas: totalOutboundToday, reversas: totalReversaToday });
+      return;
+    }
 
-    let entradas = 0;
-    let saidas = 0;
-    let reversas = 0;
-
-    inboundItems.forEach(item => {
-      if (item.error) return;
-      const date = getSaoPauloDate(parseToDate(item.time || (item as any).created_at));
-      if (date >= startDate && date <= endDate) entradas++;
+    let isMounted = true;
+    fetchDashboardPeriodStats(startDate, endDate).then(stats => {
+      if (isMounted) setPeriodStats(stats);
     });
 
-    outboundItems.forEach(item => {
-      const date = getSaoPauloDate(parseToDate(item.time || (item as any).created_at));
-      if (date >= startDate && date <= endDate) {
-        const st = item.status?.toLowerCase() || '';
-        if (st === 'saiu com motorista') saidas++;
-        else if (st.includes('reversa')) reversas++;
-      }
-    });
-
-    return { entradas, saidas, reversas };
-  }, [inboundItems, outboundItems, startDate, endDate, totalInboundToday, totalOutboundToday, totalReversaToday]);
+    return () => { isMounted = false; };
+  }, [startDate, endDate, totalInboundToday, totalOutboundToday, totalReversaToday, fetchDashboardPeriodStats]);
 
   const yesterdayData = weeklyStats && weeklyStats.length >= 2 ? weeklyStats[weeklyStats.length - 2] : null;
 
