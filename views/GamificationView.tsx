@@ -205,7 +205,7 @@ const GamificationView: React.FC = () => {
                                                     </div>
                                                     <div>
                                                         <p className="font-semibold text-sm text-slate-700 dark:text-slate-200">{entry.operator}</p>
-                                                        {entry.profile.fraudFlag && <span className="text-[9px] text-red-400 font-bold">⚠️ Observação</span>}
+                                                        {entry.profile?.fraudFlag && <span className="text-[9px] text-red-400 font-bold">⚠️ Observação</span>}
                                                     </div>
                                                 </div>
                                             </td>
@@ -217,8 +217,8 @@ const GamificationView: React.FC = () => {
                                             <td className="px-6 py-4 text-center font-mono text-sm font-bold text-slate-600 dark:text-slate-300">
                                                 {(entry as any).totalScans?.toLocaleString() || '0'}
                                             </td>
-                                            <td className="px-6 py-4 text-right font-mono text-sm font-bold text-slate-700 dark:text-slate-200">{entry.profile.sprMonthly.toLocaleString()}</td>
-                                            <td className="px-6 py-4 text-right font-mono text-sm text-slate-500">{entry.profile.xpMonthly.toLocaleString()}</td>
+                                            <td className="px-6 py-4 text-right font-mono text-sm font-bold text-slate-700 dark:text-slate-200">{entry.profile?.sprMonthly?.toLocaleString() || 0}</td>
+                                            <td className="px-6 py-4 text-right font-mono text-sm text-slate-500">{entry.profile?.xpMonthly?.toLocaleString() || 0}</td>
                                             <td className="px-6 py-4 text-right">
                                                 <span className={`font-bold text-sm ${meta >= 100 ? 'text-green-400' : meta >= 70 ? 'text-blue-400' : 'text-red-400'}`}>
                                                     {meta}%
