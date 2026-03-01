@@ -21,6 +21,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { WmsDataProvider } from './context/WmsDataContext';
 import { KpiProvider } from './context/KpiContext';
 import { GamificationProvider } from './context/GamificationContext';
+import { DateProvider } from './context/DateContext';
 import { WmsProvider, useWms } from './context/WmsContext';
 import { Capacitor } from '@capacitor/core';
 import { StatusBar } from '@capacitor/status-bar';
@@ -177,13 +178,15 @@ const AuthGate: React.FC = () => {
   // ✅ Authenticated & Active → Mount full provider stack
   return (
     <WmsDataProvider currentUser={currentUser}>
-      <KpiProvider currentUser={currentUser}>
-        <GamificationProvider currentUser={currentUser}>
-          <WmsProvider>
-            <AppContent />
-          </WmsProvider>
-        </GamificationProvider>
-      </KpiProvider>
+      <DateProvider>
+        <KpiProvider currentUser={currentUser}>
+          <GamificationProvider currentUser={currentUser}>
+            <WmsProvider>
+              <AppContent />
+            </WmsProvider>
+          </GamificationProvider>
+        </KpiProvider>
+      </DateProvider>
     </WmsDataProvider>
   );
 };
