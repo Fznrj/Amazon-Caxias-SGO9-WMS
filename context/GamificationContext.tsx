@@ -514,7 +514,7 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
         const totalScans = (myProfile as any)._monthlyScans || 0;
         const totalRts = (myProfile as any)._monthlyRts || 0;
 
-        const activeDays = metrics?.monthlyUniqueDays.size || 0;
+        const activeDays = Math.max(1, metrics?.monthlyUniqueDays.size || 0);
         const errorDayCount = metrics ? Object.keys(metrics.dailyErrors).length : 0;
         const zeroErrorDays = Math.max(0, activeDays - errorDayCount);
 
@@ -526,7 +526,7 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
             streak_10: { current: 0, goal: 10 }, // consecutive days — not tracked here, leave 0
             zero_errors_30: { current: zeroErrorDays, goal: 30 },
             top3_weekly: { current: (ranking.find(r => r.operator === currentUser.name)?.position || 0), goal: 3 },
-            avg_110: { current: Math.round((totalScans / Math.max(DAILY_GOAL * activeDays, 1)) * 100), goal: 110 },
+            avg_110: { current: Math.round((totalScans / (DAILY_GOAL * activeDays)) * 100), goal: 110 },
             dr_inventario: { current: (metrics?.monthlyInventoryDays.size || 0), goal: 12 },
             participacao_ativa: { current: activeDays, goal: 24 },
             protetor_pacotes: { current: (metrics?.monthlyTreatmentCount || 0), goal: 50 },

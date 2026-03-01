@@ -277,7 +277,9 @@ const GamificationView: React.FC = () => {
                                                 ? (progress.current > 0 && progress.current <= 3
                                                     ? `#${progress.current} — Conquistado!`
                                                     : progress.current > 0 ? `#${progress.current} — fora do pódio` : 'Sem posição')
-                                                : `${progress.current.toLocaleString()} / ${progress.goal.toLocaleString()}`
+                                                : badge.id === 'avg_110'
+                                                    ? `${progress.current.toLocaleString()}% / ${progress.goal.toLocaleString()}%`
+                                                    : `${progress.current.toLocaleString()} / ${progress.goal.toLocaleString()}`
                                             }
                                         </p>
                                     </div>
