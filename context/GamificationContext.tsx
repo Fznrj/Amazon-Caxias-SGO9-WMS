@@ -379,19 +379,6 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
                 profiles.push(await processOperator(currentUser.name, 0));
             }
 
-            // --- CONDITIONAL RESET FOR 1ST OF MONTH ---
-            if (todayKey.endsWith('-01')) {
-                profiles.forEach(p => {
-                    // Only reset if the operator has absolutely 0 scans today, preventing manual or valid scans from being erased
-                    if ((p as any)._monthlyScans === 0) {
-                        p.xpMonthly = 0;
-                        p.sprMonthly = 0;
-                        p.currentLevel = 'Ferro';
-                        p.badges.forEach(b => b.unlocked = false);
-                    }
-                });
-            }
-
             // Sort by SPR for final ranking
             profiles.sort((a, b) => b.sprMonthly - a.sprMonthly);
 
@@ -452,7 +439,6 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
 
     const ranking: RankingEntry[] = useMemo(() => {
         const todayKey = getSaoPauloDateString(new Date());
-        const isFirstDay = todayKey.endsWith('-01');
         return (allProfiles || []).map((profile, idx) => {
             const prod = operatorProductivity.find(p => p?.operator === profile?.userName);
             const metrics = operatorMetrics.get(profile?.userName);
@@ -464,13 +450,13 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
             return {
                 operator: profile?.userName || 'Desconhecido',
                 position: idx + 1,
-                totalScans: isFirstDay ? 0 : monthlyScans,
-                todayScans: isFirstDay ? 0 : (prod?.total_scans || 0),
-                inboundScans: isFirstDay ? 0 : (prod?.inbound_scans || 0),
-                outboundScans: isFirstDay ? 0 : (prod?.outbound_scans || 0),
-                inventoryScans: isFirstDay ? 0 : (prod?.inventory_scans || 0),
-                rtsScans: isFirstDay ? 0 : (prod?.rts_scans || 0),
-                errors: isFirstDay ? 0 : (metrics?.dailyErrors[todayKey] || 0),
+                totalScans: monthlyScans,
+                todayScans: prod?.total_scans || 0,
+                inboundScans: prod?.inbound_scans || 0,
+                outboundScans: prod?.outbound_scans || 0,
+                inventoryScans: prod?.inventory_scans || 0,
+                rtsScans: prod?.rts_scans || 0,
+                errors: metrics?.dailyErrors[todayKey] || 0,
                 profile
             };
         });
@@ -515,25 +501,23 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
         const errorDayCount = metrics ? Object.keys(metrics.dailyErrors).length : 0;
         const zeroErrorDays = Math.max(0, activeDays - errorDayCount);
 
-        const isFirstDay = getSaoPauloDateString(new Date()).endsWith('-01');
-
         // Build a map: badge_id -> { current, goal }
         const raw: Record<string, { current: number; goal: number }> = {
-            scans_1000: { current: isFirstDay ? 0 : totalScans, goal: 1000 },
-            scanner_lendario: { current: isFirstDay ? 0 : totalScans, goal: 10000 },
-            incansavel: { current: isFirstDay ? 0 : totalScans, goal: 30000 },
+            scans_1000: { current: totalScans, goal: 1000 },
+            scanner_lendario: { current: totalScans, goal: 10000 },
+            incansavel: { current: totalScans, goal: 30000 },
             streak_10: { current: 0, goal: 10 }, // consecutive days — not tracked here, leave 0
-            zero_errors_30: { current: isFirstDay ? 0 : zeroErrorDays, goal: 30 },
-            top3_weekly: { current: isFirstDay ? 0 : (ranking.find(r => r.operator === currentUser.name)?.position || 0), goal: 3 },
-            avg_110: { current: isFirstDay ? 0 : Math.round((totalScans / Math.max(DAILY_GOAL * activeDays, 1)) * 100), goal: 110 },
-            dr_inventario: { current: isFirstDay ? 0 : (metrics?.monthlyInventoryDays.size || 0), goal: 12 },
-            participacao_ativa: { current: isFirstDay ? 0 : activeDays, goal: 24 },
-            protetor_pacotes: { current: isFirstDay ? 0 : (metrics?.monthlyTreatmentCount || 0), goal: 50 },
-            investigador: { current: isFirstDay ? 0 : (metrics?.monthlyLocalizedCount || 0), goal: 50 },
-            expedidor_mestre: { current: isFirstDay ? 0 : (metrics?.monthlyDriversExpedited.size || 0), goal: 120 },
-            proativo: { current: isFirstDay ? 0 : (metrics?.monthlyMixedActivityDays || 0), goal: 20 },
-            mestre_ps: { current: isFirstDay ? 0 : (metrics?.monthlyIncidentsCount || 0), goal: 100 },
-            mestre_reversa: { current: isFirstDay ? 0 : totalRts, goal: 500 },
+            zero_errors_30: { current: zeroErrorDays, goal: 30 },
+            top3_weekly: { current: (ranking.find(r => r.operator === currentUser.name)?.position || 0), goal: 3 },
+            avg_110: { current: Math.round((totalScans / Math.max(DAILY_GOAL * activeDays, 1)) * 100), goal: 110 },
+            dr_inventario: { current: (metrics?.monthlyInventoryDays.size || 0), goal: 12 },
+            participacao_ativa: { current: activeDays, goal: 24 },
+            protetor_pacotes: { current: (metrics?.monthlyTreatmentCount || 0), goal: 50 },
+            investigador: { current: (metrics?.monthlyLocalizedCount || 0), goal: 50 },
+            expedidor_mestre: { current: (metrics?.monthlyDriversExpedited.size || 0), goal: 120 },
+            proativo: { current: (metrics?.monthlyMixedActivityDays || 0), goal: 20 },
+            mestre_ps: { current: (metrics?.monthlyIncidentsCount || 0), goal: 100 },
+            mestre_reversa: { current: totalRts, goal: 500 },
         };
 
         // Convert to { current, goal, percent }
