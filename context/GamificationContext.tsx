@@ -95,7 +95,8 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
         rtsItems,
         rtsLogs,
         treatmentItems,
-        stockItems
+        stockItems,
+        users
     } = useWmsData();
 
     const { brToday, brMonth, getBrTimeFromDate, getIsoNow } = useDate();
@@ -350,8 +351,12 @@ export const GamificationProvider: React.FC<GamificationProviderProps> = ({ chil
                 const activeDays = Math.max(1, monthlyUniqueDays.size);
                 const monthlyMetaPercent = Math.round((monthlyScans / (DAILY_GOAL * activeDays)) * 100);
 
+                const realUserId = operatorName === currentUser.name 
+                    ? currentUser.id 
+                    : (users.find(u => u.name === operatorName)?.id || operatorName);
+
                 const profile = await gamificationService.recalculate(
-                    operatorName,     // userId
+                    realUserId,       // userId
                     operatorName,     // userName
                     currentUser.company_id,
                     todayScans,       // periodScans (today — for daily ranking)
