@@ -54,7 +54,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-4 pb-24 space-y-1">
+      <nav className="flex-1 min-h-0 overflow-y-auto px-4 pb-24 space-y-1">
         {menuItems.map((item) => (
           <button
             key={item.id}
