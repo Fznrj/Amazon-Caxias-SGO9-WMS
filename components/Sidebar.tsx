@@ -40,7 +40,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   ];
 
   return (
-    <aside className={`fixed left-0 top-0 h-full w-64 bg-white dark:bg-sidebar-dark border-r border-slate-200 dark:border-slate-800 flex flex-col z-50 transition-transform duration-300 lg:translate-x-0 ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'
+    <aside className={`fixed left-0 top-0 h-[100dvh] w-64 bg-white dark:bg-sidebar-dark border-r border-slate-200 dark:border-slate-800 flex flex-col z-50 transition-transform duration-300 lg:translate-x-0 ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
       <div className="p-6">
         <div className="flex items-center gap-3">
@@ -54,7 +54,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </div>
 
-      <nav className="flex-1 px-4 space-y-1">
+      <nav className="flex-1 overflow-y-auto px-4 pb-24 space-y-1">
         {menuItems.map((item) => (
           <button
             key={item.id}
